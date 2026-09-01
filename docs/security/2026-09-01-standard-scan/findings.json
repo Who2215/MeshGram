@@ -1,0 +1,164 @@
+{
+  "documentType": "codex-security.findings",
+  "findings": [
+    {
+      "attackPath": {
+        "dataflow": {
+          "summary": "Unauthenticated WebSocket -> register -> bounded frame validation -> broadcast to all peers."
+        },
+        "impact": "Relay availability degradation and unsolicited encrypted traffic to connected clients.",
+        "reachability": {
+          "summary": "Reachable whenever a public relay endpoint is deployed; no public deployment was available in this workspace."
+        }
+      },
+      "codeEvidence": [
+        {
+          "code": "if not await self.register(websocket): ... await self.broadcast(websocket, message)",
+          "explanation": "A connected client is registered and later broadcast is gated only by frame shape and rate limits.",
+          "id": "relay-admission-python",
+          "label": "Connection registration",
+          "path": "relay/relay_server.py",
+          "startLine": 79
+        },
+        {
+          "code": "const id = env.RELAY_ROOM.idFromName(\"global\")",
+          "explanation": "All clients enter one global room; no identity or access proof is checked.",
+          "id": "relay-admission-worker",
+          "label": "Global room admission",
+          "path": "relay/cloudflare-worker/src/index.ts",
+          "startLine": 56
+        }
+      ],
+      "confidence": {
+        "level": "high",
+        "rationale": "The connection handlers have no authentication or authorization check before registration and broadcast."
+      },
+      "findingId": "csf_605683f0f7210f8e6e2c5406",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:994a559e39c3d1d0d604edaf420659dc37a2e49c696e3c7fc32cb448901930e8"
+      },
+      "identity": {
+        "anchor": "unauthenticated-relay-websocket"
+      },
+      "locations": [
+        {
+          "endLine": 91,
+          "path": "relay/relay_server.py",
+          "role": "entrypoint",
+          "startLine": 74
+        },
+        {
+          "endLine": 57,
+          "path": "relay/cloudflare-worker/src/index.ts",
+          "role": "entrypoint",
+          "startLine": 49
+        },
+        {
+          "endLine": 73,
+          "path": "relay/cloudflare-worker/src/index.ts",
+          "role": "concrete_implementation",
+          "startLine": 64
+        }
+      ],
+      "occurrenceId": "occ_3fc467a37519a6782775e5f0",
+      "provenance": {
+        "candidateId": "manual-relay-admission",
+        "source": "local_plugin"
+      },
+      "remediation": "Add an authenticated admission mechanism that does not expose message keys, such as a short-lived relay access token issued by the service or a proof-of-possession handshake bound to the node signing key. Keep the existing client, payload, per-client rate, and connection limits as defense in depth; add abuse monitoring and per-IP/account quotas at the edge.",
+      "rootCause": {
+        "summary": "Relay admission is modeled as transport connectivity rather than authenticated membership."
+      },
+      "ruleId": "authentication.relay-admission",
+      "severity": {
+        "level": "medium",
+        "rationale": "An internet-reachable deployment allows unaffiliated clients to consume connection capacity and send bounded frames to every connected client. End-to-end encryption limits plaintext exposure, but availability and traffic integrity remain affected.",
+        "score": 5.0,
+        "scoringSystem": "CVSS:3.1"
+      },
+      "summary": "Both relay implementations accept a WebSocket connection and broadcast protocol-shaped frames without authenticating the connecting node or proving possession of a MeshGram identity.",
+      "taxonomy": {
+        "category": "missing-authentication",
+        "cwe": [
+          "CWE-306",
+          "CWE-400"
+        ]
+      },
+      "title": "Relay accepts arbitrary clients without admission authentication",
+      "validation": {
+        "counterevidence_or_proof_gap": "Message signatures and recipient-side decryption reduce content forgery, and bounded client/rate/payload limits reduce but do not remove service abuse.",
+        "method": "Source trace of both server entrypoints and broadcast path.",
+        "summary": "A party that can reach the WebSocket endpoint can occupy a slot and submit syntactically valid opaque frames. The server cannot distinguish a real MeshGram node from an arbitrary client."
+      }
+    },
+    {
+      "attackPath": {
+        "dataflow": {
+          "summary": "Signed packet metadata transferId -> attachment filename -> File write."
+        },
+        "impact": "Potential internal file pollution or application storage denial of service.",
+        "reachability": {
+          "summary": "Reachable from a malicious MeshGram peer able to send a valid encrypted packet in the scanned snapshot."
+        }
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "The snapshot source directly concatenated transferId into a File under attachmentsDir without canonical containment."
+      },
+      "findingId": "csf_81021deaccc06ca01352b309",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:32090359523510bb3280a283957b350a5bf1dc0dcd73f1e34e8cbfaa1c4a446b"
+      },
+      "identity": {
+        "anchor": "transfer-id-attachment-path"
+      },
+      "locations": [
+        {
+          "endLine": 181,
+          "path": "app/src/main/java/com/meshchat/app/mesh/SecureLocalStore.kt",
+          "role": "sink",
+          "startLine": 171
+        },
+        {
+          "endLine": 4290,
+          "path": "app/src/main/java/com/meshchat/app/mesh/BleMeshManager.kt",
+          "role": "source",
+          "startLine": 4251
+        }
+      ],
+      "occurrenceId": "occ_070b3528bb37eae6d30fdca7",
+      "provenance": {
+        "candidateId": "manual-attachment-path",
+        "source": "local_plugin"
+      },
+      "remediation": "Use a restricted filename token and canonical containment check for every attachment read/write. This remediation is present in the final 1.0.6 worktree and covered by the current build.",
+      "rootCause": {
+        "summary": "Remote file metadata was treated as a safe path component without normalization and root containment."
+      },
+      "ruleId": "path-traversal.attachment-write",
+      "severity": {
+        "level": "low",
+        "rationale": "The path was derived from an encrypted, signed packet but a malicious installed peer could choose its own transfer identifier. The impact is app-private file pollution or denial of service rather than code execution.",
+        "score": 2.0,
+        "scoringSystem": "CVSS:3.1"
+      },
+      "summary": "The scan snapshot used a remote transfer identifier directly in the attachment filename before writing encrypted data.",
+      "taxonomy": {
+        "category": "path-traversal",
+        "cwe": [
+          "CWE-22"
+        ]
+      },
+      "title": "Incoming transfer metadata could escape the attachment directory",
+      "validation": {
+        "counterevidence_or_proof_gap": "The Android app sandbox limits impact to app-accessible storage; the current worktree now sanitizes the token and verifies canonical containment before writing or reading.",
+        "method": "Source-backed trace from incoming file chunk metadata to saveAttachment.",
+        "summary": "A malicious peer could choose transferId values containing path separators in the pre-fix snapshot, reaching the local file write operation."
+      }
+    }
+  ],
+  "scanId": "5760844d-286d-4c1f-800b-77c7162ca3bc",
+  "schemaVersion": "1.0"
+}

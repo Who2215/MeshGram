@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b19">
+  <meta name="description" content="MeshGram — защищённый мессенджер с BLE mesh и интернет-fallback.">
+  <meta property="og:title" content="MeshGram — связь без границ">
+  <meta property="og:description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
+  <title>MeshGram | Связь без границ</title>
+  <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="starfield" aria-hidden="true"></canvas>
+  <div class="aurora aurora-cyan" aria-hidden="true"></div>
+  <div class="aurora aurora-magenta" aria-hidden="true"></div>
+
+  <header class="site-header shell">
+    <a class="brand" href="#top" aria-label="MeshGram, на главную">
+      <img src="assets/meshgram-mark.svg" alt="" width="42" height="42">
+      <span>Mesh<span>Gram</span></span>
+    </a>
+    <nav class="nav" aria-label="Основная навигация">
+      <a href="#how">Как работает</a>
+      <a href="#security">Приватность</a>
+      <a href="#download">Скачать</a>
+    </nav>
+    <a class="nav-cta" href="#download">Попробовать</a>
+  </header>
+
+  <main id="top">
+    <section class="hero shell">
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span class="pulse-dot"></span> Mesh-связь нового поколения</p>
+        <h1>Сообщения находят<br><em>свой путь.</em></h1>
+        <p class="hero-lead">MeshGram соединяет людей через ближайшие устройства по BLE, а для дальних маршрутов использует зашифрованный интернет-резерв.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#download">Скачать MeshGram <span>↗</span></a>
+          <a class="button button-quiet" href="#how">Разобраться за минуту <span>↓</span></a>
+        </div>
+        <div class="trust-row">
+          <span>Android 6+</span><i></i><span>E2E-шифрование</span><i></i><span>BLE first</span>
+        </div>
+      </div>
+
+      <div class="hero-orbit reveal reveal-delay" aria-label="Визуализация mesh-сети">
+        <div class="orbit orbit-one"></div>
+        <div class="orbit orbit-two"></div>
+        <div class="orbit orbit-three"></div>
+        <div class="orbit-center"><img src="assets/meshgram-mark.svg" alt="MeshGram" width="60" height="60"></div>
+        <span class="node node-a"><b></b><small>BLE</small></span>
+        <span class="node node-b"><b></b><small>NODE 02</small></span>
+        <span class="node node-c"><b></b><small>NODE 07</small></span>
+        <span class="node node-d"><b></b><small>RELAY</small></span>
+      </div>
+    </section>
+
+    <section class="signal-strip shell reveal">
+      <div><strong>01</strong><span>Сначала ищем<br>ближайший BLE-путь</span></div>
+      <div><strong>02</strong><span>Если его нет,<br>подключаем relay</span></div>
+      <div><strong>03</strong><span>Содержимое остаётся<br>зашифрованным</span></div>
+    </section>
+
+    <section id="how" class="section shell">
+      <div class="section-heading reveal"><p class="eyebrow">Маршрут под контролем</p><h2>Не выбирай между<br><em>близко</em> и далеко.</h2></div>
+      <div class="feature-grid">
+        <article class="feature-card feature-large reveal">
+          <span class="feature-number">01</span><div class="feature-icon icon-burst"></div>
+          <h3>BLE-приоритет</h3>
+          <p>Когда рядом есть устройства MeshGram, сообщения идут по локальной mesh-сети. Приложение не отключает интернет в телефоне и не вмешивается в другие приложения.</p>
+          <div class="mini-route"><span class="route-point active"></span><span class="route-line"></span><span class="route-point"></span><span class="route-line dim"></span><span class="route-point dim"></span></div>
+        </article>
+        <article class="feature-card reveal reveal-delay-short">
+          <span class="feature-number">02</span><div class="feature-icon icon-lock"></div>
+          <h3>Читают только участники</h3>
+          <p>Кадры проходят через узлы как зашифрованные конверты. Relay видит только технический пакет, не текст и не файлы.</p>
+          <div class="cipher-lines"><span></span><span></span><span></span></div>
+        </article>
+        <article id="security" class="feature-card reveal reveal-delay">
+          <span class="feature-number">03</span><div class="feature-icon icon-shield"></div>
+          <h3>Локальное хранение</h3>
+          <p>История и очередь доставки остаются в защищённом хранилище устройства. Для миграции предусмотрен зашифрованный экспорт.</p>
+          <div class="security-meter"><span></span><span></span><span></span><span></span><span></span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="quote-section shell reveal">
+      <div class="quote-mark">“</div>
+      <blockquote>Мы не строим ещё один сервер,<br>мы строим <em>маршрут.</em></blockquote>
+      <p>MeshGram project note / 2026</p>
+    </section>
+
+    <section id="download" class="download-section shell reveal">
+      <div class="download-panel">
+        <div>
+          <p class="eyebrow">Текущий релиз</p>
+          <h2>MeshGram <em>1.0.7</em></h2>
+          <p class="download-copy">Гибридная маршрутизация BLE-first, fallback relay, живой фон и адаптивный интерфейс для Android 6 и новее.</p>
+          <div class="download-meta"><span>APK</span><span>22 MB</span><span title="6fe0e434a4c0dfe38d1acb4fa363c060c4f6e4f828db4e7d7785cbdc18cf107f">SHA-256: 6fe0e434...107f</span></div>
+        </div>
+        <a class="button button-primary button-download" href="downloads/MeshGram-v107-hybrid.apk" download>Скачать APK <span>↓</span></a>
+      </div>
+      <div class="project-links">
+        <span>Обновления и обратная связь</span>
+        <a class="channel-link is-pending" href="#channel" aria-disabled="true">Официальный Telegram-канал <span>скоро</span></a>
+        <span class="pending-note" id="channel">Ссылка появится после создания канала владельцем проекта.</span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer shell"><span>© 2026 MeshGram</span><span>Связь через пространство между узлами</span><a href="#top">Наверх ↑</a></footer>
+  <script src="app.js" defer></script>
+</body>
+</html>
+
+
+

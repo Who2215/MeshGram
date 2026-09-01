@@ -1,0 +1,96 @@
+{
+  "documentType": "codex-security.scan-manifest",
+  "scan": {
+    "artifacts": [
+      {
+        "mediaType": "application/json",
+        "path": "findings.json",
+        "sha256": "fecc25faff194f6b01163bbc4b1ebd61c783c3e0b61eeae2ef44e4f1e4707ed3"
+      },
+      {
+        "mediaType": "application/json",
+        "path": "coverage.json",
+        "sha256": "00da605db0e5049f530f08984356a5f0e8adb6c19622e73e430b5e10136e9200"
+      }
+    ],
+    "completedAt": "2026-08-31T22:31:00Z",
+    "coverageRef": "coverage.json",
+    "findingsRef": "findings.json",
+    "id": "5760844d-286d-4c1f-800b-77c7162ca3bc",
+    "producer": {
+      "name": "codex-security-plugin",
+      "version": "0.1.22"
+    },
+    "scope": {
+      "artifactsReviewed": [
+        "app/src",
+        "relay",
+        "site",
+        "app/build.gradle.kts",
+        "RELEASE_SECURITY.md"
+      ],
+      "excludePaths": [
+        ".gradle/**",
+        "app/build/**",
+        "relay/cloudflare-worker/node_modules/**",
+        "hs_err_pid*.log",
+        "replay_pid*.log"
+      ],
+      "includePaths": [
+        "."
+      ],
+      "limitations": [
+        "The snapshot predates the final path and relay URL hardening edits.",
+        "Third-party dependencies and generated output were excluded."
+      ],
+      "runtimeStatus": "No public deployment available for runtime testing.",
+      "summary": "Static audit of MeshGram Android client, relay implementations, update verification, and static site.",
+      "validationMode": "Source-backed static review plus local protocol and build tests."
+    },
+    "sealedAt": "2026-08-31T22:31:00Z",
+    "startedAt": "2026-08-31T22:15:19Z",
+    "status": "completed",
+    "target": {
+      "displayName": "mesh-messenger-android",
+      "kind": "directory_snapshot",
+      "snapshotDigest": "codex-security-snapshot/v1:sha256:b8461d7baff0675ab8e8008640b61b2235bb9c65ca8ce789d2f33d569076421f",
+      "targetId": "target_sha256_4bd7f28c9f7c20d8630362194b15a718aa7972712e94cf5cab4f8838e896e28e"
+    },
+    "threatModel": {
+      "assets": [
+        "Message and file plaintext",
+        "Peer identity keys",
+        "Encrypted local history",
+        "Relay availability",
+        "APK/update authenticity"
+      ],
+      "assumptions": [
+        "BLE is preferred and internet is fallback; other apps' network settings are not changed.",
+        "Ordinary Bluetooth devices do not relay MeshGram packets.",
+        "Current APK is a debug test build; owner signing remains pending.",
+        "The final worktree contains fixes applied after this scan snapshot."
+      ],
+      "attackerCapabilities": [
+        "Send malformed or protocol-shaped frames to reachable transports.",
+        "Attempt arbitrary relay connections.",
+        "Select a local backup file for import.",
+        "No assumed control of AndroidKeyStore or owner signing keys."
+      ],
+      "securityObjectives": [
+        "Only the intended endpoint decrypts content.",
+        "Forged frames are rejected.",
+        "File metadata cannot escape its storage root.",
+        "Relay input is bounded.",
+        "Updates require HTTPS, signature, hash, package, and certificate checks."
+      ],
+      "summary": "MeshGram prefers BLE peer transport and uses an optional WebSocket relay for distant delivery. Message frames are signed and end-to-end encrypted by the client; the relay forwards opaque envelopes and the static site distributes test APKs.",
+      "trustBoundaries": [
+        "Untrusted BLE, LAN, and relay peers send serialized frames to Android.",
+        "Relay clients share a global broadcast room.",
+        "Update installation crosses into the system package installer.",
+        "Static site content is public browser input."
+      ]
+    }
+  },
+  "schemaVersion": "1.0"
+}

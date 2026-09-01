@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "packageName": "com.meshchat.app",
+  "versionCode": 107,
+  "versionName": "1.0.7",
+  "file": "downloads/MeshGram-v107-hybrid.apk",
+  "sha256": "6fe0e434a4c0dfe38d1acb4fa363c060c4f6e4f828db4e7d7785cbdc18cf107f",
+  "sizeBytes": 22278324,
+  "minAndroid": 23,
+  "releaseType": "debug-test-build",
+  "notes": [
+    "BLE-first routing with internet relay fallback",
+    "Signed relay handshake with exact-recipient routing and bounded offline queue",
+    "Live background and responsive UI",
+    "Donation link restored in Profile > Support project"
+  ]
+}

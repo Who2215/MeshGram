@@ -1,0 +1,8 @@
+# Copy these four properties to your user Gradle properties or pass them on the command line.
+# Never commit a real keystore, password, or this file with real values.
+MESHGRAM_KEYSTORE_PATH=H:\\mesh-workspace\\keys\\meshgram-release.jks
+MESHGRAM_KEYSTORE_PASSWORD=replace-with-your-keystore-password
+MESHGRAM_KEY_ALIAS=meshgram-release
+MESHGRAM_KEY_PASSWORD=replace-with-your-key-password
+# Base64 DER-encoded X.509 public key used to sign update manifests.
+MESHGRAM_RELEASE_PUBLIC_KEY_BASE64=replace-with-your-release-public-key

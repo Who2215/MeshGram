@@ -1,0 +1,122 @@
+{
+  "completeness": "partial",
+  "deferred": [
+    {
+      "id": "public-relay-runtime",
+      "paths": [
+        "relay/relay_server.py",
+        "relay/cloudflare-worker/src/index.ts"
+      ],
+      "reason": "Requires a deployed HTTPS/WSS endpoint and external account authorization.",
+      "surfaceIds": [
+        "relay-python",
+        "relay-cloudflare",
+        "external-deployment"
+      ]
+    },
+    {
+      "id": "owner-production-signing",
+      "paths": [
+        "app/build.gradle.kts",
+        "RELEASE_SECURITY.md"
+      ],
+      "reason": "Requires the owner's keystore and certificate fingerprint.",
+      "surfaceIds": [
+        "android-updates"
+      ]
+    }
+  ],
+  "documentType": "codex-security.coverage",
+  "excludePaths": [
+    ".gradle/**",
+    "app/build/**",
+    "relay/cloudflare-worker/node_modules/**",
+    "hs_err_pid*.log",
+    "replay_pid*.log"
+  ],
+  "explicitExclusions": [
+    {
+      "pattern": "app/build/**",
+      "reason": "Generated APK/intermediates; product source was reviewed and APK was installed separately."
+    },
+    {
+      "pattern": "relay/cloudflare-worker/node_modules/**",
+      "reason": "Third-party installed dependencies; npm audit was run separately."
+    }
+  ],
+  "includePaths": [
+    "."
+  ],
+  "inventoryStrategy": "directory",
+  "mode": "repository",
+  "openQuestions": [
+    {
+      "followUpPrompt": "Choose the production relay admission model before exposing the endpoint publicly.",
+      "question": "Which authenticated admission model should the production relay use: per-install token, account token, or proof-of-possession handshake?"
+    },
+    {
+      "followUpPrompt": "Provide or authorize the hosting account and domain after deployment.",
+      "question": "What owner-controlled public hostname and TLS provider will host the relay and update manifest?"
+    }
+  ],
+  "scanId": "5760844d-286d-4c1f-800b-77c7162ca3bc",
+  "schemaVersion": "1.0",
+  "surfaces": [
+    {
+      "disposition": "no_issue_found",
+      "id": "android-transport",
+      "label": "Android BLE/LAN/relay transport and frame parsing",
+      "notes": "Signatures, fingerprints, recipient checks, hop limits, AEAD, bounded file chunks, and relay-frame limits were reviewed.",
+      "receiptRefs": [],
+      "riskArea": "message confidentiality and integrity"
+    },
+    {
+      "disposition": "reported",
+      "id": "android-storage",
+      "label": "Encrypted local storage and attachment paths",
+      "notes": "The scan snapshot contained the attachment path issue; the current worktree fixes it with token sanitization and canonical containment.",
+      "receiptRefs": [],
+      "riskArea": "at-rest confidentiality and path safety"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "android-updates",
+      "label": "Update manifest, APK hash, package, and certificate checks",
+      "notes": "Only HTTPS URLs, signed manifests, APK SHA-256, package name, and signing certificate are accepted before user-approved install.",
+      "receiptRefs": [],
+      "riskArea": "release authenticity"
+    },
+    {
+      "disposition": "reported",
+      "id": "relay-python",
+      "label": "Python WebSocket relay",
+      "notes": "Frame size, Base64, client count, and per-client rate limits are enforced; admission authentication remains open.",
+      "receiptRefs": [],
+      "riskArea": "admission and resource exhaustion"
+    },
+    {
+      "disposition": "reported",
+      "id": "relay-cloudflare",
+      "label": "Cloudflare Durable Object relay",
+      "notes": "Frame validation, client count, and per-client rate limits are enforced; public deployment was not tested.",
+      "receiptRefs": [],
+      "riskArea": "admission and resource exhaustion"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "static-site",
+      "label": "Static download site and browser assets",
+      "notes": "No third-party scripts or secrets were found; CSP, framing, MIME, and referrer headers are present, and release hashes are published.",
+      "receiptRefs": [],
+      "riskArea": "browser injection and download integrity"
+    },
+    {
+      "disposition": "needs_follow_up",
+      "id": "external-deployment",
+      "label": "Public hosting, TLS, edge abuse controls, and update rollout",
+      "notes": "No authenticated hosting or public endpoint was available for runtime testing.",
+      "receiptRefs": [],
+      "riskArea": "production exposure"
+    }
+  ]
+}
