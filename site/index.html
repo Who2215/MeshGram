@@ -9,7 +9,7 @@
   <meta property="og:description" id="meta-og-description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
   <title id="page-title">MeshGram | Связь без границ</title>
   <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=15d0f2a">
+  <link rel="stylesheet" href="styles.css?v=flow-2026-09">
 </head>
 <body>
   <canvas id="starfield" aria-hidden="true"></canvas>
@@ -92,6 +92,32 @@
 
     <section id="how" class="section shell">
       <div class="section-heading reveal"><p class="eyebrow" data-i18n="how_eyebrow">Маршрут под контролем</p><h2><span data-i18n="how_title">Не выбирай между</span><br><em data-i18n="how_title_em">близко</em> <span data-i18n="how_title_tail">и далеко.</span></h2></div>
+      <div class="explain-intro reveal">
+        <p class="eyebrow" data-i18n="flow_eyebrow">Что происходит с сообщением</p>
+        <h3 data-i18n="flow_title">Один адресат. Несколько возможных маршрутов.</h3>
+        <p data-i18n="flow_lead">MeshGram не отправляет сообщение в открытом виде. Приложение ищет подходящий путь, передаёт зашифрованный пакет и проверяет, что он дошёл именно до нужного получателя.</p>
+      </div>
+      <div class="flow-grid">
+        <article class="flow-step reveal">
+          <span class="feature-number">01 / FIND</span>
+          <div class="flow-icon">⌁</div>
+          <h3 data-i18n="flow_find_title">Находим своих</h3>
+          <p data-i18n="flow_find_body">Телефон сканирует BLE-эфир и видит только устройства, которые участвуют в MeshGram. Чужие телефоны не становятся скрытыми ретрансляторами.</p>
+        </article>
+        <article class="flow-step reveal reveal-delay-short">
+          <span class="feature-number">02 / WRAP</span>
+          <div class="flow-icon">◌</div>
+          <h3 data-i18n="flow_wrap_title">Запечатываем пакет</h3>
+          <p data-i18n="flow_wrap_body">Текст и файлы шифруются для конкретного адресата. Промежуточный узел видит технические данные, TTL и маршрут, но не содержимое.</p>
+        </article>
+        <article class="flow-step reveal reveal-delay">
+          <span class="feature-number">03 / DELIVER</span>
+          <div class="flow-icon">↗</div>
+          <h3 data-i18n="flow_deliver_title">Доставляем точно</h3>
+          <p data-i18n="flow_deliver_body">Рядом пакет идёт по BLE mesh. Если адресат далеко или узлов пока мало, включается зашифрованный интернет-резерв, если пользователь его разрешил.</p>
+        </article>
+      </div>
+      <div class="flow-note reveal"><span class="flow-note-mark"></span><p><strong data-i18n="flow_note_title">Важно о дальности</strong><span data-i18n="flow_note_body"> BLE не создаёт связь на километры сам по себе: дальний маршрут появляется только через реальные MeshGram-узлы или интернет-резерв.</span></p></div>
       <div class="feature-grid">
         <article class="feature-card feature-large reveal">
           <span class="feature-number">01</span><div class="feature-icon icon-burst"></div>
@@ -139,6 +165,15 @@
         <a class="channel-link is-pending" href="#channel" aria-disabled="true"><span data-i18n="telegram_channel">Официальный Telegram-канал</span> <span data-i18n="soon">скоро</span></a>
         <span class="pending-note" id="channel" data-i18n="channel_pending">Ссылка появится после создания канала владельцем проекта.</span>
       </div>
+      <div class="ios-banner">
+        <div class="ios-badge">iOS</div>
+        <div class="ios-copy">
+          <span class="release-kicker" data-i18n="ios_kicker">Следующий маршрут</span>
+          <h3 data-i18n="ios_title">MeshGram для iPhone в разработке</h3>
+          <p data-i18n="ios_body">Чем больше поддержки проекта, тем быстрее мы протестируем iOS-версию и подготовим её к выпуску.</p>
+        </div>
+        <a class="button button-quiet ios-button" href="https://yookassa.ru/my/i/apXuo0ctyNYY/l" target="_blank" rel="noopener noreferrer"><span data-i18n="ios_button">Поддержать iOS-релиз</span> <span>↗</span></a>
+      </div>
       <div class="creator-support">
         <div class="creator-support-copy">
           <span class="release-kicker" data-i18n="creator_kicker">Создателю MeshGram</span>
@@ -175,7 +210,7 @@
   </main>
 
   <footer class="site-footer shell"><span>© 2026 MeshGram</span><span data-i18n="footer_tagline">Связь через пространство между узлами</span><a href="#top" data-i18n="back_top">Наверх ↑</a></footer>
-  <script src="app.js?v=15d0f2a" defer></script>
+  <script src="app.js?v=flow-2026-09" defer></script>
 </body>
 </html>
 
