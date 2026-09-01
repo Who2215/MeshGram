@@ -1,25 +1,27 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 108,
-  "versionName": "1.0.8",
+  "versionCode": 109,
+  "versionName": "1.0.9",
   "changelog": [
-    "BLE-first routing with signed GitHub update manifest",
-    "Manual update check in Settings plus verified Android installer handoff",
-    "Polished responsive landing page with live release notes",
-    "Donation and release links remain owner-configurable"
+    "Плавные живые темы с выбором цвета свечения и режима движения",
+    "Профиль и настройки сети разделены, Mesh-переключатель перенесен в сеть",
+    "Адаптивная компоновка для узких и больших экранов Android 6+",
+    "Быстрый запуск с нативным splash-screen и фоновой загрузкой данных",
+    "Усилена проверка подписей сообщений, файлов и обновлений"
   ],
-  "apkUrl": "https://github.com/Who2215/MeshGram/raw/refs/heads/main/site/downloads/MeshGram-v108-hybrid.apk",
-  "apkSha256": "0f65494f0cdb693027cffb9dbbdd031eb529de57d2ed281004568993fd625984",
-  "signingCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
-  "manifestSignature": "MEUCIFr1a6/SA/uvD18aSmV6GdskOZGC/0mN0KuDO0UxASeFAiEA/AwpLGj+Gyhce853YIzf43ydioKAv7BgHnS/GiJd78g=",
-  "file": "downloads/MeshGram-v108-hybrid.apk",
-  "sizeBytes": 22279171,
-  "releaseType": "debug-test-build",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v109-release.apk",
+  "apkSha256": "9b81dd05814fa8651a4a31afa84b8a604ed3dab1f056911744c9a40a2cbc3daf",
+  "signingCertificateSha256": "0a13c7fd0e8fba7d2780d49f1513811ab3b72213fe6982c71237ce24d9f4cfe7",
+  "manifestSignature": "MEUCIDPm6ytv7ImrIioS5DvCRi4FNnZ5VH4gwJPzH6ng4GhrAiEAvbZK6F4vAQmvVlB+aQLP6+2VdWT+fLgp4UBgWGxGL84=",
+  "file": "downloads/MeshGram-v109-release.apk",
+  "sizeBytes": 15525594,
+  "releaseType": "signed-release-candidate",
   "notes": [
-    "BLE-first routing with signed GitHub update manifest",
-    "Manual update check in Settings plus verified Android installer handoff",
-    "Polished responsive landing page with live release notes",
-    "Donation and release links remain owner-configurable"
+    "Плавные живые темы с выбором цвета свечения и режима движения",
+    "Профиль и настройки сети разделены, Mesh-переключатель перенесен в сеть",
+    "Адаптивная компоновка для узких и больших экранов Android 6+",
+    "Быстрый запуск с нативным splash-screen и фоновой загрузкой данных",
+    "Усилена проверка подписей сообщений, файлов и обновлений"
   ]
 }
