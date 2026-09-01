@@ -9,7 +9,7 @@
   <meta property="og:description" id="meta-og-description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
   <title id="page-title">MeshGram | Связь без границ</title>
   <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=flow-2026-09">
+  <link rel="stylesheet" href="styles.css?v=all-2026-09">
 </head>
 <body>
   <canvas id="starfield" aria-hidden="true"></canvas>
@@ -21,7 +21,8 @@
       <img src="assets/meshgram-mark.svg" alt="" width="42" height="42">
       <span>Mesh<span>Gram</span></span>
     </a>
-    <nav class="nav" aria-label="Основная навигация" data-i18n-aria-label="nav_aria">
+    <nav id="site-nav" class="nav" aria-label="Основная навигация" data-i18n-aria-label="nav_aria">
+      <a href="#demo" data-i18n="nav_demo">Демо</a>
       <a href="#how" data-i18n="nav_how">Как работает</a>
       <a href="#security" data-i18n="nav_security">Приватность</a>
       <a href="#release" data-i18n="nav_releases">Релизы</a>
@@ -48,6 +49,7 @@
         </select>
       </label>
       <a class="nav-cta" href="#download" data-i18n="nav_try">Попробовать</a>
+      <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span><b class="sr-only" data-i18n="menu_label">Открыть меню</b></button>
     </div>
   </header>
 
@@ -88,6 +90,32 @@
       <div><strong>01</strong><span data-i18n="signal_1">Сначала ищем<br>ближайший BLE-путь</span></div>
       <div><strong>02</strong><span data-i18n="signal_2">Если его нет,<br>подключаем relay</span></div>
       <div><strong>03</strong><span data-i18n="signal_3">Содержимое остаётся<br>зашифрованным</span></div>
+    </section>
+
+    <section id="demo" class="demo-section section shell">
+      <div class="section-heading reveal"><p class="eyebrow" data-i18n="demo_eyebrow">Посмотри, как идёт пакет</p><h2><span data-i18n="demo_title">Не просто отправка.</span><br><em data-i18n="demo_title_em">Умный маршрут.</em></h2></div>
+      <div class="demo-layout">
+        <div class="demo-stage reveal" id="demo-stage" aria-live="polite">
+          <div class="demo-grid-lines" aria-hidden="true"></div>
+          <div class="demo-route route-ble-line" aria-hidden="true"></div>
+          <div class="demo-route route-internet-line" aria-hidden="true"></div>
+          <div class="demo-device demo-device-a"><span class="demo-avatar">A</span><strong>Alex</strong><small>sender</small></div>
+          <div class="demo-device demo-device-relay"><span class="demo-avatar">R</span><strong>Relay</strong><small>MeshGram</small></div>
+          <div class="demo-device demo-device-b"><span class="demo-avatar">B</span><strong>Sam</strong><small>recipient</small></div>
+          <div class="demo-packet" id="demo-packet"><span>✦</span></div>
+          <div class="demo-status"><span class="pulse-dot"></span><span id="demo-status-text">BLE mesh • nearby route</span></div>
+        </div>
+        <aside class="demo-controls reveal reveal-delay">
+          <span class="release-kicker" data-i18n="demo_control_kicker">Интерактивная схема</span>
+          <h3 data-i18n="demo_control_title">Выбери расстояние</h3>
+          <p data-i18n="demo_control_body">Схема показывает принцип маршрутизации. Это демонстрация интерфейса, а не карта реальных пользователей.</p>
+          <div class="demo-options" role="group" aria-label="Demo route">
+            <button class="demo-option is-active" type="button" data-route="ble"><span class="option-dot option-cyan"></span><span><strong data-i18n="demo_near_title">Рядом</strong><small data-i18n="demo_near_body">BLE mesh</small></span></button>
+            <button class="demo-option" type="button" data-route="internet"><span class="option-dot option-pink"></span><span><strong data-i18n="demo_far_title">Далеко</strong><small data-i18n="demo_far_body">зашифрованный резерв</small></span></button>
+          </div>
+          <div class="demo-legend"><span><i class="legend-line legend-cyan"></i><span data-i18n="demo_legend_ble">локальный BLE-маршрут</span></span><span><i class="legend-line legend-pink"></i><span data-i18n="demo_legend_internet">дальний интернет-резерв</span></span></div>
+        </aside>
+      </div>
     </section>
 
     <section id="how" class="section shell">
@@ -140,10 +168,48 @@
       </div>
     </section>
 
+    <section id="network" class="network-section section shell">
+      <div class="section-heading reveal"><p class="eyebrow" data-i18n="network_eyebrow">Живая схема сети</p><h2><span data-i18n="network_title">Узлы видят маршрут,</span><br><em data-i18n="network_title_em">а не содержимое.</em></h2></div>
+      <div class="network-board reveal" aria-label="Демонстрационная карта MeshGram">
+        <div class="network-haze haze-one"></div><div class="network-haze haze-two"></div>
+        <span class="network-line line-a"></span><span class="network-line line-b"></span><span class="network-line line-c"></span><span class="network-line line-d"></span><span class="network-line line-e"></span>
+        <span class="network-node network-origin"><b>A</b><small>sender</small></span>
+        <span class="network-node network-mid-one"><b>R1</b><small>relay</small></span>
+        <span class="network-node network-mid-two"><b>R2</b><small>relay</small></span>
+        <span class="network-node network-target"><b>B</b><small>recipient</small></span>
+        <span class="network-node network-side-one"><b>+</b></span><span class="network-node network-side-two"><b>+</b></span>
+        <span class="network-pulse pulse-one"></span><span class="network-pulse pulse-two"></span>
+        <div class="network-board-label"><span class="pulse-dot"></span><span data-i18n="network_demo_label">Демонстрационный режим</span></div>
+        <div class="network-board-caption"><strong data-i18n="network_caption_title">Маршруты меняются</strong><span data-i18n="network_caption_body">узлы подключаются и отключаются, а пакет выбирает доступный путь</span></div>
+      </div>
+    </section>
+
+    <section id="trust" class="trust-section section shell">
+      <div class="section-heading reveal"><p class="eyebrow" data-i18n="trust_eyebrow">Центр доверия</p><h2><span data-i18n="trust_title">Приватность без</span><br><em data-i18n="trust_title_em">магических обещаний.</em></h2></div>
+      <div class="trust-layout">
+        <article class="trust-card trust-card-main reveal"><div class="trust-seal">✓</div><div><h3 data-i18n="trust_card_title">Проверяемая модель</h3><p data-i18n="trust_card_body">Мы разделяем то, что уже работает, и то, что находится в разработке. На сайте нет обещаний «невзламываемости» и скрытой передачи через чужие телефоны.</p></div></article>
+        <div class="permission-grid">
+          <article class="permission-card reveal reveal-delay-short"><span class="permission-icon">◎</span><h3 data-i18n="permission_ble_title">BLE</h3><p data-i18n="permission_ble_body">Для поиска и связи с узлами MeshGram поблизости.</p></article>
+          <article class="permission-card reveal reveal-delay"><span class="permission-icon">⌂</span><h3 data-i18n="permission_storage_title">Хранилище</h3><p data-i18n="permission_storage_body">Для локальной истории, очереди и вложений.</p></article>
+          <article class="permission-card reveal reveal-delay-short"><span class="permission-icon">↗</span><h3 data-i18n="permission_internet_title">Интернет</h3><p data-i18n="permission_internet_body">Только как разрешённый резервный маршрут для дальних контактов.</p></article>
+          <article class="permission-card reveal reveal-delay"><span class="permission-icon">◈</span><h3 data-i18n="permission_keys_title">Ключи</h3><p data-i18n="permission_keys_body">Криптографические ключи и проверка релиза защищают адресата.</p></article>
+        </div>
+      </div>
+    </section>
+
     <section class="quote-section shell reveal">
       <div class="quote-mark">“</div>
       <blockquote><span data-i18n="quote_first">Мы не строим ещё один сервер,</span><br><span data-i18n="quote_second">мы строим </span><em data-i18n="quote_em">маршрут.</em></blockquote>
       <p>MeshGram project note / 2026</p>
+    </section>
+
+    <section id="showcase" class="showcase-section section shell">
+      <div class="section-heading reveal"><p class="eyebrow" data-i18n="showcase_eyebrow">Внутри приложения</p><h2><span data-i18n="showcase_title">Технология, которую</span><br><em data-i18n="showcase_title_em">приятно открывать.</em></h2></div>
+      <div class="showcase-grid">
+        <article class="showcase-card showcase-card-tall reveal"><div class="showcase-phone"><div class="phone-top"><span>9:41</span><i></i></div><div class="phone-brand"><img src="assets/meshgram-mark.svg" alt=""><b>Mesh<span>Gram</span></b></div><div class="phone-heading" data-i18n="showcase_map">Живая карта</div><div class="phone-map"><i class="map-ring"></i><i class="map-line map-line-one"></i><i class="map-line map-line-two"></i><b class="map-core">✦</b><b class="map-dot map-dot-one"></b><b class="map-dot map-dot-two"></b><b class="map-dot map-dot-three"></b></div><div class="phone-chips"><span>2 <small data-i18n="showcase_nodes">узла</small></span><span>1 <small data-i18n="showcase_route">маршрут</small></span></div></div><h3 data-i18n="showcase_map_title">Карта узлов</h3><p data-i18n="showcase_map_body">Видно состояние сети, а не лишние персональные данные.</p></article>
+        <article class="showcase-card reveal reveal-delay-short"><div class="showcase-phone phone-chat"><div class="phone-top"><span>9:41</span><i></i></div><div class="phone-brand"><img src="assets/meshgram-mark.svg" alt=""><b>Mesh<span>Gram</span></b></div><div class="chat-row"><b class="chat-avatar">N</b><span><strong>Node-43d9</strong><small>Mesh connected</small></span><i class="chat-unread">3</i></div><div class="chat-row"><b class="chat-avatar avatar-pink">T</b><span><strong>Team</strong><small>Encrypted message</small></span></div><div class="chat-row"><b class="chat-avatar avatar-lime">S</b><span><strong>Saved</strong><small>Files and notes</small></span></div></div><h3 data-i18n="showcase_chat_title">Чаты без лишнего шума</h3><p data-i18n="showcase_chat_body">Понятные статусы, группы и сохранённые материалы в одном месте.</p></article>
+        <article class="showcase-card reveal reveal-delay"><div class="showcase-phone phone-profile"><div class="phone-top"><span>9:41</span><i></i></div><div class="profile-orb">P</div><strong class="profile-name">MeshGram</strong><small class="profile-status" data-i18n="showcase_online">в сети</small><div class="profile-stats"><span><b>24</b><small data-i18n="showcase_messages">сообщения</small></span><span><b>4</b><small data-i18n="showcase_groups">группы</small></span></div><div class="profile-row"><span>◈</span><span data-i18n="showcase_security">Безопасность</span><b>›</b></div><div class="profile-row"><span>⚙</span><span data-i18n="showcase_settings">Настройки</span><b>›</b></div></div><h3 data-i18n="showcase_profile_title">Профиль под контролем</h3><p data-i18n="showcase_profile_body">Имя, аватар, темы и приватность не спрятаны по меню.</p></article>
+      </div>
     </section>
 
     <section id="download" class="download-section shell reveal">
@@ -155,6 +221,10 @@
           <div class="download-meta"><span>APK</span><span id="release-size">21.2 MB</span><span id="release-sha" title="0f65494f0cdb693027cffb9dbbdd031eb529de57d2ed281004568993fd625984">SHA-256: 0f65494f...5984</span></div>
         </div>
         <a class="button button-primary button-download" id="download-link" href="downloads/MeshGram-v108-hybrid.apk" download><span data-i18n="download_apk">Скачать APK</span> <span>↓</span></a>
+      </div>
+      <div class="download-extra">
+        <div class="download-qr"><img src="assets/meshgram-download.svg" alt="QR-код MeshGram"><div><strong data-i18n="download_qr_title">Открой на телефоне</strong><span data-i18n="download_qr_body">Наведи камеру, чтобы открыть страницу загрузки.</span></div></div>
+        <div class="download-guide"><span class="release-kicker" data-i18n="download_guide_kicker">Быстрый старт</span><h3 data-i18n="download_guide_title">Установка в три шага</h3><ol><li data-i18n="download_step_1">Скачай APK с этой страницы.</li><li data-i18n="download_step_2">Разреши установку из выбранного источника.</li><li data-i18n="download_step_3">Открой MeshGram и включи нужные разрешения.</li></ol></div>
       </div>
       <div class="release-proof">
         <span><b class="release-proof-mark"></b><span id="release-proof-text">Манифест обновления проверен</span></span>
@@ -207,10 +277,30 @@
         </article>
       </div>
     </section>
+
+    <section id="roadmap" class="roadmap-section section shell">
+      <div class="section-heading reveal"><p class="eyebrow" data-i18n="roadmap_eyebrow">Дорожная карта</p><h2><span data-i18n="roadmap_title">Строим дальше.</span><br><em data-i18n="roadmap_title_em">Вместе.</em></h2></div>
+      <div class="roadmap-track">
+        <article class="roadmap-item roadmap-done reveal"><span class="roadmap-dot"></span><span class="roadmap-label" data-i18n="roadmap_done_label">Сейчас</span><h3 data-i18n="roadmap_done_title">Android и BLE-first</h3><p data-i18n="roadmap_done_body">Базовый клиент, mesh-маршрутизация, локальное хранение и подписанный канал обновлений.</p></article>
+        <article class="roadmap-item reveal reveal-delay-short"><span class="roadmap-dot"></span><span class="roadmap-label" data-i18n="roadmap_next_label">Следом</span><h3 data-i18n="roadmap_next_title">Медиа и группы</h3><p data-i18n="roadmap_next_body">Файлы, голосовые сообщения, аватары, группы и более устойчивое фоновое соединение.</p></article>
+        <article class="roadmap-item roadmap-ios reveal reveal-delay"><span class="roadmap-dot"></span><span class="roadmap-label" data-i18n="roadmap_ios_label">В разработке</span><h3 data-i18n="roadmap_ios_title">iOS-клиент</h3><p data-i18n="roadmap_ios_body">Отдельная iOS-реализация с тем же адресным принципом и аккуратной интеграцией BLE.</p></article>
+        <article class="roadmap-item reveal reveal-delay-short"><span class="roadmap-dot"></span><span class="roadmap-label" data-i18n="roadmap_future_label">Дальше</span><h3 data-i18n="roadmap_future_title">Экосистема MeshGram</h3><p data-i18n="roadmap_future_body">Каналы, звонки, дополнительные темы, публичная документация и открытая обратная связь.</p></article>
+      </div>
+    </section>
+
+    <section id="faq" class="faq-section section shell">
+      <div class="section-heading reveal"><p class="eyebrow" data-i18n="faq_eyebrow">Без мелкого шрифта</p><h2><span data-i18n="faq_title">Коротко о главном.</span><br><em data-i18n="faq_title_em">Честно.</em></h2></div>
+      <div class="faq-list reveal">
+        <details open><summary data-i18n="faq_q1">Работает ли MeshGram без интернета?</summary><p data-i18n="faq_a1">Да, для близких устройств с MeshGram может использоваться BLE mesh. Интернет нужен только для разрешённого дальнего резерва и не отключается для других приложений.</p></details>
+        <details><summary data-i18n="faq_q2">Могут ли чужие телефоны передавать мои сообщения?</summary><p data-i18n="faq_a2">Нет. В текущей модели ретрансляторами являются только устройства, на которых установлен MeshGram и включена соответствующая функция. Случайные телефоны не используются скрытно.</p></details>
+        <details><summary data-i18n="faq_q3">Что видит промежуточный узел?</summary><p data-i18n="faq_a3">Технические сведения, необходимые для маршрута: идентификатор пакета, TTL и служебные признаки. Содержимое сообщения и файлов должно оставаться зашифрованным для адресата.</p></details>
+        <details><summary data-i18n="faq_q4">Когда выйдет версия для iOS?</summary><p data-i18n="faq_a4">iOS-клиент находится в дорожной карте. Срок будет объявлен после отдельного цикла разработки и тестирования. Поддержка проекта помогает ускорить этот этап, но не заменяет тесты.</p></details>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer shell"><span>© 2026 MeshGram</span><span data-i18n="footer_tagline">Связь через пространство между узлами</span><a href="#top" data-i18n="back_top">Наверх ↑</a></footer>
-  <script src="app.js?v=flow-2026-09" defer></script>
+  <script src="app.js?v=all-2026-09" defer></script>
 </body>
 </html>
 

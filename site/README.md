@@ -31,3 +31,8 @@ keystore and signing key are available. The current APK is a debug test build an
 not a production ownership signature.
 
 The site contains no analytics, third-party scripts, forms, or external fonts. `_headers` adds a restrictive CSP on hosts that support it.
+
+The page also includes a local QR code for the download page, an interactive
+routing demo, a clearly labelled network visualization, a trust center, a
+product showcase, a roadmap, and an accessible native FAQ accordion. Demo
+visualizations are explicitly labelled and do not claim to show live user data.
