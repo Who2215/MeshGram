@@ -49,6 +49,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -470,6 +471,55 @@ private enum class MeshVisualPreset(
         }
     }
 }
+
+private enum class MeshGlowChoice(
+    val id: String,
+    val primary: Color,
+    val secondary: Color
+) {
+    CYAN(
+        id = "cyan",
+        primary = Color(0xFF22F7EA),
+        secondary = Color(0xFF6DE9FF)
+    ),
+    MAGENTA(
+        id = "magenta",
+        primary = Color(0xFFFF4FF0),
+        secondary = Color(0xFFDE7CFF)
+    ),
+    VIOLET(
+        id = "violet",
+        primary = Color(0xFF9B6BFF),
+        secondary = Color(0xFF6DE9FF)
+    ),
+    AURORA(
+        id = "aurora",
+        primary = Color(0xFF48F1C4),
+        secondary = Color(0xFF6ED7FF)
+    );
+
+    companion object {
+        fun fromId(id: String?): MeshGlowChoice {
+            return entries.firstOrNull { it.id == id } ?: CYAN
+        }
+    }
+}
+
+private enum class MeshMotionMode(
+    val id: String,
+    val timeScale: Float
+) {
+    FULL(id = "full", timeScale = 1f),
+    CALM(id = "calm", timeScale = 0.52f),
+    STILL(id = "still", timeScale = 0f);
+
+    companion object {
+        fun fromId(id: String?): MeshMotionMode {
+            return entries.firstOrNull { it.id == id } ?: FULL
+        }
+    }
+}
+
 private object MeshUi {
     var glow = Color(0xFF22F7EA)
     var glowAlt = Color(0xFFFF4FF0)
@@ -539,12 +589,26 @@ private object TgDayPalette {
         composerCursor = palette.composerCursor
         unreadPill = palette.unreadPill
     }
+
+    fun applyGlow(choice: MeshGlowChoice) {
+        actionBarIcon = choice.secondary
+        actionBarSelector = choice.secondary.copy(alpha = 0.18f)
+        rowAccent = choice.primary
+        rowBlue = choice.secondary
+        divider = choice.secondary.copy(alpha = 0.20f)
+        messageLinkIn = choice.secondary
+        composerSend = choice.secondary
+        composerCursor = choice.secondary
+        unreadPill = choice.primary
+    }
 }
 
 private const val BRAND_NAME = "MeshGram"
 private const val PREFS_UI = "meshgram_ui_prefs"
 private const val KEY_ONBOARDING_PENDING = "onboarding_pending"
 private const val KEY_VISUAL_THEME = "visual_theme"
+private const val KEY_GLOW_COLOR = "glow_color"
+private const val KEY_MOTION_MODE = "motion_mode"
 private const val PREFS_NOTIFICATIONS = "meshgram_notification_prefs"
 private const val KEY_NOTIFICATION_SOUND = "sound"
 private const val KEY_NOTIFICATION_VIBRATION = "vibration"
@@ -789,7 +853,18 @@ private data class MeshStrings(
     val openLink: String,
     val checkUpdates: String,
     val updateCheckStarted: String,
-    val themeTitles: Map<MeshVisualPreset, Pair<String, String>>
+    val themeTitles: Map<MeshVisualPreset, Pair<String, String>>,
+    val glowColorTitle: String = "Glow color",
+    val glowColorDescription: String = "Choose the accent used by the live background and controls",
+    val glowCyan: String = "Cyan",
+    val glowMagenta: String = "Magenta",
+    val glowViolet: String = "Violet",
+    val glowAurora: String = "Aurora",
+    val motionTitle: String = "Animation",
+    val motionDescription: String = "Adjust how fast the live background moves",
+    val motionFull: String = "Full",
+    val motionCalm: String = "Calm",
+    val motionStill: String = "Still"
 )
 
 @Composable
@@ -801,12 +876,432 @@ private fun rememberMeshStrings(): MeshStrings {
         @Suppress("DEPRECATION")
         configuration.locale?.language
     } ?: Locale.getDefault().language
-    return remember(language) {
-        if (language.equals("ru", ignoreCase = true)) {
-            ruMeshStrings()
-        } else {
-            enMeshStrings()
-        }
+    return remember(language) { localizedMeshStrings(language) }
+}
+
+private fun localizedMeshStrings(language: String): MeshStrings {
+    val normalized = language.lowercase(Locale.ROOT)
+    val base = if (normalized == "ru") ruMeshStrings() else enMeshStrings()
+    return when (normalized) {
+        "es" -> base.copy(
+            chats = "Chats",
+            map = "Mapa",
+            settings = "Ajustes",
+            meshHub = "Centro Mesh",
+            profileTab = "Perfil",
+            meshMapTitle = "Mapa viva de nodos Mesh",
+            nodesNearby = "Nodos cercanos",
+            activeRoutes = "Rutas activas",
+            fileQueue = "Cola de archivos",
+            search = "Buscar",
+            all = "Todos",
+            unread = "No leidos",
+            archived = "Archivados",
+            newChat = "Nuevo chat",
+            createGroup = "Crear grupo",
+            close = "Cerrar",
+            cancel = "Cancelar",
+            online = "En linea",
+            offline = "Sin conexion",
+            meshOn = "Mesh activo",
+            meshOff = "Mesh detenido",
+            appearance = "Apariencia",
+            appearanceSubtitle = "Temas vivos, color y movimiento",
+            networkSettings = "Red",
+            security = "Seguridad",
+            notifications = "Notificaciones",
+            projectSupport = "Apoyar el proyecto",
+            updates = "Actualizaciones",
+            checkUpdates = "Buscar actualizaciones",
+            glowColorTitle = "Color del brillo",
+            glowColorDescription = "Elige el acento del fondo vivo y los controles",
+            motionTitle = "Animacion",
+            motionDescription = "Ajusta la velocidad del fondo vivo",
+            motionFull = "Completa",
+            motionCalm = "Tranquila",
+            motionStill = "Quieto"
+        )
+        "de" -> base.copy(
+            chats = "Chats",
+            map = "Karte",
+            settings = "Einstellungen",
+            meshHub = "Mesh-Hub",
+            profileTab = "Profil",
+            meshMapTitle = "Lebendige Mesh-Knotenkarte",
+            nodesNearby = "Nahe Knoten",
+            activeRoutes = "Aktive Routen",
+            fileQueue = "Datei-Warteschlange",
+            search = "Suchen",
+            all = "Alle",
+            unread = "Ungelesen",
+            archived = "Archiv",
+            newChat = "Neuer Chat",
+            createGroup = "Gruppe erstellen",
+            close = "Schliessen",
+            cancel = "Abbrechen",
+            online = "Online",
+            offline = "Offline",
+            meshOn = "Mesh aktiv",
+            meshOff = "Mesh gestoppt",
+            appearance = "Darstellung",
+            appearanceSubtitle = "Lebendige Themen, Farbe und Bewegung",
+            networkSettings = "Netzwerk",
+            security = "Sicherheit",
+            notifications = "Benachrichtigungen",
+            projectSupport = "Projekt unterstuetzen",
+            updates = "Updates",
+            checkUpdates = "Nach Updates suchen",
+            glowColorTitle = "Leuchtfarbe",
+            glowColorDescription = "Akzentfarbe fuer lebendigen Hintergrund und Steuerelemente",
+            motionTitle = "Animation",
+            motionDescription = "Geschwindigkeit des lebendigen Hintergrunds",
+            motionFull = "Voll",
+            motionCalm = "Ruhig",
+            motionStill = "Standbild"
+        )
+        "fr" -> base.copy(
+            chats = "Discussions",
+            map = "Carte",
+            settings = "Reglages",
+            meshHub = "Centre Mesh",
+            profileTab = "Profil",
+            meshMapTitle = "Carte vivante des noeuds Mesh",
+            nodesNearby = "Noeuds proches",
+            activeRoutes = "Routes actives",
+            fileQueue = "File de fichiers",
+            search = "Rechercher",
+            all = "Tous",
+            unread = "Non lus",
+            archived = "Archives",
+            newChat = "Nouvelle discussion",
+            createGroup = "Creer un groupe",
+            close = "Fermer",
+            cancel = "Annuler",
+            online = "En ligne",
+            offline = "Hors ligne",
+            meshOn = "Mesh actif",
+            meshOff = "Mesh arrete",
+            appearance = "Apparence",
+            appearanceSubtitle = "Themes vivants, couleur et mouvement",
+            networkSettings = "Reseau",
+            security = "Securite",
+            notifications = "Notifications",
+            projectSupport = "Soutenir le projet",
+            updates = "Mises a jour",
+            checkUpdates = "Verifier les mises a jour",
+            glowColorTitle = "Couleur de lueur",
+            glowColorDescription = "Choisissez l'accent du fond vivant et des controles",
+            motionTitle = "Animation",
+            motionDescription = "Reglez la vitesse du fond vivant",
+            motionFull = "Complete",
+            motionCalm = "Calme",
+            motionStill = "Fixe"
+        )
+        "pt" -> base.copy(
+            chats = "Conversas",
+            map = "Mapa",
+            settings = "Definicoes",
+            meshHub = "Central Mesh",
+            profileTab = "Perfil",
+            meshMapTitle = "Mapa vivo de nos Mesh",
+            nodesNearby = "Nos proximos",
+            activeRoutes = "Rotas ativas",
+            fileQueue = "Fila de ficheiros",
+            search = "Pesquisar",
+            all = "Todos",
+            unread = "Nao lidos",
+            archived = "Arquivados",
+            newChat = "Nova conversa",
+            createGroup = "Criar grupo",
+            close = "Fechar",
+            cancel = "Cancelar",
+            online = "Online",
+            offline = "Offline",
+            meshOn = "Mesh ativo",
+            meshOff = "Mesh parado",
+            appearance = "Aparencia",
+            appearanceSubtitle = "Temas vivos, cor e movimento",
+            networkSettings = "Rede",
+            security = "Seguranca",
+            notifications = "Notificacoes",
+            projectSupport = "Apoiar o projeto",
+            updates = "Atualizacoes",
+            checkUpdates = "Verificar atualizacoes",
+            glowColorTitle = "Cor do brilho",
+            glowColorDescription = "Escolha o destaque do fundo vivo e dos controlos",
+            motionTitle = "Animacao",
+            motionDescription = "Ajuste a velocidade do fundo vivo",
+            motionFull = "Completa",
+            motionCalm = "Calma",
+            motionStill = "Parada"
+        )
+        "it" -> base.copy(
+            chats = "Chat",
+            map = "Mappa",
+            settings = "Impostazioni",
+            meshHub = "Hub Mesh",
+            profileTab = "Profilo",
+            meshMapTitle = "Mappa viva dei nodi Mesh",
+            nodesNearby = "Nodi vicini",
+            activeRoutes = "Percorsi attivi",
+            fileQueue = "Coda file",
+            search = "Cerca",
+            all = "Tutti",
+            unread = "Non letti",
+            archived = "Archiviati",
+            newChat = "Nuova chat",
+            createGroup = "Crea gruppo",
+            close = "Chiudi",
+            cancel = "Annulla",
+            online = "Online",
+            offline = "Offline",
+            meshOn = "Mesh attivo",
+            meshOff = "Mesh fermato",
+            appearance = "Aspetto",
+            appearanceSubtitle = "Temi vivi, colore e movimento",
+            networkSettings = "Rete",
+            security = "Sicurezza",
+            notifications = "Notifiche",
+            projectSupport = "Sostieni il progetto",
+            updates = "Aggiornamenti",
+            checkUpdates = "Controlla aggiornamenti",
+            glowColorTitle = "Colore bagliore",
+            glowColorDescription = "Scegli l'accento dello sfondo vivo e dei controlli",
+            motionTitle = "Animazione",
+            motionDescription = "Regola la velocita dello sfondo vivo",
+            motionFull = "Completa",
+            motionCalm = "Calma",
+            motionStill = "Fermo"
+        )
+        "tr" -> base.copy(
+            chats = "Sohbetler",
+            map = "Harita",
+            settings = "Ayarlar",
+            meshHub = "Mesh Merkezi",
+            profileTab = "Profil",
+            meshMapTitle = "Canli Mesh dugum haritasi",
+            nodesNearby = "Yakin dugumler",
+            activeRoutes = "Aktif rotalar",
+            fileQueue = "Dosya kuyrugu",
+            search = "Ara",
+            all = "Tumu",
+            unread = "Okunmamis",
+            archived = "Arsiv",
+            newChat = "Yeni sohbet",
+            createGroup = "Grup olustur",
+            close = "Kapat",
+            cancel = "Iptal",
+            online = "Cevrim ici",
+            offline = "Cevrim disi",
+            meshOn = "Mesh aktif",
+            meshOff = "Mesh durdu",
+            appearance = "Gorunum",
+            appearanceSubtitle = "Canli temalar, renk ve hareket",
+            networkSettings = "Ag",
+            security = "Guvenlik",
+            notifications = "Bildirimler",
+            projectSupport = "Projeyi destekle",
+            updates = "Guncellemeler",
+            checkUpdates = "Guncellemeleri kontrol et",
+            glowColorTitle = "Parlama rengi",
+            glowColorDescription = "Canli arka plan ve kontroller icin vurgu secin",
+            motionTitle = "Animasyon",
+            motionDescription = "Canli arka plan hizini ayarlayin",
+            motionFull = "Tam",
+            motionCalm = "Sakin",
+            motionStill = "Sabit"
+        )
+        "zh" -> base.copy(
+            chats = "聊天",
+            map = "地图",
+            settings = "设置",
+            meshHub = "Mesh 中心",
+            profileTab = "个人资料",
+            meshMapTitle = "Mesh 节点动态地图",
+            nodesNearby = "附近节点",
+            activeRoutes = "活动路线",
+            fileQueue = "文件队列",
+            search = "搜索",
+            all = "全部",
+            unread = "未读",
+            archived = "存档",
+            newChat = "新聊天",
+            createGroup = "创建群组",
+            close = "关闭",
+            cancel = "取消",
+            online = "在线",
+            offline = "离线",
+            meshOn = "Mesh 已开启",
+            meshOff = "Mesh 已停止",
+            appearance = "外观",
+            appearanceSubtitle = "动态主题、颜色和动画",
+            networkSettings = "网络",
+            security = "安全",
+            notifications = "通知",
+            projectSupport = "支持项目",
+            updates = "更新",
+            checkUpdates = "检查更新",
+            glowColorTitle = "发光颜色",
+            glowColorDescription = "选择动态背景和控件的强调色",
+            motionTitle = "动画",
+            motionDescription = "调整动态背景速度",
+            motionFull = "完整",
+            motionCalm = "柔和",
+            motionStill = "静止"
+        )
+        "ja" -> base.copy(
+            chats = "チャット",
+            map = "マップ",
+            settings = "設定",
+            meshHub = "Meshハブ",
+            profileTab = "プロフィール",
+            meshMapTitle = "Meshノードライブマップ",
+            nodesNearby = "近くのノード",
+            activeRoutes = "アクティブルート",
+            fileQueue = "ファイルキュー",
+            search = "検索",
+            all = "すべて",
+            unread = "未読",
+            archived = "アーカイブ",
+            newChat = "新しいチャット",
+            createGroup = "グループを作成",
+            close = "閉じる",
+            cancel = "キャンセル",
+            online = "オンライン",
+            offline = "オフライン",
+            meshOn = "Meshオン",
+            meshOff = "Mesh停止",
+            appearance = "外観",
+            appearanceSubtitle = "ライブテーマ、色、動き",
+            networkSettings = "ネットワーク",
+            security = "セキュリティ",
+            notifications = "通知",
+            projectSupport = "プロジェクトを支援",
+            updates = "アップデート",
+            checkUpdates = "アップデートを確認",
+            glowColorTitle = "グローカラー",
+            glowColorDescription = "ライブ背景と操作部のアクセントを選択",
+            motionTitle = "アニメーション",
+            motionDescription = "ライブ背景の速度を調整",
+            motionFull = "フル",
+            motionCalm = "ゆっくり",
+            motionStill = "静止"
+        )
+        "ko" -> base.copy(
+            chats = "채팅",
+            map = "지도",
+            settings = "설정",
+            meshHub = "Mesh 허브",
+            profileTab = "프로필",
+            meshMapTitle = "Mesh 노드 라이브 지도",
+            nodesNearby = "주변 노드",
+            activeRoutes = "활성 경로",
+            fileQueue = "파일 대기열",
+            search = "검색",
+            all = "전체",
+            unread = "읽지 않음",
+            archived = "보관됨",
+            newChat = "새 채팅",
+            createGroup = "그룹 만들기",
+            close = "닫기",
+            cancel = "취소",
+            online = "온라인",
+            offline = "오프라인",
+            meshOn = "Mesh 켜짐",
+            meshOff = "Mesh 중지됨",
+            appearance = "모양",
+            appearanceSubtitle = "라이브 테마, 색상 및 움직임",
+            networkSettings = "네트워크",
+            security = "보안",
+            notifications = "알림",
+            projectSupport = "프로젝트 후원",
+            updates = "업데이트",
+            checkUpdates = "업데이트 확인",
+            glowColorTitle = "빛 색상",
+            glowColorDescription = "라이브 배경과 컨트롤의 강조색 선택",
+            motionTitle = "애니메이션",
+            motionDescription = "라이브 배경 속도 조절",
+            motionFull = "전체",
+            motionCalm = "차분하게",
+            motionStill = "정지"
+        )
+        "ar" -> base.copy(
+            chats = "المحادثات",
+            map = "الخريطة",
+            settings = "الإعدادات",
+            meshHub = "مركز Mesh",
+            profileTab = "الملف الشخصي",
+            meshMapTitle = "خريطة عقد Mesh الحية",
+            nodesNearby = "العقد القريبة",
+            activeRoutes = "المسارات النشطة",
+            fileQueue = "قائمة الملفات",
+            search = "بحث",
+            all = "الكل",
+            unread = "غير مقروء",
+            archived = "المؤرشفة",
+            newChat = "محادثة جديدة",
+            createGroup = "إنشاء مجموعة",
+            close = "إغلاق",
+            cancel = "إلغاء",
+            online = "متصل",
+            offline = "غير متصل",
+            meshOn = "Mesh مفعّل",
+            meshOff = "Mesh متوقف",
+            appearance = "المظهر",
+            appearanceSubtitle = "سمات حية وألوان وحركة",
+            networkSettings = "الشبكة",
+            security = "الأمان",
+            notifications = "الإشعارات",
+            projectSupport = "دعم المشروع",
+            updates = "التحديثات",
+            checkUpdates = "التحقق من التحديثات",
+            glowColorTitle = "لون التوهج",
+            glowColorDescription = "اختر لون الخلفية الحية وعناصر التحكم",
+            motionTitle = "الحركة",
+            motionDescription = "اضبط سرعة الخلفية الحية",
+            motionFull = "كاملة",
+            motionCalm = "هادئة",
+            motionStill = "ثابتة"
+        )
+        "hi" -> base.copy(
+            chats = "चैट",
+            map = "मानचित्र",
+            settings = "सेटिंग्स",
+            meshHub = "Mesh हब",
+            profileTab = "प्रोफ़ाइल",
+            meshMapTitle = "लाइव Mesh नोड मानचित्र",
+            nodesNearby = "पास के नोड",
+            activeRoutes = "सक्रिय मार्ग",
+            fileQueue = "फ़ाइल कतार",
+            search = "खोजें",
+            all = "सभी",
+            unread = "अपठित",
+            archived = "संग्रहित",
+            newChat = "नई चैट",
+            createGroup = "समूह बनाएं",
+            close = "बंद करें",
+            cancel = "रद्द करें",
+            online = "ऑनलाइन",
+            offline = "ऑफ़लाइन",
+            meshOn = "Mesh चालू",
+            meshOff = "Mesh बंद",
+            appearance = "दिखावट",
+            appearanceSubtitle = "लाइव थीम, रंग और गति",
+            networkSettings = "नेटवर्क",
+            security = "सुरक्षा",
+            notifications = "सूचनाएं",
+            projectSupport = "प्रोजेक्ट का समर्थन करें",
+            updates = "अपडेट",
+            checkUpdates = "अपडेट जांचें",
+            glowColorTitle = "ग्लो रंग",
+            glowColorDescription = "लाइव पृष्ठभूमि और नियंत्रणों का रंग चुनें",
+            motionTitle = "एनीमेशन",
+            motionDescription = "लाइव पृष्ठभूमि की गति बदलें",
+            motionFull = "पूर्ण",
+            motionCalm = "शांत",
+            motionStill = "स्थिर"
+        )
+        else -> base
     }
 }
 
@@ -1279,7 +1774,18 @@ private fun ruMeshStrings() = MeshStrings(
         MeshVisualPreset.EMBER to ("Угли" to "Тёплые искры, медленно плывущие в темноте"),
         MeshVisualPreset.MOONLIT to ("Лунная ночь" to "Тихая луна, мягкая дымка и далёкие звёзды"),
         MeshVisualPreset.RAIN_WINDOW to ("Дождь за стеклом" to "Плавный дождь, отражения и свет города")
-    )
+    ),
+    glowColorTitle = "Цвет свечения",
+    glowColorDescription = "Выберите акцент живого фона и элементов управления",
+    glowCyan = "Циан",
+    glowMagenta = "Маджента",
+    glowViolet = "Фиолетовый",
+    glowAurora = "Аврора",
+    motionTitle = "Анимация",
+    motionDescription = "Настройте скорость движения живого фона",
+    motionFull = "Полная",
+    motionCalm = "Спокойная",
+    motionStill = "Стоп-кадр"
 )
 
 private data class ExternalSharePayload(
@@ -1314,19 +1820,32 @@ private fun MeshApp(
     val visualThemePreset = remember(visualThemeId) {
         MeshVisualPreset.fromId(visualThemeId)
     }
-    val ambientPalette = remember(visualThemePreset) {
+    var glowChoiceId by rememberSaveable {
+        mutableStateOf(uiPrefs.getString(KEY_GLOW_COLOR, MeshGlowChoice.CYAN.id) ?: MeshGlowChoice.CYAN.id)
+    }
+    val glowChoice = remember(glowChoiceId) {
+        MeshGlowChoice.fromId(glowChoiceId)
+    }
+    var motionModeId by rememberSaveable {
+        mutableStateOf(uiPrefs.getString(KEY_MOTION_MODE, MeshMotionMode.FULL.id) ?: MeshMotionMode.FULL.id)
+    }
+    val motionMode = remember(motionModeId) {
+        MeshMotionMode.fromId(motionModeId)
+    }
+    val ambientPalette = remember(visualThemePreset, glowChoice) {
         val palette = visualThemePreset.palette()
         ambientPaletteFromTheme(
             backgroundStart = palette.listBackground,
             backgroundEnd = palette.listGradientEnd,
-            primary = palette.rowAccent,
-            secondary = palette.rowBlue,
+            primary = glowChoice.primary,
+            secondary = glowChoice.secondary,
             tertiary = palette.bubbleOut,
             style = visualThemePreset.backgroundStyle
         )
     }
     val renderQuality = rememberMeshRenderQuality()
     TgDayPalette.applyPreset(visualThemePreset)
+    TgDayPalette.applyGlow(glowChoice)
     MeshUi.applyPalette(ambientPalette)
     val appPasscodeManager = remember {
         AppPasscodeManager(context.applicationContext)
@@ -1546,6 +2065,16 @@ private fun MeshApp(
                 onVisualThemeChange = { preset ->
                     uiPrefs.edit().putString(KEY_VISUAL_THEME, preset.id).apply()
                     visualThemeId = preset.id
+                },
+                glowChoice = glowChoice,
+                onGlowChoiceChange = { choice ->
+                    uiPrefs.edit().putString(KEY_GLOW_COLOR, choice.id).apply()
+                    glowChoiceId = choice.id
+                },
+                motionMode = motionMode,
+                onMotionModeChange = { mode ->
+                    uiPrefs.edit().putString(KEY_MOTION_MODE, mode.id).apply()
+                    motionModeId = mode.id
                 },
                 ambientPalette = ambientPalette,
                 renderQuality = renderQuality,
@@ -1917,6 +2446,10 @@ private fun MeshTelegramScreen(
     onLockNow: () -> Unit,
     visualThemePreset: MeshVisualPreset,
     onVisualThemeChange: (MeshVisualPreset) -> Unit,
+    glowChoice: MeshGlowChoice,
+    onGlowChoiceChange: (MeshGlowChoice) -> Unit,
+    motionMode: MeshMotionMode,
+    onMotionModeChange: (MeshMotionMode) -> Unit,
     ambientPalette: MeshAmbientPalette,
     renderQuality: MeshRenderQuality,
     onCreateGroup: (String, List<String>) -> Boolean,
@@ -2547,7 +3080,8 @@ private fun MeshTelegramScreen(
                 LiveMeshBackground(
                     modifier = Modifier.fillMaxSize(),
                     palette = ambientPalette,
-                    quality = renderQuality
+                    quality = renderQuality,
+                    motionScale = motionMode.timeScale
                 )
             }
             Column(modifier = Modifier.fillMaxSize()) {
@@ -2701,8 +3235,7 @@ private fun MeshTelegramScreen(
                                             }
                                         }
                                     }
-                                },
-                                onToggleMesh = onToggleMesh
+                                }
                             )
                         } else {
                             ChatsHome(
@@ -2741,7 +3274,6 @@ private fun MeshTelegramScreen(
                                 onOpenSettings = { section ->
                                     profileSettingsSectionId = section.name
                                 },
-                                onToggleMesh = onToggleMesh,
                                 onPickAvatar = onPickAvatar
                             )
                         } else {
@@ -2761,6 +3293,10 @@ private fun MeshTelegramScreen(
                                 },
                                 visualThemePreset = visualThemePreset,
                                 onVisualThemeChange = onVisualThemeChange,
+                                glowChoice = glowChoice,
+                                onGlowChoiceChange = onGlowChoiceChange,
+                                motionMode = motionMode,
+                                onMotionModeChange = onMotionModeChange,
                                 relayStatusMessage = relayStatusMessage,
                                 backupStatusMessage = backupStatusMessage,
                                 appLockEnabled = appLockEnabled,
@@ -5473,6 +6009,49 @@ private fun GroupsHome(
 }
 
 @Composable
+private fun MeshMapStats(
+    uiState: MeshUiState,
+    strings: MeshStrings
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val compact = maxWidth < 390.dp
+        val cards: @Composable RowScope.() -> Unit = {
+            NeonStatCard(
+                modifier = Modifier.weight(1f),
+                value = uiState.contacts.size.toString(),
+                label = strings.nodesNearby
+            )
+            NeonStatCard(
+                modifier = Modifier.weight(1f),
+                value = uiState.contacts.count { it.isOnline }.toString(),
+                label = strings.activeRoutes
+            )
+        }
+        if (compact) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cards()
+                }
+                NeonStatCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = (uiState.activeFileTransfers.size + uiState.activeIncomingFileTransfers.size).toString(),
+                    label = strings.fileQueue
+                )
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                cards()
+                NeonStatCard(
+                    modifier = Modifier.weight(1f),
+                    value = (uiState.activeFileTransfers.size + uiState.activeIncomingFileTransfers.size).toString(),
+                    label = strings.fileQueue
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MeshMapHome(
     uiState: MeshUiState
 ) {
@@ -5489,23 +6068,7 @@ private fun MeshMapHome(
                 MeshBrandHeader(subtitle = strings.meshMapTitle)
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NeonStatCard(
-                        modifier = Modifier.weight(1f),
-                        value = uiState.contacts.size.toString(),
-                        label = strings.nodesNearby
-                    )
-                    NeonStatCard(
-                        modifier = Modifier.weight(1f),
-                        value = uiState.contacts.count { it.isOnline }.toString(),
-                        label = strings.activeRoutes
-                    )
-                    NeonStatCard(
-                        modifier = Modifier.weight(1f),
-                        value = (uiState.activeFileTransfers.size + uiState.activeIncomingFileTransfers.size).toString(),
-                        label = strings.fileQueue
-                    )
-                }
+                MeshMapStats(uiState = uiState, strings = strings)
             }
             item {
                 NeonGlassCard {
@@ -5685,7 +6248,6 @@ private fun MeshProfileHome(
     onAliasDraftChange: (String) -> Unit,
     onSaveAlias: () -> Unit,
     onOpenSettings: (ProfileSettingsSection) -> Unit,
-    onToggleMesh: () -> Unit,
     onPickAvatar: () -> Unit
 ) {
     val strings = rememberMeshStrings()
@@ -5800,7 +6362,7 @@ private fun MeshProfileHome(
                             isRunning = uiState.isRunning,
                             peersCount = uiState.peers.count { it.isConnected },
                             strings = strings,
-                            onToggleMesh = onToggleMesh
+                            onToggleMesh = null
                         )
                         ProfileActionRow(Icons.Rounded.Settings, strings.networkSettings) {
                             onOpenSettings(ProfileSettingsSection.NETWORK)
@@ -6005,7 +6567,11 @@ private fun NeonAvatar(
 @Composable
 private fun AppearanceCard(
     visualThemePreset: MeshVisualPreset,
-    onVisualThemeChange: (MeshVisualPreset) -> Unit
+    onVisualThemeChange: (MeshVisualPreset) -> Unit,
+    glowChoice: MeshGlowChoice = MeshGlowChoice.CYAN,
+    onGlowChoiceChange: (MeshGlowChoice) -> Unit = {},
+    motionMode: MeshMotionMode = MeshMotionMode.FULL,
+    onMotionModeChange: (MeshMotionMode) -> Unit = {}
 ) {
     val strings = rememberMeshStrings()
     Card(
@@ -6083,6 +6649,83 @@ private fun AppearanceCard(
                     }
                 }
             }
+            HorizontalDivider(color = TgDayPalette.divider)
+            Text(
+                text = strings.glowColorTitle,
+                style = MaterialTheme.typography.titleSmall,
+                color = TgDayPalette.actionBarTitle
+            )
+            Text(
+                text = strings.glowColorDescription,
+                style = MaterialTheme.typography.labelMedium,
+                color = TgDayPalette.rowMeta
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    MeshGlowChoice.CYAN to strings.glowCyan,
+                    MeshGlowChoice.MAGENTA to strings.glowMagenta,
+                    MeshGlowChoice.VIOLET to strings.glowViolet,
+                    MeshGlowChoice.AURORA to strings.glowAurora
+                ).forEach { (choice, label) ->
+                    val selected = choice == glowChoice
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onGlowChoiceChange(choice) }
+                            .then(
+                                if (selected) {
+                                    Modifier.border(
+                                        1.dp,
+                                        choice.primary,
+                                        RoundedCornerShape(12.dp)
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            ),
+                        shape = RoundedCornerShape(12.dp),
+                        color = choice.primary.copy(alpha = if (selected) 0.22f else 0.10f)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 9.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            ThemeDot(color = choice.primary)
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TgDayPalette.rowText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+            Text(
+                text = strings.motionTitle,
+                style = MaterialTheme.typography.titleSmall,
+                color = TgDayPalette.actionBarTitle
+            )
+            Text(
+                text = strings.motionDescription,
+                style = MaterialTheme.typography.labelMedium,
+                color = TgDayPalette.rowMeta
+            )
+            listOf(
+                MeshMotionMode.FULL to strings.motionFull,
+                MeshMotionMode.CALM to strings.motionCalm,
+                MeshMotionMode.STILL to strings.motionStill
+            ).forEach { (mode, label) ->
+                NotificationChoice(
+                    label = label,
+                    selected = mode == motionMode,
+                    onClick = { onMotionModeChange(mode) }
+                )
+            }
         }
     }
 }
@@ -6103,7 +6746,7 @@ private fun MeshStatusRow(
     isRunning: Boolean,
     peersCount: Int,
     strings: MeshStrings,
-    onToggleMesh: () -> Unit
+    onToggleMesh: (() -> Unit)?
 ) {
     Row(
         modifier = Modifier
@@ -6132,7 +6775,9 @@ private fun MeshStatusRow(
                 color = TgDayPalette.rowMeta
             )
         }
-        Switch(checked = isRunning, onCheckedChange = { onToggleMesh() })
+        if (onToggleMesh != null) {
+            Switch(checked = isRunning, onCheckedChange = { onToggleMesh() })
+        }
     }
 }
 
@@ -6188,6 +6833,10 @@ private fun SettingsHome(
     onSaveRelay: () -> Unit,
     visualThemePreset: MeshVisualPreset,
     onVisualThemeChange: (MeshVisualPreset) -> Unit,
+    glowChoice: MeshGlowChoice = MeshGlowChoice.CYAN,
+    onGlowChoiceChange: (MeshGlowChoice) -> Unit = {},
+    motionMode: MeshMotionMode = MeshMotionMode.FULL,
+    onMotionModeChange: (MeshMotionMode) -> Unit = {},
     relayStatusMessage: String?,
     backupStatusMessage: String?,
     appLockEnabled: Boolean,
@@ -6401,7 +7050,11 @@ private fun SettingsHome(
                 ProfileSettingsSection.APPEARANCE -> {
                     AppearanceCard(
                         visualThemePreset = visualThemePreset,
-                        onVisualThemeChange = onVisualThemeChange
+                        onVisualThemeChange = onVisualThemeChange,
+                        glowChoice = glowChoice,
+                        onGlowChoiceChange = onGlowChoiceChange,
+                        motionMode = motionMode,
+                        onMotionModeChange = onMotionModeChange
                     )
                 }
 
@@ -7232,8 +7885,7 @@ private fun ChatThread(
     onPauseResumeVoiceRecording: () -> Unit,
     onCancelVoiceRecording: () -> Unit,
     onSchedule: (Long) -> Boolean,
-    onSend: () -> Unit,
-    onToggleMesh: () -> Unit
+    onSend: () -> Unit
 ) {
     val strings = rememberMeshStrings()
     val canPost = uiState.activeConversationCanPost
@@ -7256,21 +7908,6 @@ private fun ChatThread(
                 )
             )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(onClick = onToggleMesh) {
-                Text(
-                    text = if (uiState.isRunning) strings.meshOn else strings.meshOff,
-                    color = TgDayPalette.rowMeta,
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-
         if (searchOpen) {
             TextField(
                 value = searchQuery,

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="meshgram_icon_background">#070B18</color>
+    <color name="meshgram_splash_background">#050817</color>
 </resources>

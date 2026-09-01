@@ -27,7 +27,10 @@ AUTH_RESPONSE_TYPE = "MESH_RELAY_AUTH_RESPONSE_V1"
 AUTH_ACCEPTED_TYPE = "MESH_RELAY_AUTH_ACCEPTED_V1"
 AUTH_REJECTED_TYPE = "MESH_RELAY_AUTH_REJECTED_V1"
 AUTH_CHALLENGE_TTL_SECONDS = 30
-QUEUE_TTL_SECONDS = 7 * 24 * 60 * 60
+# Keep opaque frames long enough for an offline recipient to reconnect.
+# The per-recipient queue remains bounded below, so retention cannot grow
+# without limit for a single node.
+QUEUE_TTL_SECONDS = 30 * 24 * 60 * 60
 MAX_NODE_ID_LENGTH = 96
 MAX_PUBLIC_KEY_LENGTH = 2048
 MAX_SIGNATURE_LENGTH = 256

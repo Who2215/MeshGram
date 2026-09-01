@@ -24,3 +24,4 @@ pip install -r requirements.txt
 - The relay only forwards traffic between connected MeshGram clients. A random Bluetooth device cannot become a relay node.
 - For public usage, place it behind HTTPS/WSS reverse proxy and add rate limiting.
 - Before exposing a relay publicly, set a private admission token with `--admission-token` or `MESHGRAM_RELAY_ADMISSION_TOKEN`. The signed client handshake then binds every frame to its node key and exact recipient. The relay intentionally forwards opaque encrypted frames; client, payload, queue, and rate limits remain defense in depth.
+- Offline delivery is bounded to 30 days and 128 queued frames per recipient. The relay stores only opaque encrypted envelopes and does not provide message decryption.

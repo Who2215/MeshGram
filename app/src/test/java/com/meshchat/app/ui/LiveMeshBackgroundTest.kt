@@ -43,6 +43,15 @@ class LiveMeshBackgroundTest {
                 isPowerSaveMode = true
             )
         )
+        assertEquals(
+            MeshRenderQuality.REDUCED,
+            adaptiveMeshRenderQuality(
+                sdkInt = 35,
+                isLowRamDevice = false,
+                isPowerSaveMode = false,
+                shortestWidthDp = 411
+            )
+        )
     }
 
     @Test

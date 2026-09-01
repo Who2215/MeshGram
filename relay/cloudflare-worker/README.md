@@ -19,6 +19,6 @@ when no ready MeshGram BLE route is available.
 
 The Worker includes payload validation, a 1,000-connection cap, a per-connection rate
 limit, a signed P-256 proof-of-possession handshake, exact-recipient routing, and a
-bounded seven-day offline queue. Keep `RELAY_ADMISSION_TOKEN` configured as a secret
+bounded 30-day offline queue. Keep `RELAY_ADMISSION_TOKEN` configured as a secret
 before publishing the endpoint widely. For production, add account-level abuse controls
 and monitor quota usage.

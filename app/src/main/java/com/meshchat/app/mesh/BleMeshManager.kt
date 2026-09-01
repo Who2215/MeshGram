@@ -169,16 +169,18 @@ class BleMeshManager(
     private val relayPrefs = context.getSharedPreferences(PREF_NETWORK, Context.MODE_PRIVATE)
 
     val nodeId: String = loadOrCreateNodeId()
-    private val crypto = SecureCryptoEngine(context, nodeId)
+    private val crypto by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        SecureCryptoEngine(context, nodeId)
+    }
     private val localStore = SecureLocalStore(context)
 
-    private val _nodeAlias = MutableStateFlow(crypto.localAlias())
+    private val _nodeAlias = MutableStateFlow("Node-${nodeId.take(4)}")
     val nodeAlias = _nodeAlias.asStateFlow()
 
-    private val _nodeAvatarData = MutableStateFlow(crypto.localAvatarData())
+    private val _nodeAvatarData = MutableStateFlow("")
     val nodeAvatarData = _nodeAvatarData.asStateFlow()
 
-    private val _nodeFingerprint = MutableStateFlow(crypto.localFingerprint())
+    private val _nodeFingerprint = MutableStateFlow("")
     val nodeFingerprint = _nodeFingerprint.asStateFlow()
 
     private val _isRunning = MutableStateFlow(false)
@@ -193,7 +195,7 @@ class BleMeshManager(
     private val _knownIdentities = MutableStateFlow<List<PeerIdentity>>(emptyList())
     val knownIdentities = _knownIdentities.asStateFlow()
 
-    private val _messages = MutableStateFlow<List<ChatMessage>>(localStore.loadMessages())
+    private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages = _messages.asStateFlow()
     private val _scheduledMessages = MutableStateFlow<List<ScheduledMessageRecord>>(emptyList())
     val scheduledMessages = _scheduledMessages.asStateFlow()
@@ -215,18 +217,32 @@ class BleMeshManager(
     val relayConnected = _relayConnected.asStateFlow()
 
     init {
-        val identities = localStore.loadPeerIdentities()
-        _knownIdentities.value = identities.sortedByDescending { it.lastSeenMs }
-        synchronized(lock) {
-            identities.forEach { identity ->
-                peerIdentityByNodeId[identity.nodeId] = identity
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val engine = crypto
+                _nodeAlias.value = engine.localAlias()
+                _nodeAvatarData.value = engine.localAvatarData()
+                _nodeFingerprint.value = engine.localFingerprint()
+            }.onFailure { error ->
+                Log.e(BLE_TAG, "Secure identity initialization failed", error)
+                updateStatus("Secure identity unavailable")
             }
         }
-        restoreRelayOutboxFromStore()
-        restoreOutgoingTransfersFromStore()
-        restoreIncomingTransfersFromStore()
-        restorePendingPayloadsFromStore()
-        restoreScheduledMessagesFromStore()
+        scope.launch(Dispatchers.IO) {
+            val identities = localStore.loadPeerIdentities()
+            _knownIdentities.value = identities.sortedByDescending { it.lastSeenMs }
+            synchronized(lock) {
+                identities.forEach { identity ->
+                    peerIdentityByNodeId[identity.nodeId] = identity
+                }
+            }
+            _messages.value = localStore.loadMessages().takeLast(MAX_MESSAGES)
+            restoreRelayOutboxFromStore()
+            restoreOutgoingTransfersFromStore()
+            restoreIncomingTransfersFromStore()
+            restorePendingPayloadsFromStore()
+            restoreScheduledMessagesFromStore()
+        }
     }
 
     fun updateAlias(rawAlias: String) {

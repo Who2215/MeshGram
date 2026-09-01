@@ -14,7 +14,8 @@ const MAX_CLIENTS = 1000;
 const RATE_WINDOW_MS = 60_000;
 const MAX_FRAMES_PER_WINDOW = 120;
 const AUTH_CHALLENGE_TTL_MS = 30_000;
-const QUEUE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Keep opaque frames available for offline recipients for up to 30 days.
+const QUEUE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface Env {
   RELAY_ROOM: DurableObjectNamespace<RelayRoom>;

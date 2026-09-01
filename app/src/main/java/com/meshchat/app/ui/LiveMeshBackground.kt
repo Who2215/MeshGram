@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 internal enum class MeshBackgroundStyle {
     STARFIELD,
@@ -68,8 +70,8 @@ internal enum class MeshRenderQuality(
     val pulseCount: Int,
     val starCount: Int
 ) {
-    FULL(blobCount = 3, pulseCount = 8, starCount = 88),
-    REDUCED(blobCount = 2, pulseCount = 4, starCount = 42)
+    FULL(blobCount = 3, pulseCount = 6, starCount = 56),
+    REDUCED(blobCount = 2, pulseCount = 3, starCount = 24)
 }
 
 internal fun adaptiveMeshRenderQuality(
@@ -82,7 +84,7 @@ internal fun adaptiveMeshRenderQuality(
         sdkInt < Build.VERSION_CODES.O ||
             isLowRamDevice ||
             isPowerSaveMode ||
-            shortestWidthDp in 1..359
+            shortestWidthDp in 1..411
     ) {
         MeshRenderQuality.REDUCED
     } else {
@@ -205,26 +207,41 @@ private fun createParticleField(count: Int, seed: Int): List<AmbientParticle> {
 internal fun LiveMeshBackground(
     modifier: Modifier = Modifier,
     palette: MeshAmbientPalette,
-    quality: MeshRenderQuality
+    quality: MeshRenderQuality,
+    motionScale: Float = 1f
 ) {
     // A real frame clock avoids Android animator-scale settings freezing the scene.
     val elapsedNanosState = remember { mutableLongStateOf(0L) }
-    LaunchedEffect(quality) {
+    val animationReady = remember { mutableStateOf(false) }
+    LaunchedEffect(quality, motionScale) {
+        animationReady.value = false
+        if (motionScale <= 0f) {
+            elapsedNanosState.longValue = 0L
+            return@LaunchedEffect
+        }
+        // Let the first lightweight gradient frame reach the window before compiling shaders.
+        delay(180)
+        animationReady.value = true
         var startNanos = 0L
-        var lastReducedFrame = 0L
+        var lastFrame = 0L
+        val frameInterval = if (quality == MeshRenderQuality.FULL) {
+            FULL_FRAME_INTERVAL_NANOS
+        } else {
+            REDUCED_FRAME_INTERVAL_NANOS
+        }
         while (true) {
             withFrameNanos { now ->
                 if (startNanos == 0L) startNanos = now
-                if (quality == MeshRenderQuality.FULL || now - lastReducedFrame >= REDUCED_FRAME_INTERVAL_NANOS) {
+                if (now - lastFrame >= frameInterval) {
                     elapsedNanosState.longValue = now - startNanos
-                    lastReducedFrame = now
+                    lastFrame = now
                 }
             }
         }
     }
 
     val elapsedNanos = elapsedNanosState.longValue % TIME_WRAP_NANOS
-    val elapsedSeconds = elapsedNanos.toFloat() / NANOS_PER_SECOND.toFloat()
+    val elapsedSeconds = elapsedNanos.toFloat() / NANOS_PER_SECOND.toFloat() * motionScale.coerceIn(0f, 1.5f)
     val graph = remember(quality) {
         if (quality == MeshRenderQuality.FULL) FullMeshGraph else ReducedMeshGraph
     }
@@ -234,6 +251,12 @@ internal fun LiveMeshBackground(
 
     Canvas(modifier = modifier) {
         if (size.width <= 0f || size.height <= 0f) return@Canvas
+
+        if (!animationReady.value) {
+            // A solid first frame avoids shader compilation delaying Activity startup.
+            drawRect(color = palette.backgroundStart)
+            return@Canvas
+        }
 
         drawRect(
             brush = Brush.verticalGradient(
@@ -576,7 +599,8 @@ private fun DrawScope.drawParticleField(
             else -> Color.White
         }
         val center = Offset(x * size.width, y * size.height)
-        if (radius > 1.4f) {
+        // Small stars stay as solid dots; radial shaders are reserved for visible glows.
+        if (radius > 2.8f) {
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
@@ -870,4 +894,5 @@ private fun smoothStep(value: Float): Float {
 private const val TWO_PI = 6.2831855f
 private const val NANOS_PER_SECOND = 1_000_000_000L
 private const val TIME_WRAP_NANOS = 86_400_000_000_000L
+private const val FULL_FRAME_INTERVAL_NANOS = 24_000_000L
 private const val REDUCED_FRAME_INTERVAL_NANOS = 33_000_000L

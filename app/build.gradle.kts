@@ -19,8 +19,8 @@ android {
         applicationId = "com.meshchat.app"
         minSdk = 23
         targetSdk = 35
-        versionCode = 108
-        versionName = "1.0.8"
+        versionCode = 109
+        versionName = "1.0.9"
     }
 
     val userKeystorePath = providers.gradleProperty("MESHGRAM_KEYSTORE_PATH").orNull

@@ -6,5 +6,7 @@
         <item name="android:navigationBarColor">@color/meshgram_splash_background</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowSplashScreenBackground">@color/meshgram_splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_meshgram_logo_round</item>
     </style>
 </resources>

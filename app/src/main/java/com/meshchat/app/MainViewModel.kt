@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
@@ -46,12 +47,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val localStore = SecureLocalStore(appContext)
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val _groups = MutableStateFlow(localStore.loadGroups())
-    private val _conversationStates = MutableStateFlow(
-        localStore.loadConversationStates()
-            .filter { it.conversationId.isNotBlank() }
-            .associateBy { it.conversationId }
-    )
+    private val _groups = MutableStateFlow<List<MeshGroup>>(emptyList())
+    private val _conversationStates = MutableStateFlow<Map<String, ConversationLocalState>>(emptyMap())
     private val _selectedConversationId = MutableStateFlow<String?>(null)
     private val _selectedTab = MutableStateFlow(MeshTab.MAP)
     private val _isConversationOpen = MutableStateFlow(false)
@@ -67,6 +64,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val groups: StateFlow<List<MeshGroup>> = _groups.asStateFlow()
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            _groups.value = localStore.loadGroups()
+            _conversationStates.value = localStore.loadConversationStates()
+                .filter { it.conversationId.isNotBlank() }
+                .associateBy { it.conversationId }
+        }
         viewModelScope.launch {
             meshManager.messages.collect { messages ->
                 discoverGroupsFromMessages(messages)
@@ -269,18 +272,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     fun startMesh() {
-        meshManager.start()
-        MeshForegroundService.start(appContext)
+        viewModelScope.launch(Dispatchers.IO) {
+            meshManager.start()
+            MeshForegroundService.start(appContext)
+        }
     }
 
     fun stopMesh() {
-        meshManager.stop()
-        MeshForegroundService.stop(appContext)
+        viewModelScope.launch(Dispatchers.IO) {
+            meshManager.stop()
+            MeshForegroundService.stop(appContext)
+        }
     }
 
-    fun updateAlias(alias: String) = meshManager.updateAlias(alias)
+    fun updateAlias(alias: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            meshManager.updateAlias(alias)
+        }
+    }
 
-    fun updateAvatarData(avatarData: String) = meshManager.updateAvatarData(avatarData)
+    fun updateAvatarData(avatarData: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            meshManager.updateAvatarData(avatarData)
+        }
+    }
 
     fun updateRelaySettings(enabled: Boolean, relayUrl: String) {
         meshManager.updateRelaySettings(enabled = enabled, relayUrl = relayUrl)
