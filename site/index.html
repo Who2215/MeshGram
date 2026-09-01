@@ -24,6 +24,7 @@
     <nav class="nav" aria-label="Основная навигация">
       <a href="#how">Как работает</a>
       <a href="#security">Приватность</a>
+      <a href="#release">Релизы</a>
       <a href="#download">Скачать</a>
     </nav>
     <a class="nav-cta" href="#download">Попробовать</a>
@@ -41,6 +42,11 @@
         </div>
         <div class="trust-row">
           <span>Android 6+</span><i></i><span>E2E-шифрование</span><i></i><span>BLE first</span>
+        </div>
+        <div class="release-badge" id="release-badge">
+          <span class="release-badge-dot"></span>
+          <span>Последний релиз</span>
+          <strong id="release-badge-version">MeshGram 1.0.8</strong>
         </div>
       </div>
 
@@ -96,16 +102,44 @@
       <div class="download-panel">
         <div>
           <p class="eyebrow">Текущий релиз</p>
-          <h2>MeshGram <em>1.0.7</em></h2>
-          <p class="download-copy">Гибридная маршрутизация BLE-first, fallback relay, живой фон и адаптивный интерфейс для Android 6 и новее.</p>
-          <div class="download-meta"><span>APK</span><span>22 MB</span><span title="6fe0e434a4c0dfe38d1acb4fa363c060c4f6e4f828db4e7d7785cbdc18cf107f">SHA-256: 6fe0e434...107f</span></div>
+          <h2>MeshGram <em id="release-version">1.0.8</em></h2>
+          <p class="download-copy" id="release-description">Гибридная маршрутизация BLE-first, fallback relay, живой фон и адаптивный интерфейс для Android 6 и новее.</p>
+          <div class="download-meta"><span>APK</span><span id="release-size">21.2 MB</span><span id="release-sha" title="0f65494f0cdb693027cffb9dbbdd031eb529de57d2ed281004568993fd625984">SHA-256: 0f65494f...5984</span></div>
         </div>
-        <a class="button button-primary button-download" href="downloads/MeshGram-v107-hybrid.apk" download>Скачать APK <span>↓</span></a>
+        <a class="button button-primary button-download" id="download-link" href="downloads/MeshGram-v108-hybrid.apk" download>Скачать APK <span>↓</span></a>
+      </div>
+      <div class="release-proof">
+        <span><b class="release-proof-mark"></b><span id="release-proof-text">Манифест обновления проверен</span></span>
+        <span id="release-published">GitHub Pages / main</span>
       </div>
       <div class="project-links">
         <span>Обновления и обратная связь</span>
         <a class="channel-link is-pending" href="#channel" aria-disabled="true">Официальный Telegram-канал <span>скоро</span></a>
         <span class="pending-note" id="channel">Ссылка появится после создания канала владельцем проекта.</span>
+      </div>
+    </section>
+
+    <section id="release" class="release-section shell reveal">
+      <div class="section-heading compact-heading">
+        <p class="eyebrow">Пульс проекта</p>
+        <h2>Каждый релиз виден<br><em>до последней строки.</em></h2>
+      </div>
+      <div class="release-grid">
+        <article class="release-card release-card-main">
+          <div class="release-card-top"><span class="release-kicker">Что нового</span><span class="release-live"><i></i> live</span></div>
+          <h3 id="release-notes-title">MeshGram 1.0.8</h3>
+          <ul class="release-notes" id="release-notes-list">
+            <li>Подписанный GitHub-манифест обновлений</li>
+            <li>Проверка обновлений прямо в настройках</li>
+            <li>Полированная адаптивная страница релиза</li>
+          </ul>
+        </article>
+        <article class="release-card release-card-side">
+          <span class="release-kicker">Проверяемый файл</span>
+          <div class="hash-visual"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <p>APK публикуется вместе с SHA-256 и манифестом. Приложение принимает только проверенную версию.</p>
+          <code id="release-hash">0f65494f...5984</code>
+        </article>
       </div>
     </section>
   </main>

@@ -22,6 +22,7 @@ import android.provider.OpenableColumns
 import android.util.Base64
 import android.widget.MediaController
 import android.widget.VideoView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -786,6 +787,8 @@ private data class MeshStrings(
     val updatesDescription: String,
     val linkNotConfigured: String,
     val openLink: String,
+    val checkUpdates: String,
+    val updateCheckStarted: String,
     val themeTitles: Map<MeshVisualPreset, Pair<String, String>>
 )
 
@@ -1030,6 +1033,8 @@ private fun enMeshStrings() = MeshStrings(
     updatesDescription = "Updates are checked only from the configured HTTPS manifest and always require Android confirmation.",
     linkNotConfigured = "The official link is not configured yet.",
     openLink = "Open link",
+    checkUpdates = "Check for updates",
+    updateCheckStarted = "Checking for updates",
     themeTitles = mapOf(
         MeshVisualPreset.STARFIELD to ("Starfield" to "Slow stars, parallax and quiet light"),
         MeshVisualPreset.NEBULA to ("Nebula" to "Deep space glow with a calm mesh"),
@@ -1264,6 +1269,8 @@ private fun ruMeshStrings() = MeshStrings(
     updatesDescription = "Проверка идёт только по настроенному HTTPS-манифесту и всегда требует подтверждения Android.",
     linkNotConfigured = "Официальная ссылка пока не настроена.",
     openLink = "Открыть ссылку",
+    checkUpdates = "Проверить обновления",
+    updateCheckStarted = "Проверяем обновления",
     themeTitles = mapOf(
         MeshVisualPreset.STARFIELD to ("Звёздное небо" to "Тихие звёзды, параллакс и мягкий свет"),
         MeshVisualPreset.NEBULA to ("Туманность" to "Глубокое космическое свечение и спокойная Mesh-сеть"),
@@ -5924,10 +5931,13 @@ private fun UpdateInfoCard(strings: MeshStrings) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             FilledTonalButton(
-                onClick = { openMeshExternalLink(context, updateUrl) },
+                onClick = {
+                    MeshUpdateScheduler.checkNow(context)
+                    Toast.makeText(context, strings.updateCheckStarted, Toast.LENGTH_SHORT).show()
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(strings.openLink)
+                Text(strings.checkUpdates)
             }
         }
     }

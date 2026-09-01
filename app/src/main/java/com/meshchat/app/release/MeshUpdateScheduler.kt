@@ -55,6 +55,18 @@ object MeshUpdateScheduler {
         scheduler.schedule(jobBuilder.build())
     }
 
+    fun checkNow(context: Context) {
+        if (!isConfigured()) return
+        val appContext = context.applicationContext
+        thread(name = "meshgram-update-check-now", start = true) {
+            runCatching { MeshUpdateManager(appContext).checkAndDownload() }
+                .getOrNull()
+                ?.let { update ->
+                    MeshUpdateNotifier(appContext).notifyReady(update)
+                }
+        }
+    }
+
     private fun isConfigured(): Boolean {
         return BuildConfig.MESHGRAM_UPDATE_MANIFEST_URL.isNotBlank() &&
             BuildConfig.MESHGRAM_RELEASE_PUBLIC_KEY_BASE64.isNotBlank()

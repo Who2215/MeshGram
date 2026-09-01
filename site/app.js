@@ -49,4 +49,74 @@
   resize();
   window.addEventListener('resize', resize, { passive: true });
   requestAnimationFrame(draw);
+
+  const release = {
+    badgeVersion: document.getElementById('release-badge-version'),
+    version: document.getElementById('release-version'),
+    description: document.getElementById('release-description'),
+    size: document.getElementById('release-size'),
+    sha: document.getElementById('release-sha'),
+    hash: document.getElementById('release-hash'),
+    link: document.getElementById('download-link'),
+    notesTitle: document.getElementById('release-notes-title'),
+    notesList: document.getElementById('release-notes-list'),
+    published: document.getElementById('release-published'),
+    proof: document.getElementById('release-proof-text')
+  };
+
+  function formatBytes(value) {
+    if (!Number.isFinite(value) || value <= 0) return 'APK';
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function shortHash(value) {
+    return value && value.length > 16 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
+  }
+
+  function isSafeDownloadUrl(value) {
+    if (typeof value !== 'string' || value.trim() === '') return false;
+    const url = value.trim();
+    return !url.startsWith('//') && (url.startsWith('/') || url.startsWith('./') || url.startsWith('https://'));
+  }
+
+  async function loadRelease() {
+    const response = await fetch(`release.json?ts=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' }
+    });
+    if (!response.ok) throw new Error(`release manifest returned ${response.status}`);
+    const data = await response.json();
+    if (!Number.isInteger(data.versionCode) || typeof data.versionName !== 'string') {
+      throw new Error('release manifest is incomplete');
+    }
+
+    const name = `MeshGram ${data.versionName}`;
+    const hash = typeof data.apkSha256 === 'string' ? data.apkSha256.toLowerCase() : '';
+    const notes = Array.isArray(data.changelog) ? data.changelog.filter(Boolean).slice(0, 6) : [];
+
+    if (release.badgeVersion) release.badgeVersion.textContent = name;
+    if (release.version) release.version.textContent = data.versionName;
+    if (release.notesTitle) release.notesTitle.textContent = name;
+    if (release.description && notes[0]) release.description.textContent = notes[0];
+    if (release.size) release.size.textContent = formatBytes(Number(data.sizeBytes));
+    if (release.sha && hash) {
+      release.sha.textContent = `SHA-256: ${shortHash(hash)}`;
+      release.sha.title = hash;
+    }
+    if (release.hash && hash) release.hash.textContent = shortHash(hash);
+    if (release.link && isSafeDownloadUrl(data.file)) release.link.href = data.file;
+    if (release.published) release.published.textContent = `GitHub Pages / main / v${data.versionCode}`;
+    if (release.proof) release.proof.textContent = 'Манифест обновления проверен';
+    if (release.notesList && notes.length) {
+      release.notesList.replaceChildren(...notes.map((note) => {
+        const item = document.createElement('li');
+        item.textContent = note;
+        return item;
+      }));
+    }
+  }
+
+  loadRelease().catch(() => {
+    if (release.proof) release.proof.textContent = 'Манифест временно недоступен';
+  });
 })();

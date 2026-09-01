@@ -51,6 +51,31 @@ and APK signing certificate, then opens Android's normal user-confirmed
 installer. Android does not allow a regular sideloaded app to silently install
 its own update; Google Play is the correct route for managed automatic updates.
 
+### Automated GitHub release flow
+
+The public site reads `site/release.json`, so every push to `main` updates the
+landing page after the Pages workflow completes. Generate the manifest from the
+new APK instead of editing its hash or signature by hand:
+
+```powershell
+python tools/sign_release_manifest.py `
+  --apk H:\mesh-workspace\share\MeshGram-v108-hybrid.apk `
+  --private-key H:\mesh-workspace\release-signing\manifest-signing-key.pem `
+  --output site\release.json `
+  --version-code 108 `
+  --version-name 1.0.8 `
+  --apk-url https://github.com/Who2215/MeshGram/raw/refs/heads/main/site/downloads/MeshGram-v108-hybrid.apk `
+  --signing-certificate-sha256 <APK-certificate-sha256> `
+  --changelog "Describe the first change" `
+  --changelog "Describe the second change"
+```
+
+Commit the APK, `site/release.json`, `site/downloads/SHA256SUMS.txt`, and the
+site files to `main`. The Android updater checks the manifest in the
+background and also exposes a manual check in Settings. Installation remains
+user-approved by Android; a regular sideloaded app cannot silently replace
+itself.
+
 ## Release signing
 
 Use the properties from `release-signing.properties.example` from a protected

@@ -1,17 +1,25 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 107,
-  "versionName": "1.0.7",
-  "file": "downloads/MeshGram-v107-hybrid.apk",
-  "sha256": "6fe0e434a4c0dfe38d1acb4fa363c060c4f6e4f828db4e7d7785cbdc18cf107f",
-  "sizeBytes": 22278324,
-  "minAndroid": 23,
+  "versionCode": 108,
+  "versionName": "1.0.8",
+  "changelog": [
+    "BLE-first routing with signed GitHub update manifest",
+    "Manual update check in Settings plus verified Android installer handoff",
+    "Polished responsive landing page with live release notes",
+    "Donation and release links remain owner-configurable"
+  ],
+  "apkUrl": "https://github.com/Who2215/MeshGram/raw/refs/heads/main/site/downloads/MeshGram-v108-hybrid.apk",
+  "apkSha256": "0f65494f0cdb693027cffb9dbbdd031eb529de57d2ed281004568993fd625984",
+  "signingCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
+  "manifestSignature": "MEUCIFr1a6/SA/uvD18aSmV6GdskOZGC/0mN0KuDO0UxASeFAiEA/AwpLGj+Gyhce853YIzf43ydioKAv7BgHnS/GiJd78g=",
+  "file": "downloads/MeshGram-v108-hybrid.apk",
+  "sizeBytes": 22279171,
   "releaseType": "debug-test-build",
   "notes": [
-    "BLE-first routing with internet relay fallback",
-    "Signed relay handshake with exact-recipient routing and bounded offline queue",
-    "Live background and responsive UI",
-    "Donation link restored in Profile > Support project"
+    "BLE-first routing with signed GitHub update manifest",
+    "Manual update check in Settings plus verified Android installer handoff",
+    "Polished responsive landing page with live release notes",
+    "Donation and release links remain owner-configurable"
   ]
 }
