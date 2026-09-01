@@ -30,7 +30,7 @@ Example manifest shape:
   "packageName": "com.meshchat.app",
   "versionCode": 97,
   "versionName": "0.97.0",
-  "changelog": "Improved file and voice delivery",
+  "changelog": ["Improved file and voice delivery"],
   "apkUrl": "https://github.com/OWNER/REPO/releases/download/v0.97.0/MeshGram.apk",
   "apkSha256": "64-lowercase-hex-digest",
   "signingCertificateSha256": "64-lowercase-hex-digest",
@@ -67,4 +67,3 @@ The project can link to a public news channel, but channel creation and posting
 must be performed by the account owner in Telegram. Do not place a Telegram
 session token or password in source code. Add the final public channel URL to
 the app only after the channel exists and its moderation policy is ready.
-

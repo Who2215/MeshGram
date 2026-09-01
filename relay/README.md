@@ -9,7 +9,7 @@ cd relay
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python relay_server.py --host 0.0.0.0 --port 8787 --path /ws
+  python relay_server.py --host 0.0.0.0 --port 8787 --path /ws --admission-token "<private-enrollment-token>"
 ```
 
 ## App URL example
@@ -23,4 +23,4 @@ python relay_server.py --host 0.0.0.0 --port 8787 --path /ws
 - MeshGram chooses BLE first and uses this relay only when no local MeshGram BLE route is available.
 - The relay only forwards traffic between connected MeshGram clients. A random Bluetooth device cannot become a relay node.
 - For public usage, place it behind HTTPS/WSS reverse proxy and add rate limiting.
-- Before exposing a relay publicly, add admission authentication at the edge or in the WebSocket handshake. The relay intentionally forwards opaque encrypted frames, but an unauthenticated endpoint can still be abused for connection exhaustion and traffic injection. Built-in client, payload, and rate limits are defense in depth, not account authentication.
+- Before exposing a relay publicly, set a private admission token with `--admission-token` or `MESHGRAM_RELAY_ADMISSION_TOKEN`. The signed client handshake then binds every frame to its node key and exact recipient. The relay intentionally forwards opaque encrypted frames; client, payload, queue, and rate limits remain defense in depth.
