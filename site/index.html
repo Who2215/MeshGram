@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080b19">
-  <meta name="description" content="MeshGram — защищённый мессенджер с BLE mesh и интернет-fallback.">
-  <meta property="og:title" content="MeshGram — связь без границ">
-  <meta property="og:description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
-  <title>MeshGram | Связь без границ</title>
+  <meta name="description" id="meta-description" content="MeshGram — защищённый мессенджер с BLE mesh и интернет-fallback.">
+  <meta property="og:title" id="meta-og-title" content="MeshGram — связь без границ">
+  <meta property="og:description" id="meta-og-description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
+  <title id="page-title">MeshGram | Связь без границ</title>
   <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,31 +21,53 @@
       <img src="assets/meshgram-mark.svg" alt="" width="42" height="42">
       <span>Mesh<span>Gram</span></span>
     </a>
-    <nav class="nav" aria-label="Основная навигация">
-      <a href="#how">Как работает</a>
-      <a href="#security">Приватность</a>
-      <a href="#release">Релизы</a>
-      <a href="#download">Скачать</a>
+    <nav class="nav" aria-label="Основная навигация" data-i18n-aria-label="nav_aria">
+      <a href="#how" data-i18n="nav_how">Как работает</a>
+      <a href="#security" data-i18n="nav_security">Приватность</a>
+      <a href="#release" data-i18n="nav_releases">Релизы</a>
+      <a href="#download" data-i18n="nav_download">Скачать</a>
     </nav>
-    <a class="nav-cta" href="#download">Попробовать</a>
+    <div class="header-actions">
+      <label class="language-control">
+        <span class="sr-only" data-i18n="language_label">Язык</span>
+        <select id="language-select" aria-label="Язык">
+          <option value="auto">Auto</option>
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="de">Deutsch</option>
+          <option value="fr">Français</option>
+          <option value="pt">Português</option>
+          <option value="it">Italiano</option>
+          <option value="tr">Türkçe</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+          <option value="ar">العربية</option>
+          <option value="hi">हिन्दी</option>
+        </select>
+      </label>
+      <a class="nav-cta" href="#download" data-i18n="nav_try">Попробовать</a>
+    </div>
   </header>
 
   <main id="top">
     <section class="hero shell">
       <div class="hero-copy reveal">
-        <p class="eyebrow"><span class="pulse-dot"></span> Mesh-связь нового поколения</p>
-        <h1>Сообщения находят<br><em>свой путь.</em></h1>
-        <p class="hero-lead">MeshGram соединяет людей через ближайшие устройства по BLE, а для дальних маршрутов использует зашифрованный интернет-резерв.</p>
+        <p class="eyebrow"><span class="pulse-dot"></span> <span data-i18n="hero_eyebrow">Mesh-связь нового поколения</span></p>
+        <h1><span data-i18n="hero_title">Сообщения находят</span><br><em data-i18n="hero_title_em">свой путь.</em></h1>
+        <p class="hero-slogan" data-i18n="hero_slogan">Связь не обязана быть рядом.</p>
+        <p class="hero-lead" data-i18n="hero_lead">MeshGram соединяет людей через ближайшие устройства по BLE, а для дальних маршрутов использует зашифрованный интернет-резерв.</p>
         <div class="hero-actions">
-          <a class="button button-primary" href="#download">Скачать MeshGram <span>↗</span></a>
-          <a class="button button-quiet" href="#how">Разобраться за минуту <span>↓</span></a>
+          <a class="button button-primary" href="#download"><span data-i18n="hero_download">Скачать MeshGram</span> <span>↗</span></a>
+          <a class="button button-quiet" href="#how"><span data-i18n="hero_explore">Разобраться за минуту</span> <span>↓</span></a>
         </div>
         <div class="trust-row">
-          <span>Android 6+</span><i></i><span>E2E-шифрование</span><i></i><span>BLE first</span>
+          <span data-i18n="trust_android">Android 6+</span><i></i><span data-i18n="trust_encryption">E2E-шифрование</span><i></i><span>BLE first</span>
         </div>
         <div class="release-badge" id="release-badge">
           <span class="release-badge-dot"></span>
-          <span>Последний релиз</span>
+          <span data-i18n="latest_release">Последний релиз</span>
           <strong id="release-badge-version">MeshGram 1.0.8</strong>
         </div>
       </div>
@@ -63,30 +85,30 @@
     </section>
 
     <section class="signal-strip shell reveal">
-      <div><strong>01</strong><span>Сначала ищем<br>ближайший BLE-путь</span></div>
-      <div><strong>02</strong><span>Если его нет,<br>подключаем relay</span></div>
-      <div><strong>03</strong><span>Содержимое остаётся<br>зашифрованным</span></div>
+      <div><strong>01</strong><span data-i18n="signal_1">Сначала ищем<br>ближайший BLE-путь</span></div>
+      <div><strong>02</strong><span data-i18n="signal_2">Если его нет,<br>подключаем relay</span></div>
+      <div><strong>03</strong><span data-i18n="signal_3">Содержимое остаётся<br>зашифрованным</span></div>
     </section>
 
     <section id="how" class="section shell">
-      <div class="section-heading reveal"><p class="eyebrow">Маршрут под контролем</p><h2>Не выбирай между<br><em>близко</em> и далеко.</h2></div>
+      <div class="section-heading reveal"><p class="eyebrow" data-i18n="how_eyebrow">Маршрут под контролем</p><h2><span data-i18n="how_title">Не выбирай между</span><br><em data-i18n="how_title_em">близко</em> <span data-i18n="how_title_tail">и далеко.</span></h2></div>
       <div class="feature-grid">
         <article class="feature-card feature-large reveal">
           <span class="feature-number">01</span><div class="feature-icon icon-burst"></div>
-          <h3>BLE-приоритет</h3>
-          <p>Когда рядом есть устройства MeshGram, сообщения идут по локальной mesh-сети. Приложение не отключает интернет в телефоне и не вмешивается в другие приложения.</p>
+          <h3 data-i18n="feature_ble_title">BLE-приоритет</h3>
+          <p data-i18n="feature_ble_body">Когда рядом есть устройства MeshGram, сообщения идут по локальной mesh-сети. Приложение не отключает интернет в телефоне и не вмешивается в другие приложения.</p>
           <div class="mini-route"><span class="route-point active"></span><span class="route-line"></span><span class="route-point"></span><span class="route-line dim"></span><span class="route-point dim"></span></div>
         </article>
         <article class="feature-card reveal reveal-delay-short">
           <span class="feature-number">02</span><div class="feature-icon icon-lock"></div>
-          <h3>Читают только участники</h3>
-          <p>Кадры проходят через узлы как зашифрованные конверты. Relay видит только технический пакет, не текст и не файлы.</p>
+          <h3 data-i18n="feature_crypto_title">Читают только участники</h3>
+          <p data-i18n="feature_crypto_body">Кадры проходят через узлы как зашифрованные конверты. Relay видит только технический пакет, не текст и не файлы.</p>
           <div class="cipher-lines"><span></span><span></span><span></span></div>
         </article>
         <article id="security" class="feature-card reveal reveal-delay">
           <span class="feature-number">03</span><div class="feature-icon icon-shield"></div>
-          <h3>Локальное хранение</h3>
-          <p>История и очередь доставки остаются в защищённом хранилище устройства. Для миграции предусмотрен зашифрованный экспорт.</p>
+          <h3 data-i18n="feature_storage_title">Локальное хранение</h3>
+          <p data-i18n="feature_storage_body">История и очередь доставки остаются в защищённом хранилище устройства. Для миграции предусмотрен зашифрованный экспорт.</p>
           <div class="security-meter"><span></span><span></span><span></span><span></span><span></span></div>
         </article>
       </div>
@@ -94,39 +116,47 @@
 
     <section class="quote-section shell reveal">
       <div class="quote-mark">“</div>
-      <blockquote>Мы не строим ещё один сервер,<br>мы строим <em>маршрут.</em></blockquote>
+      <blockquote><span data-i18n="quote_first">Мы не строим ещё один сервер,</span><br><span data-i18n="quote_second">мы строим </span><em data-i18n="quote_em">маршрут.</em></blockquote>
       <p>MeshGram project note / 2026</p>
     </section>
 
     <section id="download" class="download-section shell reveal">
       <div class="download-panel">
         <div>
-          <p class="eyebrow">Текущий релиз</p>
+          <p class="eyebrow" data-i18n="current_release">Текущий релиз</p>
           <h2>MeshGram <em id="release-version">1.0.8</em></h2>
-          <p class="download-copy" id="release-description">Гибридная маршрутизация BLE-first, fallback relay, живой фон и адаптивный интерфейс для Android 6 и новее.</p>
+          <p class="download-copy" id="release-description" data-i18n="download_description">Гибридная маршрутизация BLE-first, fallback relay, живой фон и адаптивный интерфейс для Android 6 и новее.</p>
           <div class="download-meta"><span>APK</span><span id="release-size">21.2 MB</span><span id="release-sha" title="0f65494f0cdb693027cffb9dbbdd031eb529de57d2ed281004568993fd625984">SHA-256: 0f65494f...5984</span></div>
         </div>
-        <a class="button button-primary button-download" id="download-link" href="downloads/MeshGram-v108-hybrid.apk" download>Скачать APK <span>↓</span></a>
+        <a class="button button-primary button-download" id="download-link" href="downloads/MeshGram-v108-hybrid.apk" download><span data-i18n="download_apk">Скачать APK</span> <span>↓</span></a>
       </div>
       <div class="release-proof">
         <span><b class="release-proof-mark"></b><span id="release-proof-text">Манифест обновления проверен</span></span>
         <span id="release-published">GitHub Pages / main</span>
       </div>
       <div class="project-links">
-        <span>Обновления и обратная связь</span>
-        <a class="channel-link is-pending" href="#channel" aria-disabled="true">Официальный Telegram-канал <span>скоро</span></a>
-        <span class="pending-note" id="channel">Ссылка появится после создания канала владельцем проекта.</span>
+        <span data-i18n="updates_feedback">Обновления и обратная связь</span>
+        <a class="channel-link is-pending" href="#channel" aria-disabled="true"><span data-i18n="telegram_channel">Официальный Telegram-канал</span> <span data-i18n="soon">скоро</span></a>
+        <span class="pending-note" id="channel" data-i18n="channel_pending">Ссылка появится после создания канала владельцем проекта.</span>
+      </div>
+      <div class="creator-support">
+        <div class="creator-support-copy">
+          <span class="release-kicker" data-i18n="creator_kicker">Создателю MeshGram</span>
+          <h3 data-i18n="creator_title">Поддержать развитие проекта</h3>
+          <p data-i18n="creator_body">Поддержка помогает тестировать устройства, выпускать обновления и развивать связь без границ.</p>
+        </div>
+        <a class="button button-quiet support-button" href="https://yookassa.ru/my/i/apXuo0ctyNYY/l" target="_blank" rel="noopener noreferrer"><span data-i18n="creator_button">Поддержать разработчика</span> <span>↗</span></a>
       </div>
     </section>
 
     <section id="release" class="release-section shell reveal">
       <div class="section-heading compact-heading">
-        <p class="eyebrow">Пульс проекта</p>
-        <h2>Каждый релиз виден<br><em>до последней строки.</em></h2>
+        <p class="eyebrow" data-i18n="release_eyebrow">Пульс проекта</p>
+        <h2><span data-i18n="release_title">Каждый релиз виден</span><br><em data-i18n="release_title_em">до последней строки.</em></h2>
       </div>
       <div class="release-grid">
         <article class="release-card release-card-main">
-          <div class="release-card-top"><span class="release-kicker">Что нового</span><span class="release-live"><i></i> live</span></div>
+          <div class="release-card-top"><span class="release-kicker" data-i18n="whats_new">Что нового</span><span class="release-live"><i></i> live</span></div>
           <h3 id="release-notes-title">MeshGram 1.0.8</h3>
           <ul class="release-notes" id="release-notes-list">
             <li>Подписанный GitHub-манифест обновлений</li>
@@ -135,16 +165,16 @@
           </ul>
         </article>
         <article class="release-card release-card-side">
-          <span class="release-kicker">Проверяемый файл</span>
+          <span class="release-kicker" data-i18n="verifiable_file">Проверяемый файл</span>
           <div class="hash-visual"><span></span><span></span><span></span><span></span><span></span><span></span></div>
-          <p>APK публикуется вместе с SHA-256 и манифестом. Приложение принимает только проверенную версию.</p>
+          <p data-i18n="verifiable_body">APK публикуется вместе с SHA-256 и манифестом. Приложение принимает только проверенную версию.</p>
           <code id="release-hash">0f65494f...5984</code>
         </article>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer shell"><span>© 2026 MeshGram</span><span>Связь через пространство между узлами</span><a href="#top">Наверх ↑</a></footer>
+  <footer class="site-footer shell"><span>© 2026 MeshGram</span><span data-i18n="footer_tagline">Связь через пространство между узлами</span><a href="#top" data-i18n="back_top">Наверх ↑</a></footer>
   <script src="app.js" defer></script>
 </body>
 </html>

@@ -12,6 +12,16 @@ The landing page fetches `release.json` on every visit and fills in the current
 version, download path, file size, hash, and changelog. Updating that manifest
 and pushing to `main` updates the site through the Pages workflow.
 
+## Localization and support
+
+The page detects the browser language on first visit and lets visitors choose a
+language from the header. The choice is stored locally so it survives revisits.
+Russian, English, Spanish, German, French, Portuguese, Italian, Turkish,
+Chinese, Japanese, Korean, Arabic, and Hindi are available; unsupported browser
+locales use English as a readable fallback. The creator support button points
+to the project's public YooKassa payment page and does not collect credentials
+on the site.
+
 ## Release safety
 
 The Android update checker accepts only HTTPS manifests with a valid ECDSA signature,
