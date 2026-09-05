@@ -22,7 +22,7 @@ PINK = (244, 91, 216)
 LIME = (180, 255, 215)
 TEXT = (248, 249, 255)
 MUTED = (168, 178, 202)
-MESSAGE = "Роман, я уже в пути :)"
+MESSAGE = "Wi-Fi: 0. MeshGram: 1. :)"
 FONT_FALLBACK = r"H:\mesh-workspace\github-meshgram\site\assets\Manrope.ttf"
 
 
@@ -344,7 +344,7 @@ def draw_caption(image: Image.Image, t: float, regular: ImageFont.FreeTypeFont,
     elif t < 14.7:
         value = "Роман получил то же сообщение"
     else:
-        value = "Реакция: обернулся и засмеялся"
+        value = "Мем доставлен Роману"
     alpha = smooth(clamp((t % 0.7) / 0.25)) if t < 0.7 else 1.0
     panel(draw, (420, 640, 860, 684), rgba((6, 12, 28), 0.80 * alpha),
           rgba(PINK if t >= 14.7 else CYAN, 0.72 * alpha), 15, 1)
