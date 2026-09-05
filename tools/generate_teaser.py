@@ -22,7 +22,8 @@ PINK = (244, 91, 216)
 LIME = (180, 255, 215)
 TEXT = (248, 249, 255)
 MUTED = (168, 178, 202)
-MESSAGE = "Wi-Fi: 0. MeshGram: 1. :)"
+MESSAGE = "Wi-Fi ушёл за хлебом. MeshGram донёс :)"
+MESSAGE_LINES = ("Wi-Fi ушёл за хлебом.", "MeshGram донёс :)")
 FONT_FALLBACK = r"H:\mesh-workspace\github-meshgram\site\assets\Manrope.ttf"
 
 
@@ -180,6 +181,7 @@ def make_phone_screen(font_path: str, width: int, height: int, t: float,
     regular = fnt(font_path, max(14, int(width * 0.056)))
     tiny = fnt(font_path, max(10, int(width * 0.040)))
     micro = fnt(font_path, max(9, int(width * 0.032)))
+    message_face = fnt(font_path, max(11, int(width * 0.042)))
     accent = CYAN if sender else PINK
     person = "Алекс" if sender else "Роман"
     handle = "@alex" if sender else "@roman"
@@ -214,8 +216,9 @@ def make_phone_screen(font_path: str, width: int, height: int, t: float,
         else:
             bubble = (int(width * 0.19), content_y, int(width * 0.94), content_y + int(height * 0.105))
             screen_panel(draw, bubble, rgba((33, 89, 119), 0.94), rgba(CYAN, 0.82))
-            draw_text(draw, (bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.022)),
-                      MESSAGE, micro, rgba(TEXT, 0.98))
+            draw.multiline_text((bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.016)),
+                                "\n".join(MESSAGE_LINES), font=message_face,
+                                fill=rgba(TEXT, 0.98), spacing=max(2, int(height * 0.008)))
             draw_text(draw, (bubble[2] - int(width * 0.16), bubble[3] - int(height * 0.033)),
                       "✓✓" if t >= 12.3 else "✓", micro, rgba(CYAN, 0.96))
     else:
@@ -224,8 +227,13 @@ def make_phone_screen(font_path: str, width: int, height: int, t: float,
             visible = MESSAGE[:int(len(MESSAGE) * progress)]
             bubble = (int(width * 0.06), content_y, int(width * 0.84), content_y + int(height * 0.14))
             screen_panel(draw, bubble, rgba((57, 39, 81), 0.96), rgba(PINK, 0.90))
-            draw_text(draw, (bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.022)),
-                      visible, micro, rgba(TEXT, 0.98))
+            if progress >= 0.98:
+                draw.multiline_text((bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.016)),
+                                    "\n".join(MESSAGE_LINES), font=message_face,
+                                    fill=rgba(TEXT, 0.98), spacing=max(2, int(height * 0.008)))
+            else:
+                draw_text(draw, (bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.022)),
+                          visible, micro, rgba(TEXT, 0.98))
             draw_text(draw, (bubble[0] + int(width * 0.04), bubble[3] - int(height * 0.037)),
                       "доставлено  •  сейчас", micro, rgba(LIME, 0.90))
 
