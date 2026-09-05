@@ -117,6 +117,33 @@ The same publisher can update the channel avatar without exposing the token:
 python tools\telegram_release_publisher.py avatar
 ```
 
+### GitHub Actions automation
+
+GitHub Actions can run the release publisher and bot command worker for free
+on the public repository. Add the bot token once at **Settings -> Secrets and
+variables -> Actions -> New repository secret**:
+
+- Name: `TELEGRAM_BOT_TOKEN`
+- Value: the contents of the local token file
+
+The token is read only as the `TELEGRAM_BOT_TOKEN` Actions secret. It is not
+written to the repository. The `telegram-release` workflow runs when a GitHub
+Release is published and posts the manifest changelog to `@MeshGram`. The
+`telegram-bot` workflow runs every five minutes and handles `/latest`,
+`/download`, `/status`, `/support`, `/report`, and `/help` in private chats.
+The workflows can also be started manually from the Actions tab.
+
+The first Actions run for the current release is intentionally a no-op because
+`.github/telegram-release-state.json` starts at the already announced version.
+Future releases are announced when their `versionCode` is greater than that
+state. The bot update cursor is stored in `.github/telegram-bot-offset.json` so
+scheduled runs do not answer the same update twice.
+
+GitHub scheduled workflows are not real-time services: a command may wait for
+the next scheduled run and GitHub may delay scheduled jobs during load. The
+worker can still be run locally for near-real-time development testing while
+the PC is on.
+
 Keep the bot restricted to posting, editing/deleting its own posts, pinning,
 and changing channel information. Do not grant it the ability to add
 administrators. A separate scheduler should run the publisher on the host that

@@ -1,0 +1,45 @@
+name: Publish MeshGram release to Telegram
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: meshgram-telegram-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish release announcement
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Publish only when the manifest is newer
+        run: >-
+          python tools/telegram_release_publisher.py publish
+          --chat-id @MeshGram
+          --manifest-url https://raw.githubusercontent.com/Who2215/MeshGram/main/site/release.json
+          --state-file .github/telegram-release-state.json
+          --lock-file "$RUNNER_TEMP/meshgram-release.lock"
+      - name: Commit publisher state
+        run: |
+          if git diff --quiet -- .github/telegram-release-state.json; then
+            echo "Publisher state did not change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/telegram-release-state.json
+          git commit -m "chore: record Telegram release notification state"
+          git push

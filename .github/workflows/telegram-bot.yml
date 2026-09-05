@@ -1,0 +1,45 @@
+name: MeshGram Telegram bot
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: meshgram-telegram-bot
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    name: Poll and answer bot commands
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Poll Telegram updates
+        run: >-
+          python tools/telegram_bot_worker.py
+          --register-commands
+          --once
+          --offset-file .github/telegram-bot-offset.json
+          --manifest-url https://who2215.github.io/MeshGram/release.json
+      - name: Commit update offset
+        run: |
+          if git diff --quiet -- .github/telegram-bot-offset.json; then
+            echo "No new Telegram updates"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/telegram-bot-offset.json
+          git commit -m "chore: advance Telegram bot update offset"
+          git push

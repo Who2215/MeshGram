@@ -177,7 +177,6 @@ def format_release_post(manifest: dict[str, Any], site_url: str, donation_url: s
 
 
 def publish_once(args: argparse.Namespace) -> int:
-    token = load_token(args.token_file)
     manifest = fetch_manifest(args.manifest_url)
     state = load_state(args.state_file)
     version_code = manifest["versionCode"]
@@ -205,6 +204,7 @@ def publish_once(args: argparse.Namespace) -> int:
         print("Another publisher run is active")
         return 0
     try:
+        token = load_token(args.token_file)
         # Re-read state after acquiring the lock to avoid duplicate posts.
         state = load_state(args.state_file)
         previous_code = state.get("versionCode", 0)
