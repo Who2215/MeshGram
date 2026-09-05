@@ -88,7 +88,36 @@ the canonical manifest payload, and verify the update on a clean test device.
 
 ## Telegram news channel
 
-The project can link to a public news channel, but channel creation and posting
-must be performed by the account owner in Telegram. Do not place a Telegram
-session token or password in source code. Add the final public channel URL to
-the app only after the channel exists and its moderation policy is ready.
+The public channel is `https://t.me/MeshGram`. For unattended release notices,
+use a dedicated Telegram bot as a channel administrator. Never place a Telegram
+session token, bot token, password, or login code in source control.
+
+The local publisher is `tools/telegram_release_publisher.py`. It reads the bot
+token from `H:\mesh-workspace\secrets\telegram_bot_token.txt`, fetches the
+HTTPS release manifest, validates the package and links, and publishes only
+versions newer than its local state file. The state is stored outside Git at
+`H:\mesh-workspace\secrets\telegram_release_state.json`.
+
+Initialize it at the release already announced manually, without sending a
+duplicate post:
+
+```powershell
+python tools\telegram_release_publisher.py publish --initialize
+```
+
+Run one unattended check with:
+
+```powershell
+python tools\telegram_release_publisher.py publish
+```
+
+The same publisher can update the channel avatar without exposing the token:
+
+```powershell
+python tools\telegram_release_publisher.py avatar
+```
+
+Keep the bot restricted to posting, editing/deleting its own posts, pinning,
+and changing channel information. Do not grant it the ability to add
+administrators. A separate scheduler should run the publisher on the host that
+stores the token; a powered-off host cannot publish updates.
