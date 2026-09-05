@@ -26,7 +26,7 @@ PURPLE = (157, 88, 255)
 LIME = (185, 255, 220)
 TEXT = (244, 247, 255)
 MUTED = (154, 169, 199)
-MESSAGE = "Я уже рядом. Повернись :)"
+MESSAGE = "Роман, я уже в пути :)"
 FONT_PATH = r"H:\mesh-workspace\github-meshgram\site\assets\Manrope.ttf"
 
 
@@ -290,7 +290,7 @@ def draw_network(image: Image.Image, t: float, progress: float, alpha: float,
                      fill=rgba(color, 0.95 * alpha), outline=rgba(TEXT, 0.65 * alpha), width=2)
         draw.ellipse((x - 24, y - 24, x + 24, y + 24),
                      outline=rgba(color, 0.30 * alpha), width=1)
-        label = "отправитель" if index == 0 else "адресат" if index == 4 else f"BLE-узел {index}"
+        label = "Алекс" if index == 0 else "Роман" if index == 4 else f"MeshGram relay {index}"
         center_text(draw, x, y + 43, label, tiny, rgba(MUTED, 0.9 * alpha))
     if 0 < progress < 1:
         x, y = point_on_route(progress)
@@ -347,17 +347,16 @@ def render_frame(background: Image.Image, regular: ImageFont.FreeTypeFont,
     sender_outgoing = MESSAGE if t >= 5.0 else None
     delivery = "✓✓" if t >= 12.0 else "✓" if t >= 6.1 else None
     incoming = None
-    if t >= 11.3:
-        incoming_progress = smooth(clamp((t - 11.3) / 1.0))
-        reaction = "ХА-ХА, вижу тебя!"
-        incoming = reaction[:int(len(reaction) * incoming_progress)]
+    if t >= 12.1:
+        incoming_progress = smooth(clamp((t - 12.1) / 1.0))
+        incoming = MESSAGE[:int(len(MESSAGE) * incoming_progress)]
 
     draw_phone(image, (55, 191, 310, 485), regular, small,
-               person="Роман", handle="@roman  •  в сети", outgoing=sender_outgoing,
+               person="Алекс", handle="@alex  •  в сети", outgoing=sender_outgoing,
                incoming=None, typed=typed, online=True, accent=CYAN,
                show_keyboard=t < 6.1, delivery=delivery)
     draw_phone(image, (915, 191, 310, 485), regular, small,
-               person="Алекс", handle="@alex  •  ожидает", outgoing=None,
+               person="Роман", handle="@roman  •  ожидает", outgoing=None,
                incoming=incoming, typed="", online=False, accent=PINK,
                show_keyboard=False)
 
@@ -373,9 +372,14 @@ def render_frame(background: Image.Image, regular: ImageFont.FreeTypeFont,
         panel(draw, (405, 285, 875, 347), rgba((10, 26, 48), 0.90),
               rgba(CYAN, 0.56), 18, 2)
         hop = min(4, int(route_progress * 4) + 1)
-        center_text(draw, 640, 316, f"Прыжок {hop} из 4  •  BLE relay  •  адресат: Алекс",
+        center_text(draw, 640, 316, f"Прыжок {hop} из 4  •  MeshGram relay  •  адресат: Роман",
                     small, rgba(TEXT, 0.97))
-    elif t >= 12.0:
+    elif 11.5 <= t < 13.4:
+        panel(draw, (405, 285, 875, 347), rgba((18, 32, 49), 0.94),
+              rgba(PINK, 0.74), 18, 2)
+        center_text(draw, 640, 316, "Расшифровка только на телефоне Романа",
+                    small, rgba(TEXT, 0.97))
+    elif t >= 13.4:
         panel(draw, (405, 285, 875, 347), rgba((10, 38, 40), 0.92),
               rgba(LIME, 0.74), 18, 2)
         center_text(draw, 640, 316, "Доставлено точно адресату  •  маршрут завершён",
@@ -432,7 +436,7 @@ def main() -> int:
     try:
         for frame in range(FPS * DURATION):
             rendered = render_frame(background, regular, small, medium, frame)
-            if frame == int(FPS * 12.8):
+            if frame == int(FPS * 15.6):
                 rendered.convert("RGB").save(args.poster, format="PNG", optimize=True)
             process.stdin.write(rendered.convert("RGB").tobytes())
         process.stdin.close()
