@@ -1,12 +1,12 @@
 # MeshGram website
 
-Static landing page for GitHub Pages or Cloudflare Pages.
+Static landing page for GitHub Pages.
 
 ## Publish
 
-1. Put the contents of `site/` into a public GitHub repository and enable GitHub Pages, or deploy the folder as a static Cloudflare Pages project.
-2. Keep the current APK in `downloads/MeshGram-v108-hybrid.apk` and publish `downloads/SHA256SUMS.txt` alongside it.
-3. Replace the pending Telegram channel link in `index.html` only after the official channel exists.
+1. Put the contents of `site/` into a public GitHub repository and enable GitHub Pages.
+2. Keep the current APK in `downloads/MeshGram-v109-release.apk` and publish `downloads/SHA256SUMS.txt` alongside it.
+3. Keep the official Telegram channel link in `index.html` and update it only if the channel handle changes.
 
 The landing page fetches `release.json` on every visit and fills in the current
 version, download path, file size, hash, and changelog. Updating that manifest
@@ -36,3 +36,5 @@ The page also includes a local QR code for the download page, an interactive
 routing demo, a clearly labelled network visualization, a trust center, a
 product showcase, a roadmap, and an accessible native FAQ accordion. Demo
 visualizations are explicitly labelled and do not claim to show live user data.
+The product teaser is stored locally at `assets/meshgram-teaser.mp4` with its
+poster image, so the page does not depend on an external video host.

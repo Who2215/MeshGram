@@ -9,7 +9,7 @@
   <meta property="og:description" id="meta-og-description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
   <title id="page-title">MeshGram | Связь без границ</title>
   <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=all-2026-09">
+  <link rel="stylesheet" href="styles.css?v=all-2026-09-video">
 </head>
 <body>
   <canvas id="starfield" aria-hidden="true"></canvas>
@@ -27,6 +27,7 @@
       <a href="#security" data-i18n="nav_security">Приватность</a>
       <a href="#release" data-i18n="nav_releases">Релизы</a>
       <a href="#download" data-i18n="nav_download">Скачать</a>
+      <a href="https://t.me/MeshGram" target="_blank" rel="noopener noreferrer" data-i18n="nav_channel">Telegram</a>
     </nav>
     <div class="header-actions">
       <label class="language-control">
@@ -203,16 +204,33 @@
       <p>MeshGram project note / 2026</p>
     </section>
 
-    <section id="showcase" class="showcase-section section shell">
+     <section id="showcase" class="showcase-section section shell">
       <div class="section-heading reveal"><p class="eyebrow" data-i18n="showcase_eyebrow">Внутри приложения</p><h2><span data-i18n="showcase_title">Технология, которую</span><br><em data-i18n="showcase_title_em">приятно открывать.</em></h2></div>
       <div class="showcase-grid">
         <article class="showcase-card showcase-card-tall reveal"><div class="showcase-phone"><div class="phone-top"><span>9:41</span><i></i></div><div class="phone-brand"><img src="assets/meshgram-mark.svg" alt=""><b>Mesh<span>Gram</span></b></div><div class="phone-heading" data-i18n="showcase_map">Живая карта</div><div class="phone-map"><i class="map-ring"></i><i class="map-line map-line-one"></i><i class="map-line map-line-two"></i><b class="map-core">✦</b><b class="map-dot map-dot-one"></b><b class="map-dot map-dot-two"></b><b class="map-dot map-dot-three"></b></div><div class="phone-chips"><span>2 <small data-i18n="showcase_nodes">узла</small></span><span>1 <small data-i18n="showcase_route">маршрут</small></span></div></div><h3 data-i18n="showcase_map_title">Карта узлов</h3><p data-i18n="showcase_map_body">Видно состояние сети, а не лишние персональные данные.</p></article>
         <article class="showcase-card reveal reveal-delay-short"><div class="showcase-phone phone-chat"><div class="phone-top"><span>9:41</span><i></i></div><div class="phone-brand"><img src="assets/meshgram-mark.svg" alt=""><b>Mesh<span>Gram</span></b></div><div class="chat-row"><b class="chat-avatar">N</b><span><strong>Node-43d9</strong><small>Mesh connected</small></span><i class="chat-unread">3</i></div><div class="chat-row"><b class="chat-avatar avatar-pink">T</b><span><strong>Team</strong><small>Encrypted message</small></span></div><div class="chat-row"><b class="chat-avatar avatar-lime">S</b><span><strong>Saved</strong><small>Files and notes</small></span></div></div><h3 data-i18n="showcase_chat_title">Чаты без лишнего шума</h3><p data-i18n="showcase_chat_body">Понятные статусы, группы и сохранённые материалы в одном месте.</p></article>
         <article class="showcase-card reveal reveal-delay"><div class="showcase-phone phone-profile"><div class="phone-top"><span>9:41</span><i></i></div><div class="profile-orb">P</div><strong class="profile-name">MeshGram</strong><small class="profile-status" data-i18n="showcase_online">в сети</small><div class="profile-stats"><span><b>24</b><small data-i18n="showcase_messages">сообщения</small></span><span><b>4</b><small data-i18n="showcase_groups">группы</small></span></div><div class="profile-row"><span>◈</span><span data-i18n="showcase_security">Безопасность</span><b>›</b></div><div class="profile-row"><span>⚙</span><span data-i18n="showcase_settings">Настройки</span><b>›</b></div></div><h3 data-i18n="showcase_profile_title">Профиль под контролем</h3><p data-i18n="showcase_profile_body">Имя, аватар, темы и приватность не спрятаны по меню.</p></article>
       </div>
-    </section>
+     </section>
 
-    <section id="download" class="download-section shell reveal">
+     <section id="watch" class="video-section section shell reveal">
+       <div class="video-heading">
+         <div class="section-heading"><p class="eyebrow" data-i18n="video_eyebrow">Посмотри в движении</p><h2><span data-i18n="video_title">Связь, которая</span><br><em data-i18n="video_title_em">находит путь.</em></h2></div>
+         <p class="video-lead" data-i18n="video_lead">Короткий обзор MeshGram: BLE-связь рядом, резервный маршрут далеко, адресная доставка всегда.</p>
+       </div>
+       <div class="video-card">
+         <video class="product-video" controls playsinline preload="metadata" poster="assets/meshgram-teaser-poster.png">
+           <source src="assets/meshgram-teaser.mp4" type="video/mp4">
+           <span data-i18n="video_fallback">Ваш браузер не поддерживает встроенное видео.</span>
+         </video>
+         <div class="video-card-footer">
+           <span data-i18n="video_label">MeshGram / product teaser</span>
+           <a class="video-channel-link" href="https://t.me/MeshGram" target="_blank" rel="noopener noreferrer"><span data-i18n="video_channel">Смотреть новости в Telegram</span> <span>↗</span></a>
+         </div>
+       </div>
+     </section>
+
+     <section id="download" class="download-section shell reveal">
       <div class="download-panel">
         <div>
           <p class="eyebrow" data-i18n="current_release">Текущий релиз</p>
@@ -230,11 +248,11 @@
         <span><b class="release-proof-mark"></b><span id="release-proof-text">Манифест обновления проверен</span></span>
         <span id="release-published">GitHub Pages / main</span>
       </div>
-      <div class="project-links">
-        <span data-i18n="updates_feedback">Обновления и обратная связь</span>
-        <a class="channel-link is-pending" href="#channel" aria-disabled="true"><span data-i18n="telegram_channel">Официальный Telegram-канал</span> <span data-i18n="soon">скоро</span></a>
-        <span class="pending-note" id="channel" data-i18n="channel_pending">Ссылка появится после создания канала владельцем проекта.</span>
-      </div>
+       <div class="project-links">
+         <span data-i18n="updates_feedback">Обновления и обратная связь</span>
+         <a class="channel-link" href="https://t.me/MeshGram" target="_blank" rel="noopener noreferrer"><span data-i18n="telegram_channel">Официальный Telegram-канал</span> <span>↗</span></a>
+         <span class="pending-note" id="channel" data-i18n="channel_note">Новости релизов, планы и обратная связь — в официальном канале.</span>
+       </div>
       <div class="ios-banner">
         <div class="ios-badge">iOS</div>
         <div class="ios-copy">
@@ -300,7 +318,7 @@
   </main>
 
   <footer class="site-footer shell"><span>© 2026 MeshGram</span><span data-i18n="footer_tagline">Связь через пространство между узлами</span><a href="#top" data-i18n="back_top">Наверх ↑</a></footer>
-  <script src="app.js?v=all-2026-09" defer></script>
+  <script src="app.js?v=all-2026-09-video" defer></script>
 </body>
 </html>
 
