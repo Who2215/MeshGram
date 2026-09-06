@@ -1516,7 +1516,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val peerNodeId = peer.nodeId ?: return@mapNotNull null
                 peerNodeId to peer
             }
-            .toMap()
+            .groupBy(
+                keySelector = { (peerNodeId, _) -> peerNodeId },
+                valueTransform = { (_, peer) -> peer }
+            )
+            .mapValues { (_, nodePeers) ->
+                nodePeers.maxWithOrNull(
+                    compareBy<Peer> { it.isConnected }
+                        .thenBy { it.lastSeenMs }
+                ) ?: nodePeers.first()
+            }
         val knownByNodeId = knownIdentities.associateBy { it.nodeId }
         val allNodeIds = linkedSetOf<String>().apply {
             addAll(knownByNodeId.keys)
@@ -1526,8 +1535,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .map { peerNodeId ->
                 val onlinePeer = onlineByNodeId[peerNodeId]
                 val knownIdentity = knownByNodeId[peerNodeId]
-                val alias = onlinePeer?.alias?.ifBlank { null }
-                    ?: knownIdentity?.alias?.ifBlank { null }
+                // Signed HELLO identity wins over the unauthenticated BLE display name.
+                val alias = knownIdentity?.alias?.ifBlank { null }
+                    ?: onlinePeer?.alias?.ifBlank { null }
                     ?: "Node-${peerNodeId.take(4)}"
                 val fingerprint = onlinePeer?.fingerprintShort
                     ?: knownIdentity?.fingerprint?.take(12)

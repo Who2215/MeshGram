@@ -9,6 +9,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
@@ -16,6 +17,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.meshchat.app.EXTRA_OPEN_CONVERSATION_ID
 import com.meshchat.app.MainActivity
@@ -90,7 +92,33 @@ class MeshForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         ensureNotificationChannels()
-        startForeground(FOREGROUND_NOTIFICATION_ID, buildForegroundNotification())
+        if (!hasMeshRuntimePermissions(this)) {
+            // A revoked permission can race with service startup. Promote with a
+            // non-radio type before stopping so Android never reports an FGS timeout.
+            ServiceCompat.startForeground(
+                this,
+                FOREGROUND_NOTIFICATION_ID,
+                buildForegroundNotification(),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                } else {
+                    0
+                }
+            )
+            stopForegroundCompat()
+            stopSelf()
+            return
+        }
+        ServiceCompat.startForeground(
+            this,
+            FOREGROUND_NOTIFICATION_ID,
+            buildForegroundNotification(),
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            } else {
+                0
+            }
+        )
         knownIncomingMessageIds += meshManager.messages.value
             .filter { !it.isLocal }
             .map { it.id }
@@ -352,6 +380,7 @@ class MeshForegroundService : Service() {
         private const val EXTRA_MARK_READ_CONVERSATION_ID = "conversation_id"
 
         fun start(context: Context) {
+            if (!hasMeshRuntimePermissions(context)) return
             val intent = Intent(context, MeshForegroundService::class.java).apply {
                 action = ACTION_START
             }
@@ -359,14 +388,36 @@ class MeshForegroundService : Service() {
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, MeshForegroundService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.startService(intent)
+            context.stopService(Intent(context, MeshForegroundService::class.java))
         }
 
         fun refreshNotificationChannels(context: Context) {
             MeshNotificationPreferences.refreshChannels(context)
+        }
+
+        private fun hasMeshRuntimePermissions(context: Context): Boolean {
+            val required = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                arrayOf(
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.BLUETOOTH_ADVERTISE
+                )
+            } else {
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+            return required.all { permission ->
+                ContextCompat.checkSelfPermission(context, permission) ==
+                    PackageManager.PERMISSION_GRANTED
+            }
+        }
+    }
+
+    private fun stopForegroundCompat() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
         }
     }
 }

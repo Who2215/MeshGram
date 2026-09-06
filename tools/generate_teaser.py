@@ -1,34 +1,25 @@
 #!/usr/bin/env python3
-"""Render a realistic MeshGram ad using a phone-in-hands reference scene."""
+"""Build a MeshGram demo from native Android screen recordings."""
 
 from __future__ import annotations
 
 import argparse
 import math
-import os
+import random
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-
-WIDTH = 1280
-HEIGHT = 720
-FPS = 20
-DURATION = 18
-CYAN = (73, 235, 255)
-PINK = (244, 91, 216)
-LIME = (180, 255, 215)
-TEXT = (248, 249, 255)
-MUTED = (168, 178, 202)
-MESSAGE = "Wi-Fi ушёл за хлебом. MeshGram донёс :)"
-MESSAGE_LINES = ("Wi-Fi ушёл за хлебом.", "MeshGram донёс :)")
-FONT_FALLBACK = r"H:\mesh-workspace\github-meshgram\site\assets\Manrope.ttf"
+W, H, FPS, DURATION = 720, 1280, 20, 27
+CYAN, PINK, VIOLET = (63, 230, 242), (240, 78, 211), (119, 79, 224)
+GREEN, WHITE, MUTED, INK = (83, 245, 174), (244, 248, 255), (154, 168, 194), (5, 8, 24)
 
 
-def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
-    return max(low, min(high, value))
+def clamp(value: float) -> float:
+    return max(0.0, min(1.0, value))
 
 
 def smooth(value: float) -> float:
@@ -36,402 +27,229 @@ def smooth(value: float) -> float:
     return value * value * (3.0 - 2.0 * value)
 
 
-def rgba(color: tuple[int, int, int], alpha: float) -> tuple[int, int, int, int]:
-    return (*color, int(clamp(alpha) * 255))
-
-
 def fade(t: float, start: float, end: float, edge: float = 0.45) -> float:
     return clamp(min((t - start) / edge, (end - t) / edge))
 
 
-def fnt(path: str | Path, size: int) -> ImageFont.FreeTypeFont:
+def rgba(color: tuple[int, int, int], opacity: float) -> tuple[int, int, int, int]:
+    return (*color, int(255 * clamp(opacity)))
+
+
+def fnt(path: Path, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(path), size=size)
 
 
-def draw_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], value: str,
-              face: ImageFont.FreeTypeFont, fill: tuple[int, int, int, int],
-              anchor: str | None = None) -> None:
-    draw.text(xy, value, font=face, fill=fill, anchor=anchor)
-
-
-def center(draw: ImageDraw.ImageDraw, x: float, y: float, value: str,
+def center(draw: ImageDraw.ImageDraw, xy: tuple[float, float], value: str,
            face: ImageFont.FreeTypeFont, fill: tuple[int, int, int, int]) -> None:
-    draw_text(draw, (x, y), value, face, fill, "mm")
+    draw.text(xy, value, font=face, fill=fill, anchor="mm")
 
 
-def panel(draw: ImageDraw.ImageDraw, box: tuple[float, float, float, float],
-          fill: tuple[int, int, int, int], outline: tuple[int, int, int, int],
-          radius: int = 16, width: int = 1) -> None:
-    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+def lines(draw: ImageDraw.ImageDraw, x: int, y: int, values: tuple[str, ...],
+          face: ImageFont.FreeTypeFont, fill: tuple[int, int, int, int], step: int) -> None:
+    for index, value in enumerate(values):
+        center(draw, (x, y + index * step), value, face, fill)
 
 
 def glow(image: Image.Image, x: float, y: float, color: tuple[int, int, int],
-         radius: float, strength: float = 1.0) -> None:
+         radius: float, opacity: float) -> None:
     layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer, "RGBA")
-    draw.ellipse((x - radius, y - radius, x + radius, y + radius),
-                 fill=rgba(color, 0.22 * strength))
-    draw.ellipse((x - radius * 0.38, y - radius * 0.38,
-                  x + radius * 0.38, y + radius * 0.38),
-                 fill=rgba(color, 0.48 * strength))
-    image.alpha_composite(layer.filter(ImageFilter.GaussianBlur(max(2, int(radius * 0.24)))))
+    draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=rgba(color, opacity))
+    image.alpha_composite(layer.filter(ImageFilter.GaussianBlur(max(2, int(radius * 0.32)))))
 
 
-def fit_scene(path: Path) -> Image.Image:
-    source = Image.open(path).convert("RGBA")
-    scale = max(WIDTH / source.width, HEIGHT / source.height)
-    resized = source.resize((int(source.width * scale), int(source.height * scale)), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGBA", (WIDTH, HEIGHT), (3, 5, 16, 255))
-    left = (resized.width - WIDTH) // 2
-    top = (resized.height - HEIGHT) // 2
-    canvas.alpha_composite(resized.crop((left, top, left + WIDTH, top + HEIGHT)))
-    return canvas
+def background(image: Image.Image, t: float, stars: list[tuple[float, ...]]) -> None:
+    draw = ImageDraw.Draw(image, "RGBA")
+    for y in range(H):
+        ratio = y / (H - 1)
+        color = (int(4 + 6 * ratio), int(8 + 3 * ratio), int(24 + 19 * ratio), 255)
+        draw.line((0, y, W, y), fill=color)
+    glow(image, 95 + math.sin(t * 0.15) * 42, 390, CYAN, 180, 0.12)
+    glow(image, 640 + math.cos(t * 0.11) * 55, 830, PINK, 230, 0.13)
+    glow(image, 330 + math.sin(t * 0.08) * 80, 1190, VIOLET, 260, 0.09)
+    draw = ImageDraw.Draw(image, "RGBA")
+    for index, (base_x, base_y, radius, phase, tone) in enumerate(stars):
+        x = (base_x + math.sin(t * (0.035 + (index % 4) * 0.009) + phase) * 13) % W
+        y = (base_y + t * (1.0 + index % 3) + math.cos(t * 0.07 + phase) * 6) % H
+        pulse = 0.25 + 0.42 * (0.5 + 0.5 * math.sin(t * 0.47 + phase))
+        color = CYAN if tone == 0 else PINK if tone == 1 else WHITE
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=rgba(color, pulse))
 
 
-def draw_light_motion(image: Image.Image, t: float) -> None:
-    # Light pulses and moving dust sell the footage as a live camera scene.
-    for index, (x, y, color, radius) in enumerate([
-        (195, 165, CYAN, 78),
-        (1072, 170, PINK, 100),
-        (636, 615, CYAN, 110),
-        (640, 170, PINK, 72),
-    ]):
-        px = x + math.sin(t * 0.35 + index) * 19
-        py = y + math.cos(t * 0.27 + index * 1.4) * 14
-        glow(image, px, py, color, radius, 0.17 + 0.06 * math.sin(t * 0.5 + index))
-
-    dust = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(dust, "RGBA")
-    for index in range(42):
-        phase = index * 1.47
-        x = (index * 173 + 42 + math.sin(t * 0.12 + phase) * 8) % WIDTH
-        y = (index * 97 + 35 + math.cos(t * 0.10 + phase) * 6) % HEIGHT
-        pulse = 0.18 + 0.22 * (0.5 + 0.5 * math.sin(t * 0.46 + phase))
-        radius = 0.7 + (index % 3) * 0.45
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius),
-                     fill=rgba(TEXT if index % 5 else CYAN, pulse))
-    image.alpha_composite(dust)
+def mark(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> None:
+    points = [(x, y - size), (x + 23, y - 13), (x + 23, y + 13),
+              (x, y + size), (x - 23, y + 13), (x - 23, y - 13)]
+    draw.line(points + [points[0]], fill=rgba(CYAN, 0.9), width=2)
+    for index, point in enumerate(points):
+        draw.line((x, y, *point), fill=rgba(CYAN if index % 2 == 0 else PINK, 0.72), width=2)
 
 
-def solve(matrix: list[list[float]], values: list[float]) -> list[float]:
-    size = len(values)
-    augmented = [row[:] + [values[index]] for index, row in enumerate(matrix)]
-    for column in range(size):
-        pivot = max(range(column, size), key=lambda row: abs(augmented[row][column]))
-        augmented[column], augmented[pivot] = augmented[pivot], augmented[column]
-        divisor = augmented[column][column]
-        if abs(divisor) < 1e-10:
-            raise ValueError("Degenerate perspective transform")
-        for item in range(column, size + 1):
-            augmented[column][item] /= divisor
-        for row in range(size):
-            if row == column:
-                continue
-            factor = augmented[row][column]
-            for item in range(column, size + 1):
-                augmented[row][item] -= factor * augmented[column][item]
-    return [augmented[index][size] for index in range(size)]
+def phone_slots(draw: ImageDraw.ImageDraw, opacity: float) -> None:
+    for left, color in ((30, CYAN), (390, PINK)):
+        draw.rounded_rectangle((left, 282, left + 300, 949), radius=28,
+                               fill=rgba((8, 13, 35), 0.65 * opacity),
+                               outline=rgba(color, 0.55 * opacity), width=2)
 
 
-def perspective_coefficients(source_size: tuple[int, int],
-                             quad: list[tuple[float, float]]) -> list[float]:
-    width, height = source_size
-    source_points = [(0, 0), (width, 0), (width, height), (0, height)]
-    matrix: list[list[float]] = []
-    values: list[float] = []
-    for (u, v), (x, y) in zip(source_points, quad):
-        matrix.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
-        values.append(float(u))
-        matrix.append([0, 0, 0, x, y, 1, -v * x, -v * y])
-        values.append(float(v))
-    return solve(matrix, values)
-
-
-def project_screen(base: Image.Image, screen: Image.Image,
-                   quad: list[tuple[float, float]]) -> None:
-    coeffs = perspective_coefficients(screen.size, quad)
-    warped = screen.transform(base.size, Image.Transform.PERSPECTIVE, coeffs,
-                              resample=Image.Resampling.BICUBIC)
-    mask = Image.new("L", base.size, 0)
-    ImageDraw.Draw(mask).polygon(quad, fill=255)
-    warped.putalpha(mask)
-    base.alpha_composite(warped)
-
-
-def draw_avatar(screen: Image.Image, x: int, y: int, radius: int,
-                letter: str, color: tuple[int, int, int],
-                face: ImageFont.FreeTypeFont) -> None:
-    glow(screen, x, y, color, radius * 2.0, 0.20)
-    draw = ImageDraw.Draw(screen, "RGBA")
-    draw.ellipse((x - radius, y - radius, x + radius, y + radius),
-                 fill=rgba(color, 0.94), outline=rgba(CYAN, 0.86), width=2)
-    center(draw, x, y + 1, letter, face, rgba(TEXT, 0.98))
-
-
-def screen_panel(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int],
-                 fill: tuple[int, int, int, int],
-                 outline: tuple[int, int, int, int], radius: int = 14) -> None:
-    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=2)
-
-
-def make_phone_screen(font_path: str, width: int, height: int, t: float,
-                      *, sender: bool) -> Image.Image:
-    screen = Image.new("RGBA", (width, height), (7, 14, 29, 255))
-    draw = ImageDraw.Draw(screen, "RGBA")
-    regular = fnt(font_path, max(14, int(width * 0.056)))
-    tiny = fnt(font_path, max(10, int(width * 0.040)))
-    micro = fnt(font_path, max(9, int(width * 0.032)))
-    message_face = fnt(font_path, max(11, int(width * 0.042)))
-    accent = CYAN if sender else PINK
-    person = "Алекс" if sender else "Роман"
-    handle = "@alex" if sender else "@roman"
-
-    draw.rectangle((0, 0, width, int(height * 0.065)), fill=rgba((4, 8, 19), 0.98))
-    draw_text(draw, (int(width * 0.06), int(height * 0.026)), "9:41", micro, rgba(TEXT, 0.92))
-    draw_text(draw, (int(width * 0.73), int(height * 0.026)), "▴▴  ▰", micro, rgba(TEXT, 0.76))
-    header_y = int(height * 0.105)
-    draw.line((int(width * 0.04), header_y + int(height * 0.075),
-               int(width * 0.96), header_y + int(height * 0.075)),
-              fill=rgba((111, 140, 181), 0.42), width=1)
-    draw_avatar(screen, int(width * 0.13), header_y + int(height * 0.015),
-                int(width * 0.065), person[0], accent, tiny)
-    draw_text(draw, (int(width * 0.23), header_y - int(height * 0.014)), person, tiny, rgba(TEXT, 0.98))
-    status = "в сети" if sender else ("получено" if t >= 12.4 else "ожидает")
-    draw_text(draw, (int(width * 0.23), header_y + int(height * 0.022)), f"{handle}  •  {status}",
-              micro, rgba(LIME if sender or t >= 12.4 else MUTED, 0.9))
-
-    content_y = int(height * 0.20)
-    if sender:
-        typed_progress = smooth(clamp((t - 1.6) / 3.0))
-        typed_len = int(len(MESSAGE) * typed_progress)
-        typed = MESSAGE[:typed_len]
-        if t < 5.5:
-            if typed:
-                bubble = (int(width * 0.26), content_y, int(width * 0.94), content_y + int(height * 0.105))
-                screen_panel(draw, bubble, rgba(accent, 0.34), rgba(accent, 0.88))
-                draw_text(draw, (bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.022)),
-                          typed, micro, rgba(TEXT, 0.98))
-                draw_text(draw, (bubble[2] - int(width * 0.06), bubble[3] - int(height * 0.033)),
-                          "|", micro, rgba(CYAN, 0.94))
-        else:
-            bubble = (int(width * 0.19), content_y, int(width * 0.94), content_y + int(height * 0.105))
-            screen_panel(draw, bubble, rgba((33, 89, 119), 0.94), rgba(CYAN, 0.82))
-            draw.multiline_text((bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.016)),
-                                "\n".join(MESSAGE_LINES), font=message_face,
-                                fill=rgba(TEXT, 0.98), spacing=max(2, int(height * 0.008)))
-            draw_text(draw, (bubble[2] - int(width * 0.16), bubble[3] - int(height * 0.033)),
-                      "✓✓" if t >= 12.3 else "✓", micro, rgba(CYAN, 0.96))
-    else:
-        if t >= 12.1:
-            progress = smooth(clamp((t - 12.1) / 0.9))
-            visible = MESSAGE[:int(len(MESSAGE) * progress)]
-            bubble = (int(width * 0.06), content_y, int(width * 0.84), content_y + int(height * 0.14))
-            screen_panel(draw, bubble, rgba((57, 39, 81), 0.96), rgba(PINK, 0.90))
-            if progress >= 0.98:
-                draw.multiline_text((bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.016)),
-                                    "\n".join(MESSAGE_LINES), font=message_face,
-                                    fill=rgba(TEXT, 0.98), spacing=max(2, int(height * 0.008)))
-            else:
-                draw_text(draw, (bubble[0] + int(width * 0.04), bubble[1] + int(height * 0.022)),
-                          visible, micro, rgba(TEXT, 0.98))
-            draw_text(draw, (bubble[0] + int(width * 0.04), bubble[3] - int(height * 0.037)),
-                      "доставлено  •  сейчас", micro, rgba(LIME, 0.90))
-
-    if sender and t < 6.2:
-        keyboard_y = int(height * 0.70)
-        draw.line((int(width * 0.04), keyboard_y, int(width * 0.96), keyboard_y),
-                  fill=rgba((105, 127, 163), 0.38), width=1)
-        input_box = (int(width * 0.05), keyboard_y - int(height * 0.095),
-                     int(width * 0.95), keyboard_y - int(height * 0.015))
-        screen_panel(draw, input_box, rgba((23, 34, 59), 0.98), rgba((100, 124, 164), 0.62), 12)
-        typed = MESSAGE[:int(len(MESSAGE) * smooth(clamp((t - 1.6) / 3.0)))]
-        draw_text(draw, (input_box[0] + int(width * 0.05), input_box[1] + int(height * 0.022)),
-                  typed or "Сообщение", micro, rgba(TEXT if typed else MUTED, 0.9))
-        draw.ellipse((input_box[2] - int(width * 0.13), input_box[1] + int(height * 0.010),
-                      input_box[2] - int(width * 0.03), input_box[1] + int(height * 0.090)),
-                     fill=rgba(accent, 0.96))
-        draw.polygon(((input_box[2] - int(width * 0.10), input_box[1] + int(height * 0.025)),
-                      (input_box[2] - int(width * 0.055), input_box[1] + int(height * 0.050)),
-                      (input_box[2] - int(width * 0.10), input_box[1] + int(height * 0.075))),
-                     fill=rgba((4, 15, 28), 0.98))
-        keys = ("QWERTYUI", "ASDFGHJK", "ZXCVBNM")
-        for row, labels in enumerate(keys):
-            y = keyboard_y + int(height * 0.040) + row * int(height * 0.060)
-            key_w = int(width * 0.105)
-            gap = int(width * 0.016)
-            start = int((width - (len(labels) * key_w + (len(labels) - 1) * gap)) / 2)
-            for index, label in enumerate(labels):
-                x = start + index * (key_w + gap)
-                screen_panel(draw, (x, y, x + key_w, y + int(height * 0.045)),
-                             rgba((30, 43, 70), 0.98), rgba((106, 126, 165), 0.48), 5)
-                center(draw, x + key_w / 2, y + int(height * 0.022), label, micro, rgba(TEXT, 0.82))
-    else:
-        footer_y = int(height * 0.85)
-        center(draw, width / 2, footer_y, "MeshGram  •  BLE relay", micro, rgba(MUTED, 0.80))
-    return screen
-
-
-ROUTE = [(566, 378), (610, 282), (654, 414), (698, 296), (734, 378)]
-
-
-def route_point(progress: float) -> tuple[float, float]:
-    distance = clamp(progress) * (len(ROUTE) - 1)
-    segment = min(int(distance), len(ROUTE) - 2)
-    local = smooth(distance - segment)
-    x1, y1 = ROUTE[segment]
-    x2, y2 = ROUTE[segment + 1]
+def path_position(points: list[tuple[int, int]], progress: float) -> tuple[float, float]:
+    scaled = clamp(progress) * (len(points) - 1)
+    index = min(len(points) - 2, int(scaled))
+    local = smooth(scaled - index)
+    x1, y1 = points[index]
+    x2, y2 = points[index + 1]
     return x1 + (x2 - x1) * local, y1 + (y2 - y1) * local
 
 
-def draw_mini_device(image: Image.Image, x: float, y: float,
-                     label: str, color: tuple[int, int, int],
-                     small: ImageFont.FreeTypeFont, alpha: float) -> None:
-    draw = ImageDraw.Draw(image, "RGBA")
-    glow(image, x, y, color, 38, 0.48 * alpha)
-    draw.rounded_rectangle((x - 14, y - 25, x + 14, y + 25), radius=6,
-                           fill=rgba((10, 19, 38), 0.96 * alpha),
-                           outline=rgba(color, 0.92 * alpha), width=2)
-    draw.rounded_rectangle((x - 9, y - 16, x + 9, y + 12), radius=2,
-                           fill=rgba(color, 0.22 * alpha),
-                           outline=rgba((191, 233, 255), 0.55 * alpha), width=1)
-    draw.ellipse((x - 2, y + 17, x + 2, y + 21), fill=rgba(TEXT, 0.78 * alpha))
-    center(draw, x, y + 39, label, small, rgba(TEXT, 0.88 * alpha))
-
-
-def draw_route(image: Image.Image, t: float, small: ImageFont.FreeTypeFont) -> None:
-    alpha = smooth(clamp((t - 5.3) / 0.9)) * fade(t, 5.1, 15.8, 0.6)
-    if alpha <= 0:
+def route_scene(image: Image.Image, draw: ImageDraw.ImageDraw, t: float,
+                regular: ImageFont.FreeTypeFont, medium: ImageFont.FreeTypeFont,
+                small: ImageFont.FreeTypeFont) -> None:
+    opacity = fade(t, 16.0, 21.5)
+    if opacity <= 0:
         return
-    draw = ImageDraw.Draw(image, "RGBA")
-    for index in range(len(ROUTE) - 1):
-        x1, y1 = ROUTE[index]
-        x2, y2 = ROUTE[index + 1]
-        draw.line((x1, y1, x2, y2), fill=rgba((139, 190, 226), 0.58 * alpha), width=2)
-    progress = smooth(clamp((t - 6.2) / 5.2))
-    for index in range(len(ROUTE) - 1):
-        segment_start = index / (len(ROUTE) - 1)
-        if progress <= segment_start:
-            continue
-        amount = clamp((progress - segment_start) * (len(ROUTE) - 1))
-        x1, y1 = ROUTE[index]
-        x2, y2 = ROUTE[index + 1]
-        draw.line((x1, y1, x1 + (x2 - x1) * amount, y1 + (y2 - y1) * amount),
-                  fill=rgba(CYAN, 0.95 * alpha), width=5)
-    for index, (x, y) in enumerate(ROUTE):
-        if index in (0, len(ROUTE) - 1):
-            continue
-        draw_mini_device(image, x, y, "MeshGram", PINK if index == 2 else CYAN, small, alpha)
-    if 0 < progress < 1:
-        x, y = route_point(progress)
-        glow(image, x, y, CYAN, 48, 0.90 * alpha)
-        draw.rounded_rectangle((x - 48, y - 17, x + 48, y + 17), radius=12,
-                               fill=rgba((7, 35, 56), 0.98 * alpha),
-                               outline=rgba(CYAN, 0.98 * alpha), width=2)
-        center(draw, x, y - 1, "E2E  •  1.2 KB", small, rgba(TEXT, alpha))
+    center(draw, (360, 110), "КАК ИДЁТ ПАКЕТ", small, rgba(CYAN, opacity))
+    center(draw, (360, 175), "Шифрованный маршрут", medium, rgba(WHITE, opacity))
+    center(draw, (360, 218), "в сети MeshGram", regular, rgba(PINK, opacity))
+    points = [(96, 390), (236, 525), (474, 488), (590, 665), (360, 845)]
+    labels = ("Алекс", "Mesh-узел", "Mesh-узел", "Mesh-узел", "Роман")
+    for start, end in zip(points, points[1:]):
+        draw.line((*start, *end), fill=rgba((96, 130, 176), 0.45 * opacity), width=4)
+        draw.line((*start, *end), fill=rgba(CYAN, 0.18 * opacity), width=1)
+    for index, ((x, y), label) in enumerate(zip(points, labels)):
+        color = CYAN if index in (0, 4) else VIOLET
+        glow(image, x, y, color, 38 if index in (0, 4) else 28, 0.22 * opacity)
+        draw.ellipse((x - 20, y - 20, x + 20, y + 20), fill=rgba((12, 21, 49), opacity),
+                     outline=rgba(color, opacity), width=3)
+        draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill=rgba(GREEN if index == 4 else color, opacity))
+        center(draw, (x, y + 48), label, small, rgba(WHITE, opacity * 0.9))
+    px, py = path_position(points, ((t - 16.35) / 4.5) % 1.0)
+    glow(image, px, py, GREEN, 38, 0.48 * opacity)
+    draw.ellipse((px - 10, py - 10, px + 10, py + 10), fill=rgba(GREEN, opacity),
+                 outline=rgba(WHITE, opacity), width=2)
+    draw.rounded_rectangle((px - 18, py - 44, px + 18, py - 17), radius=7,
+                           fill=rgba((9, 18, 36), opacity), outline=rgba(GREEN, opacity), width=2)
+    draw.arc((px - 10, py - 58, px + 10, py - 34), 180, 360, fill=rgba(GREEN, opacity), width=3)
+    draw.rounded_rectangle((42, 981, 678, 1187), radius=28,
+                           fill=rgba((12, 20, 47), 0.9 * opacity),
+                           outline=rgba((76, 118, 163), 0.38 * opacity), width=2)
+    center(draw, (360, 1027), "Проверено сейчас: прямой BLE-маршрут", regular, rgba(WHITE, opacity))
+    lines(draw, 360, 1081, (
+        "Если прямой связи нет, устройства с MeshGram",
+        "могут передавать пакет дальше до адресата.",
+        "Промежуточные узлы не получают текст сообщения.",
+    ), small, rgba(MUTED, opacity), 32)
 
 
-def draw_hud(image: Image.Image, t: float, regular: ImageFont.FreeTypeFont,
-             small: ImageFont.FreeTypeFont) -> None:
-    draw = ImageDraw.Draw(image, "RGBA")
-    alpha = fade(t, 0.0, DURATION, 0.5)
-    panel(draw, (382, 55, 898, 104), rgba((5, 10, 24), 0.76 * alpha),
-          rgba(CYAN, 0.55 * alpha), 17, 1)
-    center(draw, 640, 75, "MeshGram  •  сообщение Алекс → Роман", small, rgba(TEXT, alpha))
-    step = "НАБОР" if t < 5.3 else "ШИФРОВАНИЕ" if t < 6.4 else "BLE-ПРЫЖКИ" if t < 12.1 else "ДОСТАВЛЕНО"
-    color = LIME if step == "ДОСТАВЛЕНО" else CYAN
-    center(draw, 640, 93, step, small, rgba(color, alpha))
+def render_background(output: Path, ffmpeg: str, font_path: Path) -> None:
+    rng = random.Random(2215)
+    stars = [(rng.uniform(0, W), rng.uniform(0, H), rng.uniform(0.7, 2.2),
+              rng.uniform(0, math.tau), rng.randrange(3)) for _ in range(70)]
+    regular, small = fnt(font_path, 25), fnt(font_path, 18)
+    medium, large, brand = fnt(font_path, 42), fnt(font_path, 64), fnt(font_path, 30)
+    command = [ffmpeg, "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}",
+               "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264", "-preset", "veryfast",
+               "-crf", "25", "-pix_fmt", "yuv420p", str(output)]
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if process.stdin is None:
+        raise RuntimeError("Unable to open FFmpeg input")
+    try:
+        for frame_index in range(DURATION * FPS):
+            t = frame_index / FPS
+            image = Image.new("RGBA", (W, H), (*INK, 255))
+            background(image, t, stars)
+            draw = ImageDraw.Draw(image, "RGBA")
+            mark(draw, 64, 78, 27)
+            draw.text((108, 55), "MeshGram", font=brand, fill=rgba(WHITE, 0.96))
+            intro = fade(t, 0.0, 3.0)
+            if intro:
+                center(draw, (360, 390), "КОГДА WI-FI", regular, rgba(CYAN, intro))
+                center(draw, (360, 472), "СДАЛСЯ", large, rgba(WHITE, intro))
+                center(draw, (360, 548), "MeshGram продолжил путь.", medium, rgba(PINK, intro))
+                lines(draw, 360, 642, ("Не макет. Ниже — реальная доставка",
+                                      "между двумя Android-экземплярами."),
+                      regular, rgba(MUTED, intro), 38)
+            test = fade(t, 3.0, 16.0)
+            if test:
+                center(draw, (360, 112), "РЕАЛЬНЫЙ BLE-ТЕСТ", small, rgba(CYAN, test))
+                center(draw, (360, 158), "Два телефона. Один диалог.", medium, rgba(WHITE, test))
+                center(draw, (180, 242), "АЛЕКС • ОТПРАВИТЕЛЬ", small, rgba(CYAN, test))
+                center(draw, (540, 242), "РОМАН • ПОЛУЧАТЕЛЬ", small, rgba(PINK, test))
+                phone_slots(draw, test)
+                caption = ("Алекс пишет: «Wi-Fi: I quit…»" if t < 8.5 else
+                           "E2E-пакет уходит по BLE" if t < 13.0 else
+                           "То же сообщение появляется у Романа")
+                center(draw, (360, 1030), caption, regular, rgba(WHITE, test))
+                center(draw, (360, 1080), "Оба экрана записаны с работающего приложения", small, rgba(MUTED, test))
+            route_scene(image, draw, t, regular, medium, small)
+            final = fade(t, 21.5, 27.0)
+            if final:
+                center(draw, (360, 110), "ДОСТАВКА В ОБЕ СТОРОНЫ", small, rgba(GREEN, final))
+                center(draw, (360, 160), "Сообщение пришло. Ответ тоже.", medium, rgba(WHITE, final))
+                center(draw, (180, 242), "ЭКРАН АЛЕКСА", small, rgba(CYAN, final))
+                center(draw, (540, 242), "ЭКРАН РОМАНА", small, rgba(PINK, final))
+                phone_slots(draw, final)
+                center(draw, (360, 1024), "delivered • зашифровано • адресно", regular, rgba(GREEN, final))
+                center(draw, (360, 1080), "MeshGram", medium, rgba(WHITE, final))
+                center(draw, (360, 1126), "Связь находит путь.", regular, rgba(CYAN, final))
+            process.stdin.write(image.tobytes())
+    finally:
+        process.stdin.close()
+    if process.wait() != 0:
+        raise RuntimeError("FFmpeg failed while rendering background")
 
 
-def draw_caption(image: Image.Image, t: float, regular: ImageFont.FreeTypeFont,
-                 small: ImageFont.FreeTypeFont) -> None:
-    draw = ImageDraw.Draw(image, "RGBA")
-    if t < 5.3:
-        value = "Алекс пишет Роману"
-    elif t < 12.1:
-        value = "Пакет прыгает только через MeshGram"
-    elif t < 14.7:
-        value = "Роман получил то же сообщение"
-    else:
-        value = "Мем доставлен Роману"
-    alpha = smooth(clamp((t % 0.7) / 0.25)) if t < 0.7 else 1.0
-    panel(draw, (420, 640, 860, 684), rgba((6, 12, 28), 0.80 * alpha),
-          rgba(PINK if t >= 14.7 else CYAN, 0.72 * alpha), 15, 1)
-    center(draw, 640, 662, value, regular, rgba(TEXT, alpha))
+def compose(background_video: Path, args: argparse.Namespace) -> None:
+    graph = (
+        "[1:v]trim=0:13,setpts=PTS-STARTPTS+3/TB,scale=300:667[alex];"
+        "[2:v]trim=0:13,setpts=PTS-STARTPTS+3/TB,scale=300:667[roman];"
+        "[3:v]trim=0:5.5,setpts=PTS-STARTPTS+21.5/TB,scale=300:667[af];"
+        "[4:v]trim=0:5.5,setpts=PTS-STARTPTS+21.5/TB,scale=300:667[rf];"
+        "[0:v][alex]overlay=30:282:enable='between(t,3,16)'[v1];"
+        "[v1][roman]overlay=390:282:enable='between(t,3,16)'[v2];"
+        "[v2][af]overlay=30:282:enable='between(t,21.5,27)'[v3];"
+        "[v3][rf]overlay=390:282:enable='between(t,21.5,27)'[out]"
+    )
+    command = [args.ffmpeg, "-y", "-i", str(background_video),
+               "-i", str(args.alex_recording), "-i", str(args.roman_recording),
+               "-i", str(args.alex_final), "-i", str(args.roman_final),
+               "-filter_complex", graph, "-map", "[out]", "-t", str(DURATION),
+               "-r", str(FPS), "-c:v", "libx264", "-preset", "slow", "-crf", "23",
+               "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(args.output)]
+    subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([args.ffmpeg, "-y", "-ss", "22.5", "-i", str(args.output),
+                    "-frames:v", "1", str(args.poster)], check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def render_frame(scene: Image.Image, font_path: str, frame: int) -> Image.Image:
-    t = frame / FPS
-    image = scene.copy()
-    draw_light_motion(image, t)
-    draw = ImageDraw.Draw(image, "RGBA")
-    regular = fnt(font_path, 22)
-    small = fnt(font_path, 14)
-    left_quad = [(309, 87), (588, 87), (582, 620), (319, 620)]
-    right_quad = [(710, 87), (1022, 88), (1025, 620), (719, 620)]
-    left_screen = make_phone_screen(font_path, 330, 690, t, sender=True)
-    right_screen = make_phone_screen(font_path, 330, 690, t, sender=False)
-    project_screen(image, left_screen, left_quad)
-    project_screen(image, right_screen, right_quad)
-    draw_hud(image, t, regular, small)
-    draw_route(image, t, small)
-    draw_caption(image, t, regular, small)
-    return image
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    for name in ("alex-recording", "roman-recording", "alex-final", "roman-final", "output", "poster"):
+        parser.add_argument(f"--{name}", type=Path, required=True)
+    parser.add_argument("--font", type=Path, default=Path("site/assets/Manrope.ttf"))
+    parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg") or "ffmpeg")
+    parser.add_argument("--work-dir", type=Path)
+    return parser.parse_args()
 
 
-def find_ffmpeg(value: str | None) -> str:
-    candidates = [value, os.environ.get("FFMPEG_EXE"), shutil.which("ffmpeg"),
-                  r"H:\mesh-workspace\tools\ffmpeg\ffmpeg-n8.0.1-66-g27b8d1a017-win64-gpl-8.0\bin\ffmpeg.exe"]
-    for candidate in candidates:
-        if candidate and Path(candidate).is_file():
-            return candidate
-    raise SystemExit("FFmpeg was not found; pass --ffmpeg with its executable path")
-
-
-def parser() -> argparse.ArgumentParser:
-    root = Path(__file__).resolve().parents[1]
-    result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--ffmpeg")
-    result.add_argument("--output", type=Path, default=root / "site/assets/meshgram-teaser.mp4")
-    result.add_argument("--poster", type=Path, default=root / "site/assets/meshgram-teaser-poster.png")
-    result.add_argument("--font", type=Path, default=root / "site/assets/Manrope.ttf")
-    result.add_argument("--scene", type=Path, default=root / "site/assets/meshgram-realistic-scene.jpg")
-    return result
-
-
-def main() -> int:
-    args = parser().parse_args()
-    ffmpeg = find_ffmpeg(args.ffmpeg)
-    font_path = str(args.font if args.font.is_file() else FONT_FALLBACK)
-    scene = fit_scene(args.scene)
+def main() -> None:
+    args = parse_args()
+    for source in (args.alex_recording, args.roman_recording, args.alex_final,
+                   args.roman_final, args.font):
+        if not source.exists():
+            raise FileNotFoundError(source)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.poster.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        ffmpeg, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{WIDTH}x{HEIGHT}",
-        "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264", "-preset", "medium",
-        "-crf", "21", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(args.output),
-    ]
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.PIPE)
-    assert process.stdin is not None
-    try:
-        for frame in range(FPS * DURATION):
-            rendered = render_frame(scene, font_path, frame)
-            if frame == int(FPS * 15.4):
-                rendered.convert("RGB").save(args.poster, format="PNG", optimize=True)
-            process.stdin.write(rendered.convert("RGB").tobytes())
-        process.stdin.close()
-        stderr = process.stderr.read().decode("utf-8", errors="replace")
-        return_code = process.wait()
-    except Exception:
-        process.kill()
-        process.wait()
-        raise
-    if return_code != 0:
-        raise SystemExit(f"FFmpeg failed:\n{stderr[-4000:]}")
-    print(f"Created {args.output} ({args.output.stat().st_size} bytes)")
-    print(f"Created {args.poster} ({args.poster.stat().st_size} bytes)")
-    return 0
+    if args.work_dir is not None:
+        args.work_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix="meshgram-real-demo-",
+        dir=str(args.work_dir) if args.work_dir is not None else None,
+    ) as temp_dir:
+        background_video = Path(temp_dir) / "background.mp4"
+        render_background(background_video, args.ffmpeg, args.font)
+        compose(background_video, args)
+    print(args.output)
+    print(args.poster)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
