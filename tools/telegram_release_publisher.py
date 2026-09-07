@@ -242,6 +242,39 @@ def set_avatar(args: argparse.Namespace) -> int:
     return 0
 
 
+def publish_video(args: argparse.Namespace) -> int:
+    token = load_token(args.token_file)
+    if args.dry_run:
+        print(f"Would publish video {args.video} to {args.chat_id}")
+        return 0
+    response = api_request(
+        token,
+        "sendVideo",
+        {
+            "chat_id": args.chat_id,
+            "caption": args.caption,
+            "supports_streaming": "true",
+        },
+        ("video", args.video),
+    )
+    result = response.get("result", {})
+    print(f"Published video message {result.get('message_id')} to {args.chat_id}")
+    return 0
+
+
+def delete_message(args: argparse.Namespace) -> int:
+    token = load_token(args.token_file)
+    if args.dry_run:
+        print(f"Would delete message {args.message_id} from {args.chat_id}")
+        return 0
+    api_request(token, "deleteMessage", {
+        "chat_id": args.chat_id,
+        "message_id": str(args.message_id),
+    })
+    print(f"Deleted message {args.message_id} from {args.chat_id}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -265,13 +298,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     avatar = subparsers.add_parser("avatar", parents=[common])
     avatar.add_argument("--avatar", type=Path, default=DEFAULT_AVATAR)
+
+    video = subparsers.add_parser("video", parents=[common])
+    video.add_argument("--video", type=Path, required=True)
+    video.add_argument("--caption", required=True)
+
+    delete = subparsers.add_parser("delete", parents=[common])
+    delete.add_argument("--message-id", type=int, required=True)
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     try:
-        return publish_once(args) if args.command == "publish" else set_avatar(args)
+        if args.command == "publish":
+            return publish_once(args)
+        if args.command == "avatar":
+            return set_avatar(args)
+        if args.command == "video":
+            return publish_video(args)
+        return delete_message(args)
     except PublisherError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
