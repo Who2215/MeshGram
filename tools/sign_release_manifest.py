@@ -5,6 +5,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -30,6 +31,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--private-key", required=True, type=Path)
+    parser.add_argument("--private-key-password-env", default="MESHGRAM_UPDATE_PRIVATE_KEY_PASSWORD")
+    parser.add_argument("--release-type", default="debug-test-build",
+                        choices=["debug-test-build", "signed-release-candidate"])
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--version-code", required=True, type=int)
     parser.add_argument("--version-name", required=True)
@@ -55,9 +59,10 @@ def main() -> None:
         "apkSha256": digest,
         "signingCertificateSha256": args.signing_certificate_sha256.lower(),
     }
-    private_key = serialization.load_pem_private_key(
-        args.private_key.read_bytes(), password=None
-    )
+    key_data = args.private_key.read_bytes()
+    password = os.environ.get(args.private_key_password_env, "")
+    private_key = serialization.load_pem_private_key(key_data,
+        password=password.encode("utf-8") if b"ENCRYPTED PRIVATE KEY" in key_data and password else None)
     if not isinstance(private_key, ec.EllipticCurvePrivateKey):
         raise SystemExit("manifest key must be an EC private key")
     signature = private_key.sign(
@@ -66,7 +71,7 @@ def main() -> None:
     manifest["manifestSignature"] = base64.b64encode(signature).decode("ascii")
     manifest["file"] = args.file or f"downloads/MeshGram-v{args.version_code}-hybrid.apk"
     manifest["sizeBytes"] = len(apk_bytes)
-    manifest["releaseType"] = "debug-test-build"
+    manifest["releaseType"] = args.release_type
     manifest["notes"] = args.changelog
 
     args.output.write_text(

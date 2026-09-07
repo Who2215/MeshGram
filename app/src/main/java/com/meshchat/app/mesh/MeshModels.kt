@@ -17,7 +17,9 @@ data class HelloPacket(
     val fingerprint: String,
     val signature: String,
     // A small compressed public profile thumbnail. It is never the original file.
-    val avatarData: String = ""
+    val avatarData: String = "",
+    val profileVersion: Int = 1,
+    val discoverable: Boolean = false
 ) {
     companion object {
         const val TYPE = "HELLO_V1"
@@ -388,7 +390,9 @@ data class PeerIdentity(
     val fingerprint: String,
     val firstSeenMs: Long,
     val lastSeenMs: Long,
-    val avatarData: String = ""
+    val avatarData: String = "",
+    val discoverable: Boolean = false,
+    val profileUpdatedAtMs: Long = 0
 )
 
 @Serializable
@@ -474,6 +478,8 @@ data class MeshUiState(
     val status: String = "Idle",
     val peers: List<Peer> = emptyList(),
     val contacts: List<MeshContact> = emptyList(),
+    val nearbyPeople: List<MeshContact> = emptyList(),
+    val friendState: FriendState = FriendState(),
     val messages: List<ChatMessage> = emptyList(),
     val conversations: List<ConversationSummary> = emptyList(),
     val groups: List<MeshGroup> = emptyList(),

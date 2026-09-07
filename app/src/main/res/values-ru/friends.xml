@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Друзья и знакомства</string>
+    <string name="friends_back">Назад</string>
+    <string name="friends_discoverable">Знакомства рядом</string>
+    <string name="friends_visible">Имя и фото видны участникам MeshGram поблизости, которые тоже включили знакомства.</string>
+    <string name="friends_private">Имя и фото скрыты от незнакомцев. Друзья по-прежнему могут связаться с вами.</string>
+    <string name="friends_network_note">Ретрансляция зашифрованных пакетов не добавляет людей в контакты.</string>
+    <string name="friends_add">Добавить друга</string>
+    <string name="friends_invite_help">Покажите другу свой QR или отправьте код приглашения. Общение начнётся после подтверждения с обеих сторон.</string>
+    <string name="friends_my_qr">Мой QR для друга</string>
+    <string name="friends_scan">Сканировать QR друга</string>
+    <string name="friends_enter_code">Ввести код приглашения</string>
+    <string name="friends_revoke">Отозвать приглашение</string>
+    <string name="friends_mesh_off">Включите Mesh в настройках сети для обмена запросами. Доставка ждёт доступного маршрута.</string>
+    <string name="friends_incoming">Входящие запросы</string>
+    <string name="friends_accept_help">Сверьте отпечаток с другом. После принятия вы сможете общаться и видеть фотографии профиля друг друга.</string>
+    <string name="friends_accept">Принять</string>
+    <string name="friends_decline">Отклонить и игнорировать</string>
+    <string name="friends_outgoing">Отправленные запросы</string>
+    <string name="friends_pending">Ждём подтверждения. Сообщения недоступны, пока друг не примет запрос.</string>
+    <string name="friends_cancel_request">Отменить запрос</string>
+    <string name="friends_nearby">Открыты к знакомству рядом</string>
+    <string name="friends_no_nearby">Рядом нет доступных анкет. Для появления здесь знакомства должны быть включены у обоих.</string>
+    <string name="friends_request">Отправить запрос</string>
+    <string name="friends_confirmed">Подтверждённые друзья</string>
+    <string name="friends_empty">Подтверждённых друзей пока нет. Начните с QR-приглашения.</string>
+    <string name="friends_chat">Открыть чат</string>
+    <string name="friends_code">Код приглашения MeshGram</string>
+    <string name="friends_check">Проверить приглашение</string>
+    <string name="friends_close">Закрыть</string>
+    <string name="friends_fingerprint">Отпечаток устройства</string>
+    <string name="friends_request_help">Ваши имя и фото будут переданы этому человеку в зашифрованном запросе. Для начала общения он должен его принять.</string>
+    <string name="friends_qr_help">Одно использование, срок 24 часа. Новый QR отменяет предыдущее приглашение. Передавайте его только нужному человеку.</string>
+    <string name="friends_copy">Скопировать код</string>
+    <string name="friends_copied">Приглашение скопировано</string>
+    <string name="friends_saved">Сохранено. Запросы синхронизируются при появлении маршрута.</string>
+    <string name="friends_failed">Не удалось выполнить действие. Проверьте приглашение и попробуйте снова.</string>
+    <string name="friends_invalid_invite">Приглашение повреждено, просрочено или не совпадает с ключом устройства.</string>
+    <string name="friends_map_note">Здесь только подтверждённые друзья. Случайные устройства рядом не становятся контактами автоматически.</string>
+    <string name="friends_confirmation_required">Для отправки подтвердите контакт в разделе «Друзья и знакомства».</string>
+</resources>

@@ -15,6 +15,7 @@ import com.meshchat.app.mesh.CollectiveRole
 import com.meshchat.app.mesh.IncomingFileTransferProgress
 import com.meshchat.app.mesh.MeshForegroundService
 import com.meshchat.app.mesh.MeshContact
+import com.meshchat.app.mesh.FriendState
 import com.meshchat.app.mesh.MeshGroup
 import com.meshchat.app.mesh.MeshMessagePayload
 import com.meshchat.app.mesh.MeshRuntime
@@ -140,11 +141,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     val uiState: StateFlow<MeshUiState> = combine(
-        combine(networkState, _groups, _conversationStates) { state, groups, conversationStates ->
+        combine(networkState, _groups, _conversationStates, meshManager.friendState) { state, groups, conversationStates, friends ->
             UiCombineState(
                 network = state,
                 groups = groups,
-                conversationStates = conversationStates
+                conversationStates = conversationStates,
+                friends = friends
             )
         },
         _selectedConversationId,
@@ -169,7 +171,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val outgoingFileTransfers = networkState.outgoingFileTransfers
         val incomingFileTransfers = networkState.incomingFileTransfers
 
-        val contacts = buildContacts(peers, knownIdentities)
+        val friends = combined.friends
+        val allContacts = buildContacts(peers, knownIdentities).map { contact ->
+            friends.record(contact.nodeId)?.takeIf { !it.blocked }?.let { record ->
+                contact.copy(alias = record.alias, avatarData = record.avatarData)
+            } ?: contact
+        }
+        val contacts = allContacts.filter { friends.isFriend(it.nodeId) }
+        val nearbyPeople = if (friends.discoverable) allContacts.filter { contact ->
+            !friends.isFriend(contact.nodeId) && friends.record(contact.nodeId)?.blocked != true &&
+                knownIdentities.any { it.nodeId == contact.nodeId && it.discoverable } &&
+                peers.any { it.nodeId == contact.nodeId && it.isConnected &&
+                    android.bluetooth.BluetoothAdapter.checkBluetoothAddress(it.address) }
+        } else emptyList()
         val conversations = buildConversations(
             nodeId = meshManager.nodeId,
             contacts = contacts,
@@ -237,6 +251,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             peers = peers,
             contacts = contacts,
             messages = messages,
+            friendState = friends,
+            nearbyPeople = nearbyPeople,
             conversations = conversations,
             groups = groups,
             activeConversationId = resolvedConversationId,
@@ -323,6 +339,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val conversationId = directConversationId(meshManager.nodeId, peerNodeId)
         openConversation(conversationId)
     }
+
+    fun setDiscoverable(enabled: Boolean) = meshManager.setDiscoverable(enabled)
+    fun createFriendInvite() = meshManager.createFriendInvite()
+    fun previewFriendInvite(code: String) = meshManager.previewFriendInvite(code)
+    fun requestFriendInvite(code: String) = meshManager.requestFriendInvite(code)
+    fun requestNearbyFriend(id: String) = meshManager.requestNearbyFriend(id)
+    fun acceptFriend(id: String) = meshManager.acceptFriend(id)
+    fun declineFriend(id: String) = meshManager.declineFriend(id)
+    fun revokeFriendInvite() = meshManager.revokeFriendInvite()
 
     fun openSavedMessages() {
         openConversation(SAVED_MESSAGES_CONVERSATION_ID)
@@ -1893,13 +1918,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun resolveConversationPermissions(conversation: ConversationSummary): ConversationPermissions {
         if (conversation.type == ConversationType.DIRECT) {
+            val confirmed = isSavedMessagesConversation(conversation.id) ||
+                conversation.memberNodeIds.filter { it != meshManager.nodeId }.let { peers ->
+                    peers.isNotEmpty() && peers.all { meshManager.friendState.value.isFriend(it) }
+                }
             return ConversationPermissions(
                 role = CollectiveRole.OWNER,
-                canPost = true,
+                canPost = confirmed,
                 canModerate = false,
                 canPin = true,
-                canReact = true,
-                canEditOwn = true,
+                canReact = confirmed,
+                canEditOwn = confirmed,
                 canDeleteOwn = true,
                 canManageRoles = false,
                 isAdmin = false,
@@ -2445,6 +2474,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private data class UiCombineState(
         val network: NetworkState,
         val groups: List<MeshGroup>,
-        val conversationStates: Map<String, ConversationLocalState>
+        val conversationStates: Map<String, ConversationLocalState>,
+        val friends: FriendState
     )
 }

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friends_title">Friends and nearby people</string>
+    <string name="friends_back">Back</string>
+    <string name="friends_discoverable">Meet people nearby</string>
+    <string name="friends_visible">Your name and photo are visible to nearby MeshGram users who enable this option.</string>
+    <string name="friends_private">Your public name and photo are hidden. Friends can still reach you.</string>
+    <string name="friends_network_note">Relaying encrypted packets does not add anyone to your contacts.</string>
+    <string name="friends_add">Add a friend</string>
+    <string name="friends_invite_help">Show your personal QR to a friend or send them your invitation code. You both confirm before chatting.</string>
+    <string name="friends_my_qr">My invitation QR</string>
+    <string name="friends_scan">Scan a friend’s QR</string>
+    <string name="friends_enter_code">Enter an invitation code</string>
+    <string name="friends_revoke">Revoke invitation</string>
+    <string name="friends_mesh_off">Turn on Mesh in network settings to exchange requests. Delivery waits until a route is available.</string>
+    <string name="friends_incoming">Incoming requests</string>
+    <string name="friends_accept_help">Check the fingerprint with your friend. Accepting allows both of you to chat and share profile photos.</string>
+    <string name="friends_accept">Accept</string>
+    <string name="friends_decline">Decline and ignore</string>
+    <string name="friends_outgoing">Sent requests</string>
+    <string name="friends_pending">Waiting for confirmation. Messages remain unavailable until your friend accepts.</string>
+    <string name="friends_cancel_request">Cancel request</string>
+    <string name="friends_nearby">Open to meeting nearby</string>
+    <string name="friends_no_nearby">No nearby profiles available. Both people must enable discovery to appear here.</string>
+    <string name="friends_request">Send a request</string>
+    <string name="friends_confirmed">Confirmed friends</string>
+    <string name="friends_empty">No confirmed friends yet. Start with a QR invitation.</string>
+    <string name="friends_chat">Open chat</string>
+    <string name="friends_code">MeshGram invitation code</string>
+    <string name="friends_check">Check invitation</string>
+    <string name="friends_close">Close</string>
+    <string name="friends_fingerprint">Device fingerprint</string>
+    <string name="friends_request_help">Your name and photo will be shared with this person in an encrypted request. They must accept before you can chat.</string>
+    <string name="friends_qr_help">One use, valid for 24 hours. A new QR revokes the previous invitation. Share only with the intended person.</string>
+    <string name="friends_copy">Copy code</string>
+    <string name="friends_copied">Invitation copied</string>
+    <string name="friends_saved">Saved. Requests will sync when a route is available.</string>
+    <string name="friends_failed">Could not complete this action. Check the invitation and try again.</string>
+    <string name="friends_invalid_invite">Invalid, expired or mismatched device invitation.</string>
+    <string name="friends_map_note">Only confirmed friends appear here. Nearby strangers never become contacts automatically.</string>
+    <string name="friends_confirmation_required">Confirm this contact in Friends and nearby people before sending.</string>
+</resources>

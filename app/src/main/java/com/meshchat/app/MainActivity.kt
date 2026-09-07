@@ -161,6 +161,9 @@ import com.meshchat.app.mesh.ConversationSummary
 import com.meshchat.app.mesh.ConversationType
 import com.meshchat.app.mesh.IncomingFileTransferProgress
 import com.meshchat.app.mesh.MeshContact
+import androidx.compose.ui.res.stringResource
+import com.meshchat.app.ui.FriendActions
+import com.meshchat.app.ui.FriendsScreen
 import com.meshchat.app.mesh.MeshForegroundService
 import com.meshchat.app.mesh.MessageDeliveryState
 import com.meshchat.app.mesh.MeshTab
@@ -2018,6 +2021,10 @@ private fun MeshApp(
                 onOpenConversation = viewModel::openConversation,
                 onCloseConversation = viewModel::closeConversation,
                 onOpenDirect = viewModel::openDirectChat,
+                friendActions = FriendActions(viewModel::setDiscoverable, viewModel::createFriendInvite,
+                    viewModel::previewFriendInvite, viewModel::requestFriendInvite,
+                    viewModel::requestNearbyFriend, viewModel::acceptFriend,
+                    viewModel::declineFriend, viewModel::revokeFriendInvite),
                 onUpdateDraft = viewModel::updateDraftForActiveConversation,
                 onPinConversation = viewModel::pinConversation,
                 onMuteConversation = viewModel::muteConversation,
@@ -2412,6 +2419,7 @@ private fun MeshTelegramScreen(
     onOpenConversation: (String) -> Unit,
     onCloseConversation: () -> Unit,
     onOpenDirect: (String) -> Unit,
+    friendActions: FriendActions,
     onUpdateDraft: (String) -> Unit,
     onPinConversation: (String, Boolean) -> Unit,
     onMuteConversation: (String, Boolean) -> Unit,
@@ -3093,7 +3101,12 @@ private fun MeshTelegramScreen(
                 when (uiState.selectedTab) {
                     MeshTab.MAP -> {
                         MeshMapHome(
-                            uiState = uiState
+                            uiState = uiState,
+                            onOpenFriends = {
+                                profileSettingsSectionId = ProfileSettingsSection.CONTACTS.name
+                                onSelectTab(MeshTab.PROFILE)
+                            },
+                            onOpenChat = onOpenDirect
                         )
                     }
 
@@ -3196,6 +3209,10 @@ private fun MeshTelegramScreen(
                                 onToggleVoiceRecording = toggleVoiceRecording,
                                 onPauseResumeVoiceRecording = pauseOrResumeVoiceRecording,
                                 onCancelVoiceRecording = cancelVoiceRecording,
+                                onOpenFriends = {
+                                    profileSettingsSectionId = ProfileSettingsSection.CONTACTS.name
+                                    onSelectTab(MeshTab.PROFILE)
+                                },
                                 onSchedule = { scheduledAtMs ->
                                     val text = messageDraft.trim()
                                     if (text.isBlank() || editingMessageId != null) {
@@ -3280,6 +3297,8 @@ private fun MeshTelegramScreen(
                         } else {
                             SettingsHome(
                                 section = profileSettingsSection,
+                                friendActions = friendActions,
+                                onOpenFriendChat = onOpenDirect,
                                 uiState = uiState,
                                 aliasDraft = aliasDraft,
                                 onAliasDraftChange = { aliasDraft = it },
@@ -6056,7 +6075,9 @@ private fun MeshMapStats(
 
 @Composable
 private fun MeshMapHome(
-    uiState: MeshUiState
+    uiState: MeshUiState,
+    onOpenFriends: () -> Unit,
+    onOpenChat: (String) -> Unit
 ) {
     val strings = rememberMeshStrings()
     Box(modifier = Modifier.fillMaxSize()) {
@@ -6069,6 +6090,17 @@ private fun MeshMapHome(
         ) {
             item {
                 MeshBrandHeader(subtitle = strings.meshMapTitle)
+            }
+            item {
+                NeonGlassCard {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text(androidx.compose.ui.res.stringResource(R.string.friends_map_note))
+                        Button(onClick = onOpenFriends, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            val count = uiState.friendState.records.count { !it.accepted && !it.blocked && it.incomingId != null }
+                            Text(androidx.compose.ui.res.stringResource(R.string.friends_add) + if (count > 0) " ($count)" else "")
+                        }
+                    }
+                }
             }
             item {
                 MeshMapStats(uiState = uiState, strings = strings)
@@ -6134,7 +6166,7 @@ private fun MeshMapHome(
                 items(uiState.contacts, key = { it.nodeId }) { contact ->
                     NeonGlassCard {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onOpenChat(contact.nodeId) }.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             NeonAvatar(
@@ -6379,7 +6411,7 @@ private fun MeshProfileHome(
                         ProfileActionRow(Icons.Rounded.Palette, strings.appearance) {
                             onOpenSettings(ProfileSettingsSection.APPEARANCE)
                         }
-                        ProfileActionRow(Icons.Rounded.Group, strings.contacts) {
+                        ProfileActionRow(Icons.Rounded.Group, androidx.compose.ui.res.stringResource(R.string.friends_title)) {
                             onOpenSettings(ProfileSettingsSection.CONTACTS)
                         }
                         ProfileActionRow(Icons.Rounded.Info, strings.dataUsage) {
@@ -6825,6 +6857,8 @@ private fun MeshStatusPill(
 @Composable
 private fun SettingsHome(
     section: ProfileSettingsSection,
+    friendActions: FriendActions,
+    onOpenFriendChat: (String) -> Unit,
     uiState: MeshUiState,
     aliasDraft: String,
     onAliasDraftChange: (String) -> Unit,
@@ -6857,6 +6891,10 @@ private fun SettingsHome(
     onNotificationSoundChange: (String) -> Unit,
     onVibrationLevelChange: (String) -> Unit
 ) {
+    if (section == ProfileSettingsSection.CONTACTS) {
+        FriendsScreen(uiState, friendActions, onBack, onOpenFriendChat)
+        return
+    }
     val context = LocalContext.current
     val strings = rememberMeshStrings()
     var transientCacheBytes by remember { mutableStateOf(transientCacheSizeBytes(context)) }
@@ -7844,6 +7882,7 @@ private fun LegacySettingsHome(
 @Composable
 private fun ChatThread(
     uiState: MeshUiState,
+    onOpenFriends: () -> Unit,
     messages: List<ChatMessage>,
     messageDraft: String,
     searchQuery: String,
@@ -8192,6 +8231,11 @@ private fun ChatThread(
             }
         }
 
+        if (!canPost && uiState.activeConversationType == ConversationType.DIRECT) {
+            TextButton(onClick = onOpenFriends, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.friends_confirmation_required))
+            }
+        }
         if (!canPost &&
             (uiState.activeConversationType == ConversationType.CHANNEL ||
                 uiState.activeConversationType == ConversationType.GROUP)
@@ -8384,7 +8428,10 @@ private fun ChatThread(
                         textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
                         placeholder = {
                             Text(
-                                if (canPost) strings.messagePlaceholder else strings.onlyAdminsCanPost,
+                                if (canPost) strings.messagePlaceholder
+                                else if (uiState.activeConversationType == ConversationType.DIRECT)
+                                    stringResource(R.string.friends_confirmation_required)
+                                else strings.onlyAdminsCanPost,
                                 color = TgDayPalette.rowMeta
                             )
                         },

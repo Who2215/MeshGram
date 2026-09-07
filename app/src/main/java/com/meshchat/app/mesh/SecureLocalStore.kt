@@ -34,6 +34,7 @@ class SecureLocalStore(private val context: Context) {
     private val messagesFile = File(rootDir, "messages_v2.dat")
     private val groupsFile = File(rootDir, "groups_v2.dat")
     private val identitiesFile = File(rootDir, "identities_v1.dat")
+    private val friendsFile = File(rootDir, "friends_v1.dat")
     private val conversationStatesFile = File(rootDir, "conversation_states_v1.dat")
     private val relayFramesFile = File(rootDir, "relay_frames_v1.dat")
     private val outgoingTransfersFile = File(rootDir, "outgoing_transfers_v1.dat")
@@ -68,6 +69,28 @@ class SecureLocalStore(private val context: Context) {
         val payload = runCatching { json.encodeToString(groups) }.getOrNull() ?: return
         val gz = gzip(payload.toByteArray(StandardCharsets.UTF_8)) ?: return
         writeEncrypted(groupsFile, gz)
+    }
+
+    fun loadFriends(): FriendState {
+        runCatching { android.util.AtomicFile(friendsFile).openRead().close() }
+        val bytes = readEncrypted(friendsFile) ?: return FriendState()
+        return runCatching { json.decodeFromString<FriendState>(bytes.toString(StandardCharsets.UTF_8)) }
+            .getOrDefault(FriendState())
+    }
+
+    fun persistFriends(state: FriendState): Boolean {
+        val blob = encryptAtRestFallback(json.encodeToString(state).toByteArray(StandardCharsets.UTF_8))
+            ?: return false
+        val file = android.util.AtomicFile(friendsFile)
+        val stream = runCatching { file.startWrite() }.getOrNull() ?: return false
+        return try {
+            stream.write(blob)
+            file.finishWrite(stream)
+            true
+        } catch (_: Exception) {
+            file.failWrite(stream)
+            false
+        }
     }
 
     fun loadPeerIdentities(): List<PeerIdentity> {
@@ -326,9 +349,11 @@ class SecureLocalStore(private val context: Context) {
     private fun encryptAtRestFallback(plain: ByteArray): ByteArray? {
         return runCatching {
             val key = fallbackAtRestKey() ?: return@runCatching null
-            val nonce = ByteArray(FALLBACK_NONCE_SIZE).also { random.nextBytes(it) }
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, nonce))
+            // Android Keystore requires its own IV when randomized encryption is mandatory.
+            cipher.init(Cipher.ENCRYPT_MODE, key)
+            val nonce = cipher.iv
+            require(nonce.size == FALLBACK_NONCE_SIZE)
             val ciphertext = cipher.doFinal(plain)
             ByteArrayOutputStream().use { out ->
                 out.write(FALLBACK_MAGIC.toByteArray(StandardCharsets.UTF_8))

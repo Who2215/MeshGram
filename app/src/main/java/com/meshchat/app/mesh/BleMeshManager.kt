@@ -173,6 +173,38 @@ class BleMeshManager(
         SecureCryptoEngine(context, nodeId)
     }
     private val localStore = SecureLocalStore(context)
+    private val _friendState = MutableStateFlow(FriendState())
+    val friendState = _friendState.asStateFlow()
+    private val friendDirectory by lazy {
+        FriendDirectory(nodeId, localStore, { crypto },
+            identity = { id -> synchronized(lock) { peerIdentityByNodeId[id] } },
+            rememberIdentity = { peer ->
+                synchronized(lock) { peerIdentityByNodeId[peer.nodeId] = peer }
+                persistPeerIdentityCache()
+            },
+            send = { packet, peer ->
+                sendPayloadToRecipients(json.encodeToString(packet), listOf(peer))
+            },
+            changed = { _friendState.value = it })
+    }
+
+    fun setDiscoverable(enabled: Boolean) {
+        friendDirectory.setDiscoverable(enabled)
+        publishHello()
+    }
+
+    fun createFriendInvite() = friendDirectory.createInvite()
+    fun previewFriendInvite(code: String) = friendDirectory.parseInvite(code)
+    fun requestFriendInvite(code: String) = friendDirectory.requestInvite(code)
+    fun revokeFriendInvite() = friendDirectory.revokeInvite()
+    fun acceptFriend(id: String) = friendDirectory.accept(id)
+    fun declineFriend(id: String) = friendDirectory.decline(id)
+    fun requestNearbyFriend(id: String): Boolean {
+        val nearby = synchronized(lock) { peerMap.values.any {
+            it.nodeId == id && it.isConnected && BluetoothAdapter.checkBluetoothAddress(it.address)
+        } }
+        return nearby && friendDirectory.requestNearby(id)
+    }
 
     private val _nodeAlias = MutableStateFlow("Node-${nodeId.take(4)}")
     val nodeAlias = _nodeAlias.asStateFlow()
@@ -229,6 +261,7 @@ class BleMeshManager(
             }
         }
         scope.launch(Dispatchers.IO) {
+            friendDirectory.initialize()
             val identities = localStore.loadPeerIdentities()
             _knownIdentities.value = identities.sortedByDescending { it.lastSeenMs }
             synchronized(lock) {
@@ -248,6 +281,7 @@ class BleMeshManager(
     fun updateAlias(rawAlias: String) {
         val updatedAlias = crypto.updateAlias(rawAlias)
         _nodeAlias.value = updatedAlias
+        friendDirectory.publishProfile()
         if (_isRunning.value) {
             publishHello()
         }
@@ -256,6 +290,7 @@ class BleMeshManager(
     fun updateAvatarData(rawAvatarData: String) {
         val updatedAvatar = crypto.updateAvatarData(rawAvatarData)
         _nodeAvatarData.value = updatedAvatar
+        friendDirectory.publishProfile()
         if (_isRunning.value) {
             publishHello()
         }
@@ -489,6 +524,10 @@ class BleMeshManager(
         if (body.isEmpty()) return false
 
         val target = targetNodeId.trim()
+        if (!_friendState.value.isFriend(target)) {
+            updateStatus("Contact confirmation required")
+            return false
+        }
         if (target.isBlank() || target == nodeId) {
             updateStatus("Select a valid peer for direct message")
             return false
@@ -759,6 +798,10 @@ class BleMeshManager(
             return false
         }
         val target = targetNodeId.trim()
+        if (!_friendState.value.isFriend(target)) {
+            updateStatus("Contact confirmation required")
+            return false
+        }
         val messageId = targetMessageId.trim()
         val newText = editedText.trim()
         if (target.isBlank() || target == nodeId || messageId.isBlank() || newText.isBlank()) {
@@ -914,6 +957,10 @@ class BleMeshManager(
             return false
         }
         val target = targetNodeId.trim()
+        if (!_friendState.value.isFriend(target)) {
+            updateStatus("Contact confirmation required")
+            return false
+        }
         val messageId = targetMessageId.trim()
         if (target.isBlank() || target == nodeId || messageId.isBlank()) return false
         val recipient = synchronized(lock) { peerIdentityByNodeId[target] }
@@ -1061,6 +1108,10 @@ class BleMeshManager(
             return false
         }
         val target = targetNodeId.trim()
+        if (!_friendState.value.isFriend(target)) {
+            updateStatus("Contact confirmation required")
+            return false
+        }
         val messageId = targetMessageId.trim()
         if (target.isBlank() || target == nodeId || messageId.isBlank()) return false
         val recipient = synchronized(lock) { peerIdentityByNodeId[target] }
@@ -1218,6 +1269,10 @@ class BleMeshManager(
             return false
         }
         val target = targetNodeId.trim()
+        if (!_friendState.value.isFriend(target)) {
+            updateStatus("Contact confirmation required")
+            return false
+        }
         val messageId = targetMessageId.trim()
         if (target.isBlank() || target == nodeId || messageId.isBlank()) return false
         val recipient = synchronized(lock) { peerIdentityByNodeId[target] }
@@ -1377,6 +1432,10 @@ class BleMeshManager(
         }
 
         val target = targetNodeId.trim()
+        if (!_friendState.value.isFriend(target)) {
+            updateStatus("Contact confirmation required")
+            return false
+        }
         if (target.isBlank() || target == nodeId) {
             updateStatus("Select a valid peer for file transfer")
             return false
@@ -2270,6 +2329,7 @@ class BleMeshManager(
         if (recipients.isEmpty()) return emptySet()
         val sentNodeIds = linkedSetOf<String>()
         recipients.forEach { peerIdentity ->
+            if (!canSendPayload(plaintext, peerIdentity)) return@forEach
             runCatching {
                 val packet = crypto.encryptForPeer(
                     plaintext = plaintext,
@@ -2315,6 +2375,7 @@ class BleMeshManager(
         if (recipients.isEmpty()) return 0
         var sentCount = 0
         recipients.forEach { peerIdentity ->
+            if (!canSendPayload(plaintext, peerIdentity)) return@forEach
             val sent = runCatching {
                 val packet = crypto.encryptForPeer(
                     plaintext = plaintext,
@@ -2336,6 +2397,13 @@ class BleMeshManager(
             if (sent) sentCount++
         }
         return sentCount
+    }
+
+    private fun canSendPayload(plaintext: String, peer: PeerIdentity): Boolean {
+        val payload = runCatching { json.decodeFromString<MeshMessagePayload>(plaintext) }.getOrNull()
+            ?: return true
+        return payload.chatType != MeshMessagePayload.CHAT_TYPE_DIRECT ||
+            _friendState.value.isFriend(peer.nodeId, peer.fingerprint)
     }
 
     private fun dispatchPayloadToTargets(
@@ -2601,14 +2669,23 @@ class BleMeshManager(
 
     private fun publishHello(excludedAddress: String? = null) {
         if (!_isRunning.value) return
-        val helloPacket = crypto.createHelloPacket(maxHops = HELLO_MAX_HOPS)
+        // Route keys may travel through the mesh; public profiles stay on direct BLE links.
+        publishHelloPacket(crypto.createHelloPacket(maxHops = HELLO_MAX_HOPS), excludedAddress)
+        if (_friendState.value.discoverable) {
+            publishHelloPacket(crypto.createHelloPacket(maxHops = 0, discoverable = true), excludedAddress)
+        }
+    }
+
+    private fun publishHelloPacket(helloPacket: HelloPacket, excludedAddress: String?) {
         rememberFrame(helloPacket.frameId)
         val payload = json.encodeToString(helloPacket).toByteArray(Charsets.UTF_8)
         broadcastPayload(
             frameId = helloPacket.frameId,
             payload = payload,
             excludedAddress = excludedAddress,
-            cacheForRelay = false
+            cacheForRelay = false,
+            sendToRelay = !helloPacket.discoverable,
+            sendToWifiLan = !helloPacket.discoverable
         )
     }
 
@@ -3653,7 +3730,9 @@ class BleMeshManager(
         fromAddress: String?,
         sourceTransport: TransportSource
     ) {
-        if (!isValidHelloHopEnvelope(packet.hops, packet.maxHops)) {
+        val localDiscovery = packet.profileVersion == 2 && packet.discoverable &&
+            packet.hops == 0 && packet.maxHops == 0 && sourceTransport == TransportSource.BLE
+        if (!localDiscovery && !isValidHelloHopEnvelope(packet.hops, packet.maxHops)) {
             updateStatus("Dropped HELLO with invalid hops envelope")
             return
         }
@@ -3685,17 +3764,21 @@ class BleMeshManager(
                         fingerprint = packet.fingerprint,
                         firstSeenMs = now,
                         lastSeenMs = now,
-                        avatarData = packet.avatarData
+                        avatarData = packet.avatarData,
+                        discoverable = packet.discoverable,
+                        profileUpdatedAtMs = packet.createdAtMs
                     )
                 } else {
                     existing.copy(
-                        alias = packet.alias,
+                        alias = if (packet.createdAtMs >= existing.profileUpdatedAtMs) packet.alias else existing.alias,
                         fingerprint = packet.fingerprint,
                         lastSeenMs = now,
-                        avatarData = packet.avatarData.ifBlank { existing.avatarData }
+                        avatarData = if (packet.createdAtMs >= existing.profileUpdatedAtMs) packet.avatarData else existing.avatarData,
+                        discoverable = if (packet.createdAtMs >= existing.profileUpdatedAtMs) packet.discoverable else existing.discoverable,
+                        profileUpdatedAtMs = maxOf(existing.profileUpdatedAtMs, packet.createdAtMs)
                     )
                 }
-                if (sourceTransport == TransportSource.BLE && !fromAddress.isNullOrBlank()) {
+                if (sourceTransport == TransportSource.BLE && packet.hops == 0 && !fromAddress.isNullOrBlank()) {
                     addressToNodeId[fromAddress] = packet.originNodeId
                 }
             }
@@ -3707,7 +3790,8 @@ class BleMeshManager(
         persistPeerIdentityCache()
 
         val uiAddress = when (sourceTransport) {
-            TransportSource.BLE -> fromAddress ?: "ble:${packet.originNodeId.take(6)}"
+            TransportSource.BLE -> if (packet.hops == 0) fromAddress ?: "ble:${packet.originNodeId.take(6)}"
+                else "mesh:${packet.originNodeId}"
             TransportSource.WIFI_LAN -> "wifi:${fromAddress ?: packet.originNodeId.take(6)}"
             TransportSource.RELAY -> "relay:${packet.originNodeId.take(6)}"
         }
@@ -3719,6 +3803,8 @@ class BleMeshManager(
             connected = true
         )
         flushPendingPayloads()
+
+        scope.launch { friendDirectory.sync(packet.originNodeId) }
 
         if (shouldRelayByHops(packet.hops, packet.maxHops)) {
             val relayed = packet.copy(
@@ -3760,6 +3846,11 @@ class BleMeshManager(
             return
         }
 
+        if (!runCatching { crypto.verifyMessageSignature(packet, packet.senderSigningPublicKey) }.getOrDefault(false)) {
+            updateStatus("Dropped message with invalid signature")
+            return
+        }
+
         val senderIdentity = synchronized(lock) {
             val existing = peerIdentityByNodeId[packet.originNodeId]
             if (existing != null &&
@@ -3783,16 +3874,18 @@ class BleMeshManager(
                 )
             } else {
                 existing.copy(
-                    alias = packet.senderAlias.ifBlank { existing.alias },
                     fingerprint = packet.senderFingerprint,
                     lastSeenMs = now
                 )
             }
             peerIdentityByNodeId[packet.originNodeId] = identity
-            if (sourceTransport == TransportSource.BLE && !fromAddress.isNullOrBlank()) {
+            if (sourceTransport == TransportSource.BLE && packet.hops == 0 && !fromAddress.isNullOrBlank()) {
                 addressToNodeId[fromAddress] = packet.originNodeId
             }
-            identity
+            val profile = _friendState.value.record(identity.nodeId)?.takeIf {
+                it.accepted && !it.blocked && it.fingerprint == identity.fingerprint
+            }
+            if (profile != null) identity.copy(alias = profile.alias, avatarData = profile.avatarData) else identity
         }
 
         if (senderIdentity == null) {
@@ -3802,7 +3895,8 @@ class BleMeshManager(
         persistPeerIdentityCache()
 
         val uiAddress = when (sourceTransport) {
-            TransportSource.BLE -> fromAddress ?: "ble:${packet.originNodeId.take(6)}"
+            TransportSource.BLE -> if (packet.hops == 0) fromAddress ?: "ble:${packet.originNodeId.take(6)}"
+                else "mesh:${packet.originNodeId}"
             TransportSource.WIFI_LAN -> "wifi:${fromAddress ?: packet.originNodeId.take(6)}"
             TransportSource.RELAY -> "relay:${packet.originNodeId.take(6)}"
         }
@@ -3838,6 +3932,22 @@ class BleMeshManager(
             val meshPayload = runCatching {
                 json.decodeFromString<MeshMessagePayload>(plaintext)
             }.getOrNull()
+            val friendPacket = runCatching { json.decodeFromString<FriendPacket>(plaintext) }.getOrNull()
+            if (friendPacket?.type == FriendPacket.TYPE) {
+                friendDirectory.receive(senderIdentity, friendPacket, packet.createdAtMs,
+                    sourceTransport == TransportSource.BLE && packet.hops == 0 && senderIdentity.discoverable)
+                return
+            }
+            val allowedGroup = meshPayload?.chatType in listOf(
+                MeshMessagePayload.CHAT_TYPE_GROUP, MeshMessagePayload.CHAT_TYPE_CHANNEL
+            ) && localStore.loadGroups().any { group ->
+                group.id == meshPayload?.chatId && nodeId in group.memberNodeIds &&
+                    packet.originNodeId in group.memberNodeIds
+            }
+            if (!_friendState.value.isFriend(senderIdentity.nodeId, senderIdentity.fingerprint) && !allowedGroup) {
+                updateStatus("Contact confirmation required")
+                return
+            }
             if (meshPayload?.type == MeshMessagePayload.TYPE &&
                 meshPayload.payloadKind == MeshMessagePayload.KIND_FILE_CHUNK
             ) {

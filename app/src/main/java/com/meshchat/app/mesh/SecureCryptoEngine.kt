@@ -90,14 +90,18 @@ class SecureCryptoEngine(
         return avatarCache
     }
 
-    fun createHelloPacket(maxHops: Int): HelloPacket {
+    fun createHelloPacket(
+        maxHops: Int,
+        discoverable: Boolean = false,
+        inviteToken: String? = null
+    ): HelloPacket {
         val createdAt = System.currentTimeMillis()
         val encryptionPub = encodeBase64(encryptionKeyPair.public.encoded)
         val signingPub = encodeBase64(signingKeyPair.public.encoded)
         val fingerprint = buildFingerprint(encryptionPub, signingPub)
-        val frameId = UUID.randomUUID().toString()
-        val alias = aliasCache
-        val avatarData = avatarCache
+        val frameId = inviteToken ?: UUID.randomUUID().toString()
+        val alias = if (discoverable || inviteToken != null) aliasCache else "Node-${nodeId.take(4)}"
+        val avatarData = if (discoverable && inviteToken == null) avatarCache else ""
         val signingPayload = helloSigningPayload(
             frameId = frameId,
             originNodeId = nodeId,
@@ -109,7 +113,7 @@ class SecureCryptoEngine(
             maxHops = maxHops,
             avatarData = avatarData
         )
-        val signature = sign(signingPayload.toByteArray(StandardCharsets.UTF_8))
+        val signature = sign((signingPayload + "|profile-v2|$discoverable").toByteArray(StandardCharsets.UTF_8))
 
         return HelloPacket(
             frameId = frameId,
@@ -123,7 +127,9 @@ class SecureCryptoEngine(
             signingPublicKey = signingPub,
             fingerprint = fingerprint,
             signature = encodeBase64(signature),
-            avatarData = avatarData
+            avatarData = avatarData,
+            profileVersion = 2,
+            discoverable = discoverable
         )
     }
 
@@ -147,6 +153,12 @@ class SecureCryptoEngine(
         )
 
         val verifyKey = decodePublicKey(packet.signingPublicKey)
+        if (packet.profileVersion == 2) {
+            return verify(verifyKey,
+                (payload + "|profile-v2|${packet.discoverable}").toByteArray(StandardCharsets.UTF_8),
+                decodeBase64(packet.signature))
+        }
+        if (packet.profileVersion != 1 || packet.discoverable) return false
         return verify(
             publicKey = verifyKey,
             payload = payload.toByteArray(StandardCharsets.UTF_8),
@@ -184,7 +196,8 @@ class SecureCryptoEngine(
             size = 32
         )
         val nonce = ByteArray(12).also { random.nextBytes(it) }
-        val senderAlias = localAlias()
+        // Personal profile data travels inside the encrypted friend exchange.
+        val senderAlias = "Node-${nodeId.take(4)}"
         val senderEncryptionPublicKey = localEncryptionPublicKey()
         val senderSigningPublicKey = localSigningPublicKey()
         val senderFingerprint = fingerprintForKeys(
