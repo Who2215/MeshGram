@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_network">Сеть Mesh</string>
+    <string name="notification_channel_network_description">Беззвучный статус фоновой работы сети Mesh</string>
+    <string name="notification_channel_messages">Сообщения Mesh</string>
+    <string name="notification_channel_messages_description">Входящие защищённые сообщения Mesh</string>
+    <string name="notification_network_title">Сеть MeshGram</string>
+    <string name="notification_network_active">Сеть Mesh работает</string>
+    <string name="notification_network_starting">Запуск сети Mesh</string>
+    <string name="notification_stop">Остановить</string>
+    <string name="notification_mark_read">Прочитано</string>
+    <string name="notification_chat_title">Чат Mesh</string>
+    <string name="notification_file_name">Файл</string>
+    <string name="notification_file_content">Файл: %1$s</string>
+    <string name="notification_new_message">Новое сообщение</string>
+    <string name="notification_test_title">Проверка уведомлений MeshGram</string>
+    <string name="notification_test_body">Используются настройки уведомлений о сообщениях, включая беззвучный режим и режим «Не беспокоить».</string>
+    <string name="notification_open_settings">Открыть настройки уведомлений Android</string>
+    <string name="notification_channel_settings_note">На Android 8 и новее звук и вибрация управляются системным каналом. Выбор ниже задаёт значения по умолчанию для старых версий Android.</string>
+</resources>

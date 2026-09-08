@@ -13,6 +13,9 @@ from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from grip import PhoneGrip
+
 args = argparse.ArgumentParser()
 args.add_argument('--work', type=Path, required=True)
 args.add_argument('--preview', action='store_true')
@@ -378,13 +381,10 @@ def person_scene(kind, motion, receiver):
     surroundings(receiver)
     device, status, reply = phone('Personal phone ' + kind, receiver)
     hand = rig.pose.bones['Bip01 R Hand']
-    hand_world = rig.matrix_world @ hand.matrix
-    center = rig.matrix_world @ hand.head.lerp(hand.tail, .35) + Vector((0, -.016, .014))
-    from mathutils import Euler
-    desired = Matrix.Translation(center) @ Euler((math.radians(40), 0, math.pi)).to_matrix().to_4x4()
-    local_grip = hand_world.inverted() @ desired
+    grip = PhoneGrip(rig, device, col)
+    grip.set_curl([15, 35, 20])
     cam = camera('Human portrait ' + kind, (1.1, -2.5, 1.8), (0, -.02, 1.25), 80, 3.2)
-    return {'col': col, 'rig': rig, 'hand': hand, 'phone': device, 'grip': local_grip, 'camera': cam, 'status': status, 'reply': reply}
+    return {'col': col, 'rig': rig, 'hand': hand, 'phone': device, 'grip': grip, 'camera': cam, 'status': status, 'reply': reply}
 
 
 male = person_scene('Male_Adult_01', 'm_cell_phone_textmessage.max.fbx', False)
@@ -485,7 +485,7 @@ def render_frame(frame):
     if 15 <= t < 20:
         scene.frame_set(380 + int((t - 15) * FPS))
     for person in [male, female]:
-        person['phone'].matrix_world = person['rig'].matrix_world @ person['hand'].matrix @ person['grip']
+        person['grip'].update()
     for col in collections:
         col.hide_render = True
     for ob in graphic_objects:

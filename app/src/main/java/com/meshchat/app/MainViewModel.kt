@@ -27,6 +27,7 @@ import com.meshchat.app.mesh.OutgoingFileTransferProgress
 import com.meshchat.app.mesh.SAVED_MESSAGES_CONVERSATION_ID
 import com.meshchat.app.mesh.SecureLocalStore
 import com.meshchat.app.mesh.ScheduledMessageRecord
+import com.meshchat.app.mesh.TransferBuffers
 import com.meshchat.app.mesh.directConversationId
 import com.meshchat.app.mesh.isSavedMessagesConversation
 import java.io.File
@@ -1516,7 +1517,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun importPortableBackup(uri: Uri, passphrase: String): Boolean {
         val resolver = getApplication<Application>().contentResolver
         val bytes = runCatching {
-            resolver.openInputStream(uri)?.use { it.readBytes() }
+            resolver.openInputStream(uri)?.use {
+                TransferBuffers.readBounded(it, MAX_PORTABLE_BACKUP_BYTES)
+            }
         }.getOrNull() ?: return false
         val imported = localStore.importPortableBackupBytes(bytes, passphrase)
         if (!imported) return false
@@ -2425,6 +2428,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val MAX_UNREAD_COUNTER = 9_999
         private const val MAX_TRACKED_INCOMING_MESSAGES = 8_000
         private const val MAX_MEDIA_ALBUM_ITEMS = 10
+        private const val MAX_PORTABLE_BACKUP_BYTES = 64 * 1024 * 1024
     }
 
     private data class RelayState(

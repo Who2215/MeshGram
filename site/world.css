@@ -1,0 +1,74 @@
+/* The HTML journey is the product; WebGL is a progressive visual layer. */
+.world-skip{position:fixed;top:12px;left:12px;z-index:100;background:var(--cyan);color:var(--ink);padding:14px 22px;transform:translateY(-180%)}
+.world-skip:focus{transform:none}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:5px}
+body{background:radial-gradient(ellipse at 85% 10%,#122039 0,transparent 45%),var(--ink)}
+.site-header{position:relative;z-index:20}
+.world-journey{position:relative;isolation:isolate;margin-bottom:90px;--world-progress:0}
+.world-stage{position:sticky;top:0;height:100vh;height:100svh;width:100%;margin-bottom:-100vh;margin-bottom:-100svh;overflow:hidden;z-index:-1;background:#070a16;pointer-events:none}
+.world-fallback,#mesh-world,.world-vignette{position:absolute;inset:0;width:100%;height:100%}
+.world-fallback{object-fit:cover;object-position:65% center}
+#mesh-world{display:block;opacity:0;transition:opacity .6s}
+[data-world-state="ready"] #mesh-world{opacity:1}
+[data-world-state="ready"] .world-fallback{visibility:hidden}
+.world-vignette{background:linear-gradient(90deg,rgba(7,10,22,.95),rgba(7,10,22,.73) 28%,rgba(7,10,22,.12) 60%,transparent),linear-gradient(0deg,#070a16 0,transparent 20%,transparent 85%,rgba(7,10,22,.5))}
+.world-coordinate{position:absolute;bottom:8%;right:5%;color:#83b9c8;letter-spacing:.15em;font:10px/1.8 MeshManrope,sans-serif;opacity:.75}
+.world-toolbar{position:sticky;top:16px;z-index:12;width:min(1160px,calc(100% - 56px));margin:0 auto;height:58px;display:flex;justify-content:space-between;align-items:start;gap:12px}
+.world-chapters{display:flex;gap:4px;padding:5px;border:1px solid #254550;background:rgba(7,10,22,.94);border-radius:30px}
+.world-chapters a{display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:24px;font-size:11px;color:#b6bfd5;min-height:40px}
+.world-chapters b{color:var(--cyan);font-size:10px;letter-spacing:.1em}
+.world-chapters a[aria-current]{background:#18313c;color:#f4f6ff}
+.world-chapters a:hover{background:#193040}
+.world-toggle{display:flex;align-items:center;gap:12px;min-height:48px;padding:9px 14px;border:1px solid #254550;border-radius:28px;background:#0a1220;color:#c0cadd;font:11px MeshManrope,sans-serif;cursor:pointer}
+.world-toggle[hidden]{display:none}
+.world-switch{width:26px;height:14px;border:1px solid #748096;border-radius:20px;padding:2px}
+.world-switch:after{content:'';display:block;width:8px;height:8px;border-radius:50%;background:#8e98b1}
+.world-toggle[aria-pressed="true"] .world-switch{border-color:var(--cyan)}
+.world-toggle[aria-pressed="true"] .world-switch:after{background:var(--cyan);transform:translateX(10px)}
+.world-chapter{position:relative;display:flex;align-items:center;min-height:105vh;min-height:105svh;padding-block:110px;scroll-margin-top:76px}
+.world-chapter.hero{min-height:calc(100svh - 90px);padding-top:60px;gap:0}
+.world-chapter .hero-copy,.world-copy{width:min(530px,48%);position:relative}
+.world-chapter h1,.world-chapter h2{font-size:clamp(46px,5.2vw,76px);font-weight:650;letter-spacing:-.055em;line-height:1.04;margin:20px 0 26px;overflow-wrap:anywhere}
+.world-chapter em{font-style:normal;color:var(--cyan);text-shadow:0 0 35px #52e7ff24}
+#relay em{color:var(--pink)}
+#receiver em{color:var(--lime)}
+.world-copy>p:not(.eyebrow){max-width:480px;font-size:15px;line-height:1.85;color:#bfc6d9}
+.world-copy .world-disclaimer{font-size:11px;line-height:1.7;color:#a7aec8;margin-top:32px}
+.world-chapter .hero-lead{color:#bfc6d9}
+.world-chapter .hero-slogan{font-size:16px}
+.world-chapter .hero-actions{flex-wrap:wrap;gap:10px}
+.world-chapter .hero-actions .button{font-size:12px;padding:16px 21px}
+.world-fact{display:flex;align-items:center;gap:10px;padding-top:20px;color:var(--pink);font-size:11px;line-height:1.7}
+.world-next{display:inline-flex;align-items:center;gap:20px;color:var(--cyan);font-size:12px;min-height:48px;margin-top:20px;border-bottom:1px solid #325764}
+.world-scene-label{position:absolute;right:8%;bottom:20%;display:grid;gap:8px;font-size:11px;color:#c6e1eb;max-width:210px;text-shadow:0 2px 8px #000}
+.world-scene-label b{color:var(--cyan);font-size:14px;letter-spacing:.2em}
+.world-label-line{display:block;width:70px;height:1px;background:var(--cyan);box-shadow:0 0 10px var(--cyan);margin-bottom:8px}
+.world-status{padding-block:20px;color:#9eacc6;font-size:11px}
+.world-journey:after{position:absolute;content:'';height:2px;width:calc(var(--world-progress)*100%);background:linear-gradient(90deg,var(--cyan),var(--pink));bottom:0;left:0}
+.world-static .world-stage{position:absolute;height:100%;max-height:none;margin:0}
+.world-static .world-fallback{position:sticky;top:0;height:100vh;height:100svh;opacity:.7}
+.world-static .world-chapter{min-height:75svh}
+.world-static .world-chapter.hero{min-height:calc(100svh - 90px)}
+.world-static .world-coordinate{display:none}
+.world-static .world-scene-label{opacity:.65}
+.motion-paused *,.motion-paused *:before,.motion-paused *:after,.animation-offscreen,.animation-offscreen *,.animation-offscreen *:before,.animation-offscreen *:after{animation-play-state:paused!important}
+.world-journey .reveal{animation:none;opacity:1;transform:none}
+.world-chapter .eyebrow{line-height:1.6}
+.video-card:has(.product-video[data-film-orientation="landscape"]){width:100%;max-width:1160px}
+.product-video[data-film-orientation="landscape"]{aspect-ratio:16/9}
+.product-video[data-film-orientation="portrait"]{aspect-ratio:9/16;max-height:85svh}
+[dir="rtl"] .world-vignette{transform:scaleX(-1)}
+[dir="rtl"] .world-scene-label{right:auto;left:8%}
+[dir="rtl"] .world-coordinate{right:auto;left:5%}
+@media(min-width:1600px){.world-toolbar,.world-chapter.shell{width:min(1640px,calc(100% - 140px))}.world-chapter .hero-copy,.world-copy{width:560px}.world-chapter h1,.world-chapter h2{font-size:clamp(76px,4.8vw,110px)}.world-copy>p:not(.eyebrow),.world-chapter .hero-lead{font-size:18px;max-width:560px}}
+@media(min-width:2560px){.world-toolbar,.world-chapter.shell{width:min(2300px,calc(100% - 240px))}.world-copy,.world-chapter .hero-copy{width:700px}.world-copy>p:not(.eyebrow),.world-chapter .hero-lead{font-size:22px;max-width:670px}.world-chapter h1,.world-chapter h2{font-size:clamp(110px,4.4vw,160px)}.world-chapters a,.world-toggle{font-size:15px}.world-scene-label{font-size:17px}}
+@media(max-width:1000px){.world-chapter .hero-copy,.world-copy{width:55%}.world-chapters a{padding:9px 12px}.world-chapters span{display:none}.world-vignette{background:linear-gradient(90deg,#070a16ee,#070a1680 48%,transparent),linear-gradient(0deg,#070a16,transparent 40%)}.world-chapter h1,.world-chapter h2{font-size:clamp(42px,6.3vw,64px)}}
+@media(max-width:600px){
+  .world-toolbar{width:calc(100% - 28px);top:8px;height:60px;gap:6px}.world-chapters a{padding:8px 11px}.world-toggle{font-size:10px;gap:7px;padding:9px 10px}.world-chapters{gap:0}
+  .world-chapter.shell{width:calc(100% - 36px);display:flex;align-items:flex-end;min-height:105svh;padding:40svh 0 75px}.world-chapter.hero{min-height:calc(110svh - 74px);padding-top:30svh;padding-bottom:65px}
+  .world-chapter .hero-copy,.world-copy{width:100%;max-width:520px;padding:20px 0 0;background:linear-gradient(0deg,#070a16 50%,#070a16ed 80%,#070a1600);border-radius:12px}
+  .world-chapter h1,.world-chapter h2{font-size:clamp(38px,10.8vw,62px);margin:12px 0 20px}.world-copy>p:not(.eyebrow),.world-chapter .hero-lead{font-size:14px;line-height:1.75}.world-chapter .hero-slogan{font-size:14px}.world-chapter .hero-actions{display:flex}.world-chapter .hero-actions .button{width:auto;flex:1;min-width:150px;font-size:11px}
+  .world-vignette{background:linear-gradient(0deg,#070a16 0,#070a16dc 35%,transparent 70%,#070a1655)}.world-coordinate{top:16%;bottom:auto;right:6%;font-size:8px}.world-scene-label{top:18%;bottom:auto;left:0;right:auto;max-width:180px;font-size:10px}.world-scene-label b{font-size:11px}.world-label-line{width:36px}.world-status{font-size:10px}.world-journey{margin-bottom:55px}.world-static .world-chapter{min-height:auto;padding-top:160px}.world-static .world-chapter.hero{padding-top:30svh;min-height:100svh}
+  [dir="rtl"] .world-scene-label{left:auto;right:0}
+}
+@media(prefers-reduced-motion:reduce){#mesh-world{transition:none}html:focus-within{scroll-behavior:auto}.world-chapter{min-height:75svh}}

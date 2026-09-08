@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_network">Mesh network</string>
+    <string name="notification_channel_network_description">Silent background mesh routing status</string>
+    <string name="notification_channel_messages">Mesh messages</string>
+    <string name="notification_channel_messages_description">Incoming secure mesh messages</string>
+    <string name="notification_network_title">MeshGram network</string>
+    <string name="notification_network_active">Mesh routing active</string>
+    <string name="notification_network_starting">Starting mesh network</string>
+    <string name="notification_stop">Stop</string>
+    <string name="notification_mark_read">Mark read</string>
+    <string name="notification_chat_title">Mesh chat</string>
+    <string name="notification_file_name">File</string>
+    <string name="notification_file_content">File: %1$s</string>
+    <string name="notification_new_message">New message</string>
+    <string name="notification_test_title">MeshGram notification test</string>
+    <string name="notification_test_body">Uses your message notification settings, including silent mode and Do Not Disturb.</string>
+    <string name="notification_open_settings">Open Android notification settings</string>
+    <string name="notification_channel_settings_note">On Android 8 and newer, sound and vibration are controlled by the system channel. The choices below are defaults for older Android versions.</string>
+</resources>

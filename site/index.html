@@ -9,10 +9,11 @@
   <meta property="og:description" id="meta-og-description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
   <title id="page-title">MeshGram | Связь без границ</title>
   <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=cinema-3d-v1">
+  <link rel="stylesheet" href="styles.css?v=world-1">
+  <link rel="stylesheet" href="world.css?v=1">
 </head>
 <body>
-  <canvas id="starfield" aria-hidden="true"></canvas>
+  <a class="world-skip" href="#download" data-i18n="nav_download">Скачать</a>
   <div class="aurora aurora-cyan" aria-hidden="true"></div>
   <div class="aurora aurora-magenta" aria-hidden="true"></div>
 
@@ -55,7 +56,23 @@
   </header>
 
   <main id="top">
-    <section class="hero shell">
+    <div id="world-journey" class="world-journey" data-world-state="static">
+      <div class="world-stage" aria-hidden="true">
+        <img class="world-fallback" src="assets/world/city.svg" alt="" width="1600" height="1000" fetchpriority="high">
+        <canvas id="mesh-world" tabindex="-1"></canvas>
+        <div class="world-vignette"></div>
+        <div class="world-coordinate">MESHGRAM / NETWORK CITY<br>55.75 N &nbsp; 37.61 E / CONCEPT</div>
+      </div>
+      <div class="world-toolbar">
+        <nav class="world-chapters" aria-label="Маршрут" data-world-aria="journey">
+          <a href="#sender" aria-current="step"><b>01</b><span data-world-text="sender">Отправитель</span></a>
+          <a href="#relay"><b>02</b><span data-world-text="relay">Ретранслятор</span></a>
+          <a href="#receiver"><b>03</b><span data-world-text="receiver">Получатель</span></a>
+          <a href="#connect"><b>04</b><span data-world-text="connect">Подключиться</span></a>
+        </nav>
+        <button id="world-toggle" class="world-toggle" type="button" aria-pressed="false" hidden><span data-world-text="motion">3D-анимация</span><span class="world-switch" aria-hidden="true"></span></button>
+      </div>
+    <section id="sender" class="hero shell world-chapter" data-world-stop="0">
       <div class="hero-copy reveal">
         <p class="eyebrow"><span class="pulse-dot"></span> <span data-i18n="hero_eyebrow">Mesh-связь нового поколения</span></p>
         <h1><span data-i18n="hero_title">Сообщения находят</span><br><em data-i18n="hero_title_em">свой путь.</em></h1>
@@ -75,17 +92,45 @@
         </div>
       </div>
 
-      <div class="hero-orbit reveal reveal-delay" aria-label="Визуализация mesh-сети">
-        <div class="orbit orbit-one"></div>
-        <div class="orbit orbit-two"></div>
-        <div class="orbit orbit-three"></div>
-        <div class="orbit-center"><img src="assets/meshgram-mark.svg" alt="MeshGram" width="60" height="60"></div>
-        <span class="node node-a"><b></b><small>BLE</small></span>
-        <span class="node node-b"><b></b><small>NODE 02</small></span>
-        <span class="node node-c"><b></b><small>NODE 07</small></span>
-        <span class="node node-d"><b></b><small>RELAY</small></span>
-      </div>
+      <div class="world-scene-label"><span class="world-label-line"></span><b>01 / A</b><span data-world-text="sealed">Зашифровано на устройстве</span></div>
     </section>
+    <section id="relay" class="shell world-chapter" data-world-stop="1">
+      <div class="world-copy">
+        <p class="eyebrow">02 / <span data-world-text="relay">Ретранслятор</span></p>
+        <h2><span data-world-text="relayTitle">Город становится</span><br><em data-world-text="relayEm">маршрутом.</em></h2>
+        <p data-i18n="flow_find_body">Телефон сканирует BLE-эфир и видит только устройства, которые участвуют в MeshGram. Чужие телефоны не становятся скрытыми ретрансляторами.</p>
+        <p data-i18n="flow_wrap_body">Текст и файлы шифруются для конкретного адресата. Промежуточный узел видит технические данные, TTL и маршрут, но не содержимое.</p>
+        <div class="world-fact"><span class="pulse-dot"></span><span data-world-text="relayFact">Только участвующие узлы. Не случайные телефоны.</span></div>
+        <a class="world-next" href="#receiver"><span data-world-text="follow">Дальше по маршруту</span> <span aria-hidden="true">↓</span></a>
+      </div>
+      <div class="world-scene-label"><span class="world-label-line"></span><b>02 / R</b><span data-world-text="opaque">Содержимое закрыто для узла</span></div>
+    </section>
+    <section id="receiver" class="shell world-chapter" data-world-stop="2">
+      <div class="world-copy">
+        <p class="eyebrow">03 / <span data-world-text="receiver">Получатель</span></p>
+        <h2><span data-world-text="receiverTitle">Много узлов.</span><br><em data-world-text="receiverEm">Один адресат.</em></h2>
+        <p data-i18n="flow_deliver_body">Рядом пакет идёт по BLE mesh. Если адресат далеко или узлов пока мало, включается зашифрованный интернет-резерв, если пользователь его разрешил.</p>
+        <p data-world-text="security">Сверяйте отпечатки ключей. Шифрование не защищает взломанное устройство.</p>
+        <a class="world-next" href="#trust"><span data-i18n="nav_security">Приватность</span> <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="world-scene-label"><span class="world-label-line"></span><b>03 / B</b><span data-world-text="delivered">Расшифровывает получатель</span></div>
+    </section>
+    <section id="connect" class="shell world-chapter" data-world-stop="3">
+      <div class="world-copy">
+        <p class="eyebrow">04 / <span data-world-text="connect">Подключиться</span></p>
+        <h2><span data-world-text="connectTitle">Следующий узел.</span><br><em data-world-text="connectEm">Это вы.</em></h2>
+        <p data-i18n="creator_body">Поддержка помогает тестировать устройства, выпускать обновления и развивать связь без границ.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#download" data-i18n="hero_download">Скачать MeshGram</a>
+          <a class="button button-quiet" href="https://yookassa.ru/my/i/apXuo0ctyNYY/l" target="_blank" rel="noopener noreferrer" data-i18n="creator_button">Поддержать разработчика</a>
+        </div>
+        <a class="world-next" href="https://t.me/MeshGram" target="_blank" rel="noopener noreferrer">Telegram <span aria-hidden="true">↗</span></a>
+        <p class="world-disclaimer" data-world-text="disclaimer">Демонстрационный город, не карта пользователей. Дальность зависит от реальных узлов или разрешённого интернет-резерва.</p>
+      </div>
+      <div class="world-scene-label"><span class="world-label-line"></span><b>04 / +</b><span data-world-text="join">Расширяйте сеть вместе</span></div>
+    </section>
+    <p class="world-status shell" id="world-status" role="status" data-world-text="static">Статичный город. Все разделы доступны.</p>
+    </div>
 
     <section class="signal-strip shell reveal">
       <div><strong>01</strong><span data-i18n="signal_1">Сначала ищем<br>ближайший BLE-путь</span></div>
@@ -219,7 +264,7 @@
          <p class="video-lead" data-i18n="video_lead">3D-ролик MeshGram показывает путь зашифрованного сообщения от отправителя через доступные MeshGram-узлы к точному адресату.</p>
        </div>
        <div class="video-card">
-        <video class="product-video" controls playsinline preload="metadata" poster="assets/meshgram-teaser-poster.png?v=cinema-3d-v1">
+        <video id="world-film" class="product-video" controls playsinline preload="none" poster="assets/meshgram-teaser-poster.png?v=cinema-3d-v1">
           <source src="assets/meshgram-teaser.mp4?v=cinema-3d-v1" type="video/mp4">
           <track kind="subtitles" srclang="ru" label="Русский" src="assets/meshgram-cinema-ru.vtt">
            <span data-i18n="video_fallback">Ваш браузер не поддерживает встроенное видео.</span>
@@ -235,11 +280,11 @@
       <div class="download-panel">
         <div>
           <p class="eyebrow" data-i18n="current_release">Текущий релиз</p>
-          <h2>MeshGram <em id="release-version">1.0.8</em></h2>
+          <h2>MeshGram <em id="release-version">1.0.11</em></h2>
           <p class="download-copy" id="release-description" data-i18n="download_description">Гибридная маршрутизация BLE-first, fallback relay, живой фон и адаптивный интерфейс для Android 6 и новее.</p>
-          <div class="download-meta"><span>APK</span><span id="release-size">21.2 MB</span><span id="release-sha" title="0f65494f0cdb693027cffb9dbbdd031eb529de57d2ed281004568993fd625984">SHA-256: 0f65494f...5984</span></div>
+          <div class="download-meta"><span>APK</span><span id="release-size">16.9 MB</span><span id="release-sha" title="eb96de50e80a980c0954984a5fa08e510b2d61d958599f06c12189907d7927d4">SHA-256: eb96de50...d7927d4</span></div>
         </div>
-        <a class="button button-primary button-download" id="download-link" href="downloads/MeshGram-v109-release.apk" download><span data-i18n="download_apk">Скачать APK</span> <span>↓</span></a>
+        <a class="button button-primary button-download" id="download-link" href="downloads/MeshGram-v111-release.apk" download><span data-i18n="download_apk">Скачать APK</span> <span>↓</span></a>
       </div>
       <div class="download-extra">
         <div class="download-qr"><img src="assets/meshgram-download.svg" alt="QR-код MeshGram"><div><strong data-i18n="download_qr_title">Открой на телефоне</strong><span data-i18n="download_qr_body">Наведи камеру, чтобы открыть страницу загрузки.</span></div></div>
@@ -281,7 +326,7 @@
       <div class="release-grid">
         <article class="release-card release-card-main">
           <div class="release-card-top"><span class="release-kicker" data-i18n="whats_new">Что нового</span><span class="release-live"><i></i> live</span></div>
-          <h3 id="release-notes-title">MeshGram 1.0.8</h3>
+          <h3 id="release-notes-title">MeshGram 1.0.11</h3>
           <ul class="release-notes" id="release-notes-list">
             <li>Подписанный GitHub-манифест обновлений</li>
             <li>Проверка обновлений прямо в настройках</li>
@@ -292,7 +337,7 @@
           <span class="release-kicker" data-i18n="verifiable_file">Проверяемый файл</span>
           <div class="hash-visual"><span></span><span></span><span></span><span></span><span></span><span></span></div>
           <p data-i18n="verifiable_body">APK публикуется вместе с SHA-256 и манифестом. Приложение принимает только проверенную версию.</p>
-          <code id="release-hash">0f65494f...5984</code>
+          <code id="release-hash">eb96de50...d7927d4</code>
         </article>
       </div>
     </section>
@@ -319,6 +364,7 @@
   </main>
 
   <footer class="site-footer shell"><span>© 2026 MeshGram</span><span data-i18n="footer_tagline">Связь через пространство между узлами</span><a href="#top" data-i18n="back_top">Наверх ↑</a></footer>
-  <script src="app.js?v=cinema-3d-v1" defer></script>
+  <script src="app.js?v=world-2" defer></script>
+  <script type="module" src="world.js?v=2"></script>
 </body>
 </html>

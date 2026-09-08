@@ -11,9 +11,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.MediaPlayer
 import android.media.MediaRecorder
-import android.media.PlaybackParams
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -128,6 +126,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.graphics.graphicsLayer
+import com.meshchat.app.ui.MeshBackNavigation
+import com.meshchat.app.ui.BackDestination
+import com.meshchat.app.ui.backDestination
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -165,6 +168,8 @@ import androidx.compose.ui.res.stringResource
 import com.meshchat.app.ui.FriendActions
 import com.meshchat.app.ui.FriendsScreen
 import com.meshchat.app.mesh.MeshForegroundService
+import com.meshchat.app.mesh.MeshNotifications
+import com.meshchat.app.mesh.MeshNotificationVisibility
 import com.meshchat.app.mesh.MessageDeliveryState
 import com.meshchat.app.mesh.MeshTab
 import com.meshchat.app.mesh.MeshUiState
@@ -182,6 +187,10 @@ import com.meshchat.app.ui.MeshTheme
 import com.meshchat.app.ui.RichMessageText
 import com.meshchat.app.ui.ambientPaletteFromTheme
 import com.meshchat.app.ui.rememberMeshRenderQuality
+import com.meshchat.app.ui.audio.SharedAudioController
+import com.meshchat.app.ui.audio.audioKey
+import com.meshchat.app.ui.audio.audioTime
+import com.meshchat.app.ui.audio.isInlineVoiceMessage
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import java.text.SimpleDateFormat
@@ -868,7 +877,10 @@ private data class MeshStrings(
     val motionDescription: String = "Adjust how fast the live background moves",
     val motionFull: String = "Full",
     val motionCalm: String = "Calm",
-    val motionStill: String = "Still"
+    val motionStill: String = "Still",
+    val emojiPicker: String = "Emoji",
+    val liveStickers: String = "Live stickers",
+    val animatedStickersHint: String = "Animated stickers are rendered locally and travel as encrypted text tokens."
 )
 
 @Composable
@@ -1789,7 +1801,10 @@ private fun ruMeshStrings() = MeshStrings(
     motionDescription = "Настройте скорость движения живого фона",
     motionFull = "Полная",
     motionCalm = "Спокойная",
-    motionStill = "Стоп-кадр"
+    motionStill = "Стоп-кадр",
+    emojiPicker = "Эмодзи",
+    liveStickers = "Живые стикеры",
+    animatedStickersHint = "Анимированные стикеры рисуются локально и передаются как зашифрованные текстовые токены."
 )
 
 private data class ExternalSharePayload(
@@ -2474,6 +2489,7 @@ private fun MeshTelegramScreen(
     onExternalShareConsumed: (String) -> Unit
 ) {
     val localContext = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val strings = rememberMeshStrings()
     val notificationPrefs = remember {
         localContext.getSharedPreferences(PREFS_NOTIFICATIONS, Context.MODE_PRIVATE)
@@ -2486,6 +2502,8 @@ private fun MeshTelegramScreen(
     }
     var aliasDraft by rememberSaveable(uiState.nodeAlias) { mutableStateOf(uiState.nodeAlias) }
     var profileSettingsSectionId by rememberSaveable { mutableStateOf<String?>(null) }
+    val chatStateHolder = rememberSaveableStateHolder()
+    var backProgress by remember { mutableStateOf(0f) }
     val profileSettingsSection = profileSettingsSectionId?.let {
         runCatching { ProfileSettingsSection.valueOf(it) }.getOrNull()
     }
@@ -2893,6 +2911,42 @@ private fun MeshTelegramScreen(
     val inChat = uiState.selectedTab == MeshTab.CHATS &&
         uiState.isConversationOpen &&
         !uiState.activeConversationId.isNullOrBlank()
+    DisposableEffect(lifecycleOwner, uiState.activeConversationId, inChat) {
+        val conversationId = uiState.activeConversationId?.takeIf { inChat }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> MeshNotificationVisibility.setVisibleConversation(conversationId)
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> MeshNotificationVisibility.setVisibleConversation(null)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        MeshNotificationVisibility.setVisibleConversation(
+            conversationId.takeIf { lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
+        )
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            MeshNotificationVisibility.setVisibleConversation(null)
+        }
+    }
+    val backTarget = backDestination(showMediaGallery, showChatInfo,
+        chatSearchOpen && inChat, selectedMessageIds.isNotEmpty() && inChat,
+        editingMessageId != null && inChat, replyToMessageId != null && inChat,
+        profileSettingsSectionId != null && uiState.selectedTab == MeshTab.PROFILE, inChat)
+    MeshBackNavigation(enabled = backTarget != BackDestination.SYSTEM,
+        onProgress = { backProgress = it }) {
+        when (backTarget) {
+            BackDestination.MEDIA -> showMediaGallery = false
+            BackDestination.INFO -> showChatInfo = false
+            BackDestination.SEARCH -> { chatSearchOpen = false; chatSearchQuery = "" }
+            BackDestination.SELECTION -> selectedMessageIds = emptySet()
+            BackDestination.EDIT -> { editingMessageId = null; messageDraft = uiState.activeDraft }
+            BackDestination.REPLY -> replyToMessageId = null
+            BackDestination.PROFILE -> profileSettingsSectionId = null
+            BackDestination.CHAT -> onCloseConversation()
+            BackDestination.SYSTEM -> Unit
+        }
+    }
     val activeConversation = remember(uiState.conversations, uiState.activeConversationId) {
         val activeId = uiState.activeConversationId
         if (activeId.isNullOrBlank()) {
@@ -3034,6 +3088,11 @@ private fun MeshTelegramScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.graphicsLayer {
+            translationX = size.width * backProgress * 0.12f
+            scaleX = 1f - backProgress * 0.035f
+            scaleY = scaleX
+        },
         topBar = {
             if (inChat) {
                 ChatTopBar(
@@ -3112,6 +3171,7 @@ private fun MeshTelegramScreen(
 
                     MeshTab.CHATS -> {
                         if (inChat) {
+                            chatStateHolder.SaveableStateProvider(uiState.activeConversationId!!) {
                             ChatThread(
                                 uiState = uiState,
                                 messages = filteredMessages,
@@ -3255,6 +3315,7 @@ private fun MeshTelegramScreen(
                                     }
                                 }
                             )
+                            }
                         } else {
                             ChatsHome(
                                 searchQuery = searchQuery,
@@ -7060,6 +7121,16 @@ private fun SettingsHome(
 
                 ProfileSettingsSection.NOTIFICATIONS -> {
                     SettingsCard(title = strings.notifications) {
+                        Text(
+                            text = stringResource(R.string.notification_channel_settings_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TgDayPalette.rowMeta
+                        )
+                        FilledTonalButton(
+                            onClick = { MeshNotifications.openIncomingChannelSettings(context) }
+                        ) {
+                            Text(stringResource(R.string.notification_open_settings))
+                        }
                         Text(strings.sound, style = MaterialTheme.typography.titleSmall)
                         NotificationChoice(
                             label = strings.systemDefault,
@@ -7933,6 +8004,7 @@ private fun ChatThread(
     val canPost = uiState.activeConversationCanPost
     val isSelectionMode = selectedMessageIds.isNotEmpty()
     var showAttachmentTray by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
+    var showExpressionPicker by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
     var showFormattingHelp by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
     var showScheduleDialog by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
     val messageListState = remember(uiState.activeConversationId) { LazyListState() }
@@ -8354,6 +8426,16 @@ private fun ChatThread(
                 }
             )
         }
+        if (showExpressionPicker && canPost) {
+            ExpressionPicker(
+                strings = strings,
+                onDismiss = { showExpressionPicker = false },
+                onInsert = { expression ->
+                    onDraftChange((messageDraft + expression).take(2000))
+                    showExpressionPicker = false
+                }
+            )
+        }
 
         Row(
             modifier = Modifier
@@ -8382,6 +8464,17 @@ private fun ChatThread(
                             imageVector = Icons.Rounded.AttachFile,
                             contentDescription = "Attach file",
                             tint = TgDayPalette.actionBarIcon
+                        )
+                    }
+                    IconButton(
+                        onClick = { showExpressionPicker = !showExpressionPicker },
+                        enabled = canPost,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Text(
+                            text = "☺",
+                            color = if (showExpressionPicker) TgDayPalette.rowBlue else TgDayPalette.actionBarIcon,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     }
                     IconButton(
@@ -9175,12 +9268,15 @@ private fun VoiceWaveform(
 @Composable
 private fun InlineAudioPlayer(message: ChatMessage) {
     val localContext = LocalContext.current
-    var previewFile by remember(message.id, message.attachment?.localUri) { mutableStateOf<File?>(null) }
-    val playerState = remember(message.id) { mutableStateOf<MediaPlayer?>(null) }
-    var isPlaying by remember(message.id) { mutableStateOf(false) }
-    var positionMs by remember(message.id) { mutableStateOf(0) }
-    var durationMs by remember(message.id) { mutableStateOf(0) }
-    var playbackSpeed by remember(message.id) { mutableStateOf(1f) }
+    val controller = remember(message.id, message.attachment?.transferId) {
+        SharedAudioController(localContext)
+    }
+    val isVoice = isInlineVoiceMessage(message)
+    val audioKey = message.audioKey(isVoice)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val playbackState = controller.state
+    val isPlaying = playbackState.key == audioKey && playbackState.playing
+    val previewReady = message.attachment?.localUri?.isNotBlank() == true
     val waveformSamples = remember(message.id) {
         List(36) { index ->
             val mixed = abs(message.id.hashCode() * 31 + index * 7919)
@@ -9188,72 +9284,33 @@ private fun InlineAudioPlayer(message: ChatMessage) {
         }
     }
 
-    LaunchedEffect(message.id, message.attachment?.localUri) {
-        previewFile = createDecryptedPreviewFile(localContext, message, "preview_audio")
-    }
-    DisposableEffect(previewFile) {
+    DisposableEffect(controller, lifecycleOwner, audioKey) {
+        controller.attach(audioKey)
+        controller.setLocked(false)
+        controller.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START, Lifecycle.Event.ON_RESUME -> controller.setForeground(true)
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> controller.setForeground(false)
+                Lifecycle.Event.ON_DESTROY -> controller.dispose()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            playerState.value?.let { player ->
-                runCatching { player.stop() }
-                runCatching { player.release() }
-            }
-            playerState.value = null
-            previewFile?.let { file ->
-                if (file.exists()) runCatching { file.delete() }
-            }
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            controller.detach(audioKey)
+            controller.dispose()
         }
     }
-    LaunchedEffect(isPlaying, playerState.value) {
-        while (isPlaying) {
-            val player = playerState.value
-            if (player == null) {
-                isPlaying = false
-            } else {
-                positionMs = runCatching { player.currentPosition }.getOrDefault(positionMs)
-                durationMs = runCatching { player.duration }.getOrDefault(durationMs).coerceAtLeast(0)
-            }
-            delay(350)
-        }
-    }
-
-    val file = previewFile
     val togglePlayback = {
-        if (file == null || !file.exists()) {
-            Unit
-        } else {
-            val current = playerState.value
-            if (current == null) {
-                val created = runCatching {
-                    MediaPlayer().apply {
-                        setDataSource(file.absolutePath)
-                        setOnCompletionListener { completed ->
-                            isPlaying = false
-                            positionMs = 0
-                            runCatching { completed.seekTo(0) }
-                        }
-                        prepare()
-                        durationMs = duration.coerceAtLeast(0)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            playbackParams = PlaybackParams().setSpeed(playbackSpeed)
-                        }
-                        start()
-                    }
-                }.getOrNull()
-                playerState.value = created
-                isPlaying = created != null
-            } else if (isPlaying) {
-                runCatching { current.pause() }
-                isPlaying = false
-            } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    runCatching { current.playbackParams = PlaybackParams().setSpeed(playbackSpeed) }
-                }
-                runCatching { current.start() }
-                isPlaying = true
-            }
+        if (previewReady) controller.toggle(audioKey, playbackState.speed) {
+            materializeAudioPreviewFile(localContext, message)
         }
     }
-    val progress = if (durationMs > 0) {
+    val durationMs = playbackState.durationMs
+    val positionMs = playbackState.positionMs
+    val progress = if (durationMs > 0L) {
         (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else {
         0f
@@ -9275,7 +9332,7 @@ private fun InlineAudioPlayer(message: ChatMessage) {
             ) {
                 IconButton(
                     onClick = togglePlayback,
-                    enabled = file?.exists() == true
+                    enabled = previewReady && controller.enabled && !playbackState.resolving
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -9299,41 +9356,34 @@ private fun InlineAudioPlayer(message: ChatMessage) {
                     inactiveColor = TgDayPalette.rowMeta.copy(alpha = 0.24f)
                 )
                 Slider(
-                    value = positionMs.coerceIn(0, durationMs.coerceAtLeast(0)).toFloat(),
-                    onValueChange = { value -> positionMs = value.toInt() },
-                    onValueChangeFinished = {
-                        playerState.value?.let { player ->
-                            runCatching { player.seekTo(positionMs) }
-                        }
-                    },
-                    enabled = file?.exists() == true && durationMs > 0,
-                    valueRange = 0f..durationMs.coerceAtLeast(1).toFloat()
+                    value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
+                    onValueChange = { value -> controller.seek(audioKey, value / durationMs.coerceAtLeast(1L)) },
+                    enabled = controller.enabled && durationMs > 0L,
+                    valueRange = 0f..durationMs.coerceAtLeast(1L).toFloat()
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (file == null) {
-                            "Preparing preview..."
-                        } else {
-                            "${formatRecordingDuration(positionMs.toLong())} / ${formatRecordingDuration(durationMs.toLong())}"
+                        text = when {
+                            playbackState.error -> "Audio unavailable"
+                            playbackState.resolving -> "Preparing preview..."
+                            !previewReady -> "Waiting for file"
+                            else -> {
+                                "${audioTime(positionMs)} / ${audioTime(durationMs)}"
+                            }
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = TgDayPalette.rowMeta,
                         modifier = Modifier.weight(1f)
                     )
-                    listOf(1f, 1.5f, 2f).forEach { speed ->
+                    if (isVoice) listOf(1f, 1.5f, 2f).forEach { speed ->
                         TextButton(
                             onClick = {
-                                playbackSpeed = speed
-                                playerState.value?.let { player ->
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        runCatching { player.playbackParams = PlaybackParams().setSpeed(speed) }
-                                    }
-                                }
+                                controller.setSpeed(audioKey, speed)
                             }
                         ) {
                             Text(
                                 text = if (speed == 1f) "1x" else "${speed}x",
-                                color = if (playbackSpeed == speed) TgDayPalette.rowBlue else TgDayPalette.rowMeta
+                                color = if (playbackState.speed == speed) TgDayPalette.rowBlue else TgDayPalette.rowMeta
                             )
                         }
                     }
@@ -9863,6 +9913,112 @@ private fun DirectChatDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ExpressionPicker(
+    strings: MeshStrings,
+    onDismiss: () -> Unit,
+    onInsert: (String) -> Unit
+) {
+    var stickerMode by rememberSaveable { mutableStateOf(false) }
+    val emojis = listOf("😀", "😂", "🥳", "😍", "🤔", "😎", "😭", "🔥", "❤️", "👍", "✨", "🙏")
+    val stickers = listOf("nebula", "orbit", "wave", "spark")
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = TgDayPalette.card.copy(alpha = 0.97f),
+        tonalElevation = 4.dp
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { stickerMode = false }) {
+                    Text(strings.emojiPicker, color = if (!stickerMode) TgDayPalette.rowBlue else TgDayPalette.rowMeta)
+                }
+                TextButton(onClick = { stickerMode = true }) {
+                    Text(strings.liveStickers, color = if (stickerMode) TgDayPalette.rowBlue else TgDayPalette.rowMeta)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text(strings.close) }
+            }
+            if (stickerMode) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    stickers.forEach { sticker ->
+                        TextButton(onClick = { onInsert("[[sticker:$sticker]]") }) {
+                            Text(stickerGlyph(sticker), fontSize = 26.sp)
+                        }
+                    }
+                }
+                Text(
+                    text = strings.animatedStickersHint,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TgDayPalette.rowMeta
+                )
+            } else {
+                emojis.chunked(6).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        row.forEach { emoji ->
+                            TextButton(onClick = { onInsert(emoji) }) {
+                                Text(emoji, fontSize = 24.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun stickerGlyph(id: String): String = when (id) {
+    "nebula" -> "🌌"
+    "orbit" -> "🪐"
+    "wave" -> "🌊"
+    else -> "✨"
+}
+
+private fun stickerId(text: String): String? =
+    Regex("^\\[\\[sticker:([a-z]+)\\]\\]$").matchEntire(text.trim())?.groupValues?.getOrNull(1)
+
+@Composable
+private fun AnimatedStickerBubble(id: String, textColor: Color) {
+    val transition = rememberInfiniteTransition(label = "sticker-$id")
+    val scale by transition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Reverse),
+        label = "sticker-scale"
+    )
+    val rotation by transition.animateFloat(
+        initialValue = -4f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(tween(2300), RepeatMode.Reverse),
+        label = "sticker-rotation"
+    )
+    val accent = when (id) {
+        "nebula" -> Color(0xFFB76BFF)
+        "orbit" -> Color(0xFF52E7FF)
+        "wave" -> Color(0xFF63B8FF)
+        else -> Color(0xFFFFD166)
+    }
+    Box(
+        modifier = Modifier
+            .size(96.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                rotationZ = rotation
+            }
+            .background(
+                Brush.radialGradient(listOf(accent.copy(alpha = 0.55f), accent.copy(alpha = 0.08f))),
+                CircleShape
+            )
+            .border(1.dp, accent.copy(alpha = 0.75f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(stickerGlyph(id), fontSize = 42.sp, color = textColor)
+    }
 }
 
 @Composable
@@ -10570,16 +10726,21 @@ private fun MessageBubble(
                         color = if (message.isDeleted) metaColor else textColor
                     )
                 } else {
-                    RichMessageText(
-                        text = message.text,
-                        textColor = textColor,
-                        linkColor = if (message.isLocal) Color.White else TgDayPalette.rowBlue,
-                        codeBackground = if (message.isLocal) {
-                            Color.Black.copy(alpha = 0.16f)
-                        } else {
-                            TgDayPalette.searchField
-                        }
-                    )
+                    val sticker = stickerId(message.text)
+                    if (sticker != null) {
+                        AnimatedStickerBubble(sticker, textColor)
+                    } else {
+                        RichMessageText(
+                            text = message.text,
+                            textColor = textColor,
+                            linkColor = if (message.isLocal) Color.White else TgDayPalette.rowBlue,
+                            codeBackground = if (message.isLocal) {
+                                Color.Black.copy(alpha = 0.16f)
+                            } else {
+                                TgDayPalette.searchField
+                            }
+                        )
+                    }
                 }
                 if (!message.isDeleted && message.savedTags.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(5.dp))
@@ -10758,9 +10919,9 @@ private fun MessageBubble(
                                 contentDescription = strings.retry,
                                 modifier = Modifier.size(14.dp),
                                 tint = metaColor
-                            )
-                        }
-                        IconButton(
+                        )
+                    }
+                    IconButton(
                             onClick = { onCancelFileTransfer(transfer.transferId) },
                             modifier = Modifier.size(22.dp)
                         ) {
@@ -11107,6 +11268,32 @@ private fun createDecryptedPreviewFile(
     }.getOrNull()
     clearBytes.fill(0)
     return created
+}
+
+/** Materializes only audio into the lease-managed private preview directory. */
+private fun materializeAudioPreviewFile(
+    context: Context,
+    message: ChatMessage
+): File? {
+    val attachment = message.attachment ?: return null
+    val localPath = attachment.localUri ?: return null
+    val sourceFile = File(localPath)
+    if (!sourceFile.isFile) return null
+    val clearBytes = SecureLocalStore(context.applicationContext).readAttachment(localPath) ?: return null
+    if (clearBytes.isEmpty()) return null
+    val safeName = attachment.fileName
+        .trim()
+        .replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        .ifBlank { "audio.bin" }
+    val previewDir = File(context.cacheDir, com.meshchat.app.ui.audio.AudioPreviewFiles.DIRECTORY_NAME)
+        .apply { mkdirs() }
+    val file = File(previewDir, "${attachment.transferId}_$safeName")
+    return runCatching {
+        file.writeBytes(clearBytes)
+        file
+    }.getOrNull().also {
+        clearBytes.fill(0)
+    }
 }
 
 private data class ActiveVoiceRecording(

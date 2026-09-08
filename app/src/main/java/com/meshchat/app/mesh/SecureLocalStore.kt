@@ -8,6 +8,7 @@ import androidx.security.crypto.EncryptedFile
 import androidx.security.crypto.MasterKey
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import java.security.SecureRandom
@@ -208,7 +209,7 @@ class SecureLocalStore(private val context: Context) {
         val file = runCatching { File(path).canonicalFile }.getOrNull() ?: return null
         if (!isInsideAttachments(file)) return null
         val encrypted = readEncrypted(file) ?: return null
-        return ungzip(encrypted)
+        return ungzip(encrypted, MAX_ATTACHMENT_BYTES)
     }
 
     fun exportPortableBackup(
@@ -245,7 +246,12 @@ class SecureLocalStore(private val context: Context) {
         passphrase: String
     ): Boolean {
         if (!sourceFile.exists()) return false
-        val encrypted = runCatching { sourceFile.readBytes() }.getOrNull() ?: return false
+        if (sourceFile.length() !in 1..MAX_PORTABLE_BACKUP_BYTES.toLong()) return false
+        val encrypted = runCatching {
+            FileInputStream(sourceFile).use {
+                TransferBuffers.readBounded(it, MAX_PORTABLE_BACKUP_BYTES)
+            }
+        }.getOrNull() ?: return false
         return importPortableBackupBytes(encrypted, passphrase)
     }
 
@@ -253,9 +259,10 @@ class SecureLocalStore(private val context: Context) {
         encryptedBackup: ByteArray,
         passphrase: String
     ): Boolean {
+        if (encryptedBackup.isEmpty() || encryptedBackup.size > MAX_PORTABLE_BACKUP_BYTES) return false
         val encrypted = encryptedBackup
         val plainGz = decryptPortable(encrypted, passphrase) ?: return false
-        val plain = ungzip(plainGz) ?: return false
+        val plain = ungzip(plainGz, MAX_PORTABLE_BACKUP_PLAIN_BYTES) ?: return false
         val backup = runCatching {
             json.decodeFromString<PortableBackup>(plain.toString(StandardCharsets.UTF_8))
         }.getOrNull() ?: return false
@@ -314,14 +321,18 @@ class SecureLocalStore(private val context: Context) {
         val encryptedFile = encryptedFileFor(file)
         val primary = if (encryptedFile != null) {
             runCatching {
-                encryptedFile.openFileInput().use { it.readBytes() }
+                encryptedFile.openFileInput().use {
+                    TransferBuffers.readBounded(it, MAX_ENCRYPTED_STORE_BYTES)
+                }
             }.getOrNull()
         } else {
             null
         }
         if (primary != null) return primary
 
-        val raw = runCatching { file.readBytes() }.getOrNull() ?: return null
+        val raw = runCatching {
+            FileInputStream(file).use { TransferBuffers.readBounded(it, MAX_ENCRYPTED_STORE_BYTES) }
+        }.getOrNull() ?: return null
         // Never treat unreadable bytes as plaintext. A failed decrypt is a hard failure.
         return decryptAtRestFallback(raw)
     }
@@ -417,9 +428,11 @@ class SecureLocalStore(private val context: Context) {
         }.getOrNull()
     }
 
-    private fun ungzip(data: ByteArray): ByteArray? {
+    private fun ungzip(data: ByteArray, maxBytes: Int = MAX_STORE_PAYLOAD_BYTES): ByteArray? {
         return runCatching {
-            java.util.zip.GZIPInputStream(data.inputStream()).use { it.readBytes() }
+            java.util.zip.GZIPInputStream(data.inputStream()).use {
+                TransferBuffers.readBounded(it, maxBytes)
+            }
         }.getOrNull()
     }
 
@@ -498,6 +511,11 @@ class SecureLocalStore(private val context: Context) {
         private const val PORTABLE_SALT_SIZE = 16
         private const val PORTABLE_NONCE_SIZE = 12
         private const val PORTABLE_PBKDF2_ITERATIONS = 120_000
+        private const val MAX_STORE_PAYLOAD_BYTES = 64 * 1024 * 1024
+        private const val MAX_ENCRYPTED_STORE_BYTES = MAX_STORE_PAYLOAD_BYTES + 64 * 1024
+        private const val MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024
+        private const val MAX_PORTABLE_BACKUP_BYTES = 64 * 1024 * 1024
+        private const val MAX_PORTABLE_BACKUP_PLAIN_BYTES = 64 * 1024 * 1024
         private const val FALLBACK_MAGIC = "MSF1"
         private const val FALLBACK_VERSION = 1
         private const val FALLBACK_NONCE_SIZE = 12

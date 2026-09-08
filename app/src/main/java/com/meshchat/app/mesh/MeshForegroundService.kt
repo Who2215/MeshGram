@@ -2,17 +2,12 @@ package com.meshchat.app.mesh
 
 import android.Manifest
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import android.media.AudioAttributes
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -27,67 +22,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlin.math.max
-
-object MeshNotificationPreferences {
-    const val PREFS_NAME = "meshgram_notification_prefs"
-    const val KEY_SOUND = "sound"
-    const val KEY_VIBRATION = "vibration"
-    const val DEFAULT_SOUND = "default"
-    const val SILENT_SOUND = "silent"
-    const val NORMAL_VIBRATION = "normal"
-
-    fun soundUri(context: Context): Uri? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return if (prefs.getString(KEY_SOUND, DEFAULT_SOUND) == SILENT_SOUND) {
-            null
-        } else {
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        }
-    }
-
-    fun vibrationPattern(context: Context): LongArray? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return when (prefs.getString(KEY_VIBRATION, NORMAL_VIBRATION)) {
-            "off" -> null
-            "soft" -> longArrayOf(0L, 80L)
-            "strong" -> longArrayOf(0L, 220L, 80L, 220L)
-            else -> longArrayOf(0L, 140L)
-        }
-    }
-
-    fun refreshChannels(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        manager.deleteNotificationChannel("mesh_incoming")
-        val incoming = NotificationChannel(
-            "mesh_incoming",
-            "Mesh Messages",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Incoming secure mesh messages"
-            setSound(
-                soundUri(context),
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                    .build()
-            )
-            vibrationPattern = vibrationPattern(context)
-            enableVibration(vibrationPattern != null)
-            setShowBadge(true)
-        }
-        manager.createNotificationChannel(incoming)
-    }
-}
 
 class MeshForegroundService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val knownIncomingMessageIds = linkedSetOf<String>()
+    private val notificationPolicy = MeshNotificationPolicy()
     private val meshManager by lazy { MeshRuntime.manager(applicationContext) }
     private var messagesObserverJob: Job? = null
-    private var incomingNotificationId = INCOMING_NOTIFICATION_BASE_ID
 
     override fun onCreate() {
         super.onCreate()
@@ -98,7 +40,7 @@ class MeshForegroundService : Service() {
             ServiceCompat.startForeground(
                 this,
                 FOREGROUND_NOTIFICATION_ID,
-                buildForegroundNotification(),
+                buildForegroundNotification(starting = true),
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 } else {
@@ -112,17 +54,17 @@ class MeshForegroundService : Service() {
         ServiceCompat.startForeground(
             this,
             FOREGROUND_NOTIFICATION_ID,
-            buildForegroundNotification(),
+            buildForegroundNotification(starting = true),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
             } else {
                 0
             }
         )
-        knownIncomingMessageIds += meshManager.messages.value
-            .filter { !it.isLocal }
-            .map { it.id }
-            .takeLast(MAX_KNOWN_MESSAGE_IDS)
+        // Promote first, then seed disk history BEFORE initializing the runtime's async restore.
+        // Sender timestamps cannot distinguish history from a newly received delayed mesh message.
+        notificationPolicy.seedHistory(SecureLocalStore(applicationContext).loadMessages().map { it.notificationKey() })
+        notificationPolicy.seedHistory(meshManager.messages.value.map { it.notificationKey() })
         observeIncomingMessages()
     }
 
@@ -169,56 +111,43 @@ class MeshForegroundService : Service() {
     private fun observeIncomingMessages() {
         messagesObserverJob?.cancel()
         messagesObserverJob = serviceScope.launch {
-            meshManager.messages.collectLatest { messages ->
-                val incoming = messages
-                    .filter { message ->
-                        !message.isLocal &&
-                            !message.isDeleted &&
-                            message.id.isNotBlank() &&
-                            !knownIncomingMessageIds.contains(message.id)
-                    }
-                    .sortedBy { it.createdAtMs }
-
-                if (incoming.isNotEmpty()) {
-                    incoming.forEach { message ->
-                        knownIncomingMessageIds += message.id
-                        trimKnownIncomingMessageIds()
-                        if (!isNotificationMutedForConversation(message.conversationId)) {
-                            postIncomingNotification(message)
-                        }
-                    }
+            meshManager.messages.collect { messages ->
+                val mutedConversations = SecureLocalStore(applicationContext).loadConversationStates()
+                    .filter { it.isMuted }.mapTo(hashSetOf()) { it.conversationId }
+                val notificationsEnabled = MeshNotifications.canPost(this@MeshForegroundService)
+                messages.sortedBy { it.createdAtMs }.forEach { message ->
+                    if (notificationPolicy.shouldNotify(
+                        key = message.notificationKey(),
+                        isLocal = message.isLocal,
+                        isDeleted = message.isDeleted,
+                        isSystem = message.isSystem,
+                        isMuted = message.conversationId in mutedConversations,
+                        isVisible = MeshNotificationVisibility.isConversationVisible(message.conversationId),
+                        notificationsEnabled = notificationsEnabled
+                    )) postIncomingNotification(message)
                 }
             }
         }
     }
 
-    private fun trimKnownIncomingMessageIds() {
-        while (knownIncomingMessageIds.size > MAX_KNOWN_MESSAGE_IDS) {
-            val first = knownIncomingMessageIds.firstOrNull() ?: break
-            knownIncomingMessageIds.remove(first)
-        }
-    }
-
-    private fun isNotificationMutedForConversation(conversationId: String): Boolean {
-        if (conversationId.isBlank()) return false
-        val states = SecureLocalStore(applicationContext).loadConversationStates()
-        return states.firstOrNull { it.conversationId == conversationId }?.isMuted == true
-    }
+    private fun ChatMessage.notificationKey() = MeshNotificationMessageKey(id, conversationId, originNodeId)
 
     private fun postIncomingNotification(message: ChatMessage) {
-        if (!canPostNotifications()) return
+        if (!MeshNotifications.canPost(this) ||
+            MeshNotificationVisibility.isConversationVisible(message.conversationId) ||
+            MeshNotifications.isConversationMuted(this, message.conversationId)) return
         val conversationTitle = message.conversationTitle
             ?.trim()
             ?.ifBlank { null }
             ?: message.senderAlias
             ?.trim()
             ?.ifBlank { null }
-            ?: "Mesh chat"
+            ?: getString(R.string.notification_chat_title)
         val contentText = if (message.contentType == ChatContentType.FILE) {
-            val fileName = message.attachment?.fileName ?: message.text.ifBlank { "File" }
-            "File: $fileName"
+            val fileName = message.attachment?.fileName ?: message.text.ifBlank { getString(R.string.notification_file_name) }
+            getString(R.string.notification_file_content, fileName)
         } else {
-            message.text.trim().ifBlank { "New message" }
+            message.text.trim().ifBlank { getString(R.string.notification_new_message) }
         }
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -242,39 +171,34 @@ class MeshForegroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_INCOMING)
+        val builder = NotificationCompat.Builder(this, MeshNotifications.CHANNEL_INCOMING)
             .setSmallIcon(R.drawable.ic_meshgram_notification)
             .setContentTitle(conversationTitle)
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setSound(MeshNotificationPreferences.soundUri(this))
-            .setVibrate(MeshNotificationPreferences.vibrationPattern(this))
             .setAutoCancel(true)
-            .setOnlyAlertOnce(false)
+            .setOnlyAlertOnce(true)
             .setGroup("meshgram_chat_${message.conversationId}")
             .setContentIntent(launchPendingIntent)
-            .addAction(0, "Mark read", markReadPendingIntent)
-            .build()
-
-        incomingNotificationId = max(
-            INCOMING_NOTIFICATION_BASE_ID,
-            (incomingNotificationId + 1).coerceAtMost(INCOMING_NOTIFICATION_MAX_ID)
-        )
-        postNotificationSafely(incomingNotificationId, notification)
-        if (incomingNotificationId >= INCOMING_NOTIFICATION_MAX_ID) {
-            incomingNotificationId = INCOMING_NOTIFICATION_BASE_ID
-        }
+            .addAction(0, getString(R.string.notification_mark_read), markReadPendingIntent)
+        MeshNotifications.applyIncomingAlertSettings(this, builder)
+        // Stable identity avoids overwriting unrelated chats when a rolling integer counter wraps.
+        val tag = listOf(message.conversationId, message.originNodeId, message.id)
+            .joinToString("") { "${it.length}:$it" }
+        postNotificationSafely(INCOMING_NOTIFICATION_ID, builder.build(), tag)
     }
 
     @android.annotation.SuppressLint("MissingPermission")
-    private fun postNotificationSafely(id: Int, notification: Notification) {
-        if (!canPostNotifications()) return
-        runCatching { NotificationManagerCompat.from(this).notify(id, notification) }
+    private fun postNotificationSafely(id: Int, notification: Notification, tag: String? = null) {
+        val channel = if (id == FOREGROUND_NOTIFICATION_ID) MeshNotifications.CHANNEL_FOREGROUND
+            else MeshNotifications.CHANNEL_INCOMING
+        if (!MeshNotifications.canPost(this, channel)) return
+        runCatching { NotificationManagerCompat.from(this).notify(tag, id, notification) }
     }
 
-    private fun buildForegroundNotification(): Notification {
+    private fun buildForegroundNotification(starting: Boolean = false): Notification {
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -294,62 +218,29 @@ class MeshForegroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val status = if (meshManager.isRunning.value) {
-            "Mesh routing active"
+        val status = if (!starting && meshManager.isRunning.value) {
+            getString(R.string.notification_network_active)
         } else {
-            "Starting mesh network"
+            getString(R.string.notification_network_starting)
         }
-        return NotificationCompat.Builder(this, CHANNEL_FOREGROUND)
+        return NotificationCompat.Builder(this, MeshNotifications.CHANNEL_FOREGROUND)
             .setSmallIcon(R.drawable.ic_meshgram_notification)
-            .setContentTitle("MeshGram network")
+            .setContentTitle(getString(R.string.notification_network_title))
             .setContentText(status)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setSound(null)
+            .setVibrate(null)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setContentIntent(launchPendingIntent)
-            .addAction(0, "Stop", stopPendingIntent)
+            .addAction(0, getString(R.string.notification_stop), stopPendingIntent)
             .build()
     }
 
     private fun ensureNotificationChannels() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = getSystemService(NotificationManager::class.java) ?: return
-
-        val foregroundChannel = NotificationChannel(
-            CHANNEL_FOREGROUND,
-            "Mesh Network",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Foreground mesh routing status"
-            setShowBadge(false)
-        }
-        val incomingChannel = NotificationChannel(
-            CHANNEL_INCOMING,
-            "Mesh Messages",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Incoming secure mesh messages"
-            setSound(
-                MeshNotificationPreferences.soundUri(this@MeshForegroundService),
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                    .build()
-            )
-            vibrationPattern = MeshNotificationPreferences.vibrationPattern(this@MeshForegroundService)
-            enableVibration(vibrationPattern != null)
-            setShowBadge(true)
-        }
-        manager.createNotificationChannel(foregroundChannel)
-        manager.createNotificationChannel(incomingChannel)
-    }
-
-    private fun canPostNotifications(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
+        MeshNotifications.ensureChannels(this)
     }
 
     private fun markConversationRead(conversationId: String) {
@@ -367,12 +258,8 @@ class MeshForegroundService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_FOREGROUND = "mesh_foreground"
-        private const val CHANNEL_INCOMING = "mesh_incoming"
         private const val FOREGROUND_NOTIFICATION_ID = 7101
-        private const val INCOMING_NOTIFICATION_BASE_ID = 7200
-        private const val INCOMING_NOTIFICATION_MAX_ID = 7999
-        private const val MAX_KNOWN_MESSAGE_IDS = 6000
+        private const val INCOMING_NOTIFICATION_ID = 7200
 
         private const val ACTION_START = "com.meshchat.app.mesh.action.START"
         private const val ACTION_STOP = "com.meshchat.app.mesh.action.STOP"

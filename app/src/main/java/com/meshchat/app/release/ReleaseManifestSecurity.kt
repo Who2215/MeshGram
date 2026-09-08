@@ -6,6 +6,7 @@ import android.os.Build
 import android.util.Base64
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.BufferedInputStream
 import java.io.File
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -88,8 +89,16 @@ object MeshReleaseVerifier {
     fun verifyApkSha256(apk: File, expectedSha256: String): Boolean {
         if (!apk.isFile || !expectedSha256.matches(sha256Pattern)) return false
         return runCatching {
-            MessageDigest.getInstance("SHA-256").digest(apk.inputStream().use { it.readBytes() })
-                .toHex() == expectedSha256.lowercase()
+            val digest = MessageDigest.getInstance("SHA-256")
+            BufferedInputStream(apk.inputStream()).use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            digest.digest().toHex() == expectedSha256.lowercase()
         }.getOrDefault(false)
     }
 

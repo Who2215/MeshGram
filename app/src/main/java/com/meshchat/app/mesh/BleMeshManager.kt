@@ -3643,6 +3643,7 @@ class BleMeshManager(
 
     private fun handleIncomingPacket(address: String, packet: ByteArray) {
         if (packet.size < CHUNK_HEADER_SIZE + 1) return
+        if (packet.size > CHUNK_HEADER_SIZE + MAX_BLE_CHUNK_PAYLOAD_SIZE) return
         if (packet[0] != MAGIC_BYTE) return
 
         val frameKey = ByteBuffer.wrap(packet, 1, 4).int
@@ -3659,6 +3660,10 @@ class BleMeshManager(
         val assembledPayload: ByteArray? = synchronized(lock) {
             val existing = frameAssemblers[assemblerKey]
             val assembler = if (existing == null || existing.total != total) {
+                if (frameAssemblers.size >= MAX_FRAME_ASSEMBLERS) {
+                    val oldestKey = frameAssemblers.minByOrNull { it.value.updatedAtMs }?.key
+                    if (oldestKey != null) frameAssemblers.remove(oldestKey)
+                }
                 FrameAssembler(total = total, updatedAtMs = now).also {
                     frameAssemblers[assemblerKey] = it
                 }
@@ -3693,6 +3698,7 @@ class BleMeshManager(
         fromAddress: String?,
         sourceTransport: TransportSource
     ) {
+        if (payload.isEmpty() || payload.size > MAX_RELAY_FRAME_PAYLOAD_BYTES) return
         val raw = payload.decodeToString()
         val type = runCatching {
             json.parseToJsonElement(raw).jsonObject["type"]?.jsonPrimitive?.content
@@ -4390,7 +4396,16 @@ class BleMeshManager(
         if (payload.fileSha256.orEmpty().length > MAX_HASH_LENGTH) return
         val chunkCount = payload.chunkCount
         val chunkIndex = payload.chunkIndex
-        if (chunkIndex < 0 || chunkIndex >= chunkCount) return
+        if (!TransferBuffers.validChunk(
+                index = chunkIndex,
+                count = chunkCount,
+                bytes = chunkBytes.size,
+                chunkSize = FILE_CHUNK_SIZE,
+                limit = MAX_TRANSFER_BYTES
+            )
+        ) return
+        val declaredHash = payload.fileSha256?.trim().orEmpty()
+        if (!TransferBuffers.validHash(declaredHash)) return
 
         val conversationMeta = resolveConversationMeta(payload, senderIdentity)
         val assemblerKey = "${packet.originNodeId}:${conversationMeta.conversationId}:$transferId"
@@ -4485,11 +4500,15 @@ class BleMeshManager(
         }
         val completedTransfer = chunkResult.completedTransfer ?: return
 
-        val rawBytes = if (completedTransfer.assembler.compressed) {
-            ungzip(completedTransfer.transferBytes)
-        } else {
-            completedTransfer.transferBytes
-        } ?: run {
+        val rawBytes = runCatching {
+            TransferBuffers.decodeVerified(
+                bytes = completedTransfer.transferBytes,
+                compressed = completedTransfer.assembler.compressed,
+                size = completedTransfer.assembler.sizeBytes,
+                hash = completedTransfer.assembler.sha256,
+                limit = MAX_FILE_BYTES
+            )
+        }.getOrNull() ?: run {
             requestFullIncomingTransferRetry(
                 senderIdentity = senderIdentity,
                 transferId = transferId,
@@ -4497,20 +4516,6 @@ class BleMeshManager(
                 conversationMeta = conversationMeta
             )
             updateStatus("Failed to decode received file ${completedTransfer.assembler.fileName}")
-            return
-        }
-
-        val calculatedHash = sha256Hex(rawBytes)
-        if (completedTransfer.assembler.sha256.isNotBlank() &&
-            !calculatedHash.equals(completedTransfer.assembler.sha256, ignoreCase = true)
-        ) {
-            requestFullIncomingTransferRetry(
-                senderIdentity = senderIdentity,
-                transferId = transferId,
-                chunkCount = chunkCount,
-                conversationMeta = conversationMeta
-            )
-            updateStatus("Dropped file with invalid integrity hash")
             return
         }
 
@@ -4565,7 +4570,7 @@ class BleMeshManager(
                     } else {
                         rawBytes.size.toLong()
                     },
-                    sha256 = calculatedHash,
+                    sha256 = completedTransfer.assembler.sha256,
                     compressed = completedTransfer.assembler.compressed,
                     localUri = localPath,
                     mediaAlbumId = completedTransfer.assembler.mediaAlbumId,
@@ -5610,7 +5615,9 @@ class BleMeshManager(
 
     private fun ungzip(data: ByteArray): ByteArray? {
         return runCatching {
-            java.util.zip.GZIPInputStream(data.inputStream()).use { it.readBytes() }
+            java.util.zip.GZIPInputStream(data.inputStream()).use {
+                TransferBuffers.readBounded(it, MAX_TRANSFER_BYTES)
+            }
         }.getOrNull()
     }
 
@@ -6503,6 +6510,7 @@ class BleMeshManager(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
+                    if (text.length > MAX_RELAY_ENVELOPE_CHARS) return
                     handleRelayEnvelope(text)
                 }
 
@@ -6582,7 +6590,7 @@ class BleMeshManager(
         if (isKnownFrame(envelope.frameId)) return
         val payload = runCatching { Base64.decode(envelope.payloadBase64, Base64.NO_WRAP) }
             .getOrNull() ?: return
-        if (payload.isEmpty()) return
+        if (payload.isEmpty() || payload.size > MAX_RELAY_FRAME_PAYLOAD_BYTES) return
         onPayloadDecoded(
             payload = payload,
             fromAddress = null,
@@ -7379,12 +7387,14 @@ class BleMeshManager(
         private const val RESEND_WINDOW_CHUNKS = 12
 
         private const val ASSEMBLER_TTL_MS = 35_000L
+        private const val MAX_FRAME_ASSEMBLERS = 128
         private const val FILE_ASSEMBLER_TTL_MS = 12 * 60 * 1000L
         private const val MAX_RELAY_OUTBOX_FRAMES = 8000
         private const val RELAY_OUTBOX_TTL_MS = 7 * 24 * 60 * 60 * 1000L
         private const val RELAY_OUTBOX_RESEND_GAP_MS = 8_000L
         private const val RELAY_OUTBOX_FLUSH_BATCH = 4
         private const val MAX_RELAY_FRAME_PAYLOAD_BYTES = 256 * 1024
+        private const val MAX_RELAY_ENVELOPE_CHARS = MAX_RELAY_FRAME_PAYLOAD_BYTES * 2
         private const val ATT_HEADER_BYTES = 3
         private const val CHUNK_HEADER_SIZE = 8
         private const val DEFAULT_BLE_CHUNK_PAYLOAD_SIZE = 12
