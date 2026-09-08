@@ -14,6 +14,7 @@ release-signing/
 *.pem
 *.key
 *.log
+*.idsig
 relay/.env
 relay/cloudflare-worker/.wrangler/
 **/__pycache__/
