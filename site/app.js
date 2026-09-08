@@ -142,7 +142,14 @@
   const release = { badgeVersion: document.getElementById('release-badge-version'), version: document.getElementById('release-version'), size: document.getElementById('release-size'), sha: document.getElementById('release-sha'), hash: document.getElementById('release-hash'), link: document.getElementById('download-link'), notesTitle: document.getElementById('release-notes-title'), notesList: document.getElementById('release-notes-list'), published: document.getElementById('release-published'), proof: document.getElementById('release-proof-text') };
   function formatBytes(value) { return !Number.isFinite(value) || value <= 0 ? 'APK' : `${(value / (1024 * 1024)).toFixed(1)} MB`; }
   function shortHash(value) { return value && value.length > 16 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value; }
-  function isSafeDownloadUrl(value) { if (typeof value !== 'string' || value.trim() === '') return false; const url = value.trim(); return !url.startsWith('//') && (url.startsWith('/') || url.startsWith('./') || url.startsWith('https://')); }
+  function isSafeDownloadUrl(value) {
+    if (typeof value !== 'string' || !value.trim() || /[\\\s]/.test(value) || value.startsWith('//')) return false;
+    try {
+      const url = new URL(value, window.location.href);
+      return url.protocol === 'https:' && !url.username && !url.password &&
+        url.origin === window.location.origin && url.pathname.endsWith('.apk');
+    } catch { return false; }
+  }
   async function loadRelease() {
     const response = await fetch(`release.json?ts=${Date.now()}`, { cache: 'no-store', headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`release manifest returned ${response.status}`);

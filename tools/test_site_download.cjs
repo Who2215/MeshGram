@@ -1,0 +1,13 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('site/app.js', 'utf8');
+const start = source.indexOf('  function isSafeDownloadUrl(');
+const end = source.indexOf('  async function loadRelease()', start);
+const context = { URL, window: { location: new URL('https://who2215.github.io/MeshGram/') } };
+vm.createContext(context);
+vm.runInContext(source.slice(start, end), context);
+const release = JSON.parse(fs.readFileSync('site/release.json', 'utf8'));
+for (const url of [release.file, release.apkUrl, './downloads/app.apk']) assert.equal(context.isSafeDownloadUrl(url), true, url);
+for (const url of ['', '//evil.example/app.apk', 'javascript:alert(1)', 'https://evil.example/app.apk', 'downloads/a.html', 'downloads/\\evil.apk', null]) assert.equal(context.isSafeDownloadUrl(url), false, String(url));
+console.log('Download URL regression tests passed');

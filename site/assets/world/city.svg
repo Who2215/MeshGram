@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+ <defs>
+  <radialGradient id="sky"><stop stop-color="#204865"/><stop offset="1" stop-color="#070a16"/></radialGradient>
+  <linearGradient id="tower" x2="1" y2="1"><stop stop-color="#214459"/><stop offset="1" stop-color="#0b1424"/></linearGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="5"/></filter>
+ </defs>
+ <path fill="url(#sky)" d="M0 0h1600v1000H0z"/>
+ <g fill="url(#tower)" stroke="#36647b" stroke-width="2">
+  <path d="M700 790V410l130-60 80 45v395zM930 820V260l140-60 100 60v560zM1200 830V450l120-70 110 60v390zM550 810V570l95-50 65 35v255z"/>
+ </g>
+ <g fill="none" stroke="#64e6ed" stroke-width="3">
+  <path d="m645 590 180 90 245-220 255 185"/>
+  <path opacity=".15" d="M400 850h1100M350 910h1200M600 740l-200 260M1000 740v260M1250 740l220 260"/>
+ </g>
+ <g fill="#72f5ef"><circle cx="645" cy="590" r="7"/><circle cx="825" cy="680" r="9"/><circle cx="1070" cy="460" r="9"/><circle cx="1325" cy="645" r="7"/></g>
+ <path d="m645 590 180 90 245-220 255 185" fill="none" stroke="#72f5ef" stroke-width="8" filter="url(#glow)" opacity=".5"/>
+</svg>
