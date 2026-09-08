@@ -383,6 +383,8 @@ def person_scene(kind, motion, receiver):
     hand = rig.pose.bones['Bip01 R Hand']
     grip = PhoneGrip(rig, device, col)
     grip.set_curl([15, 35, 20])
+    # Keep the OLED in front of the curled digits, rather than through them.
+    grip.translate_phone((0, 0, .05))
     cam = camera('Human portrait ' + kind, (1.1, -2.5, 1.8), (0, -.02, 1.25), 80, 3.2)
     return {'col': col, 'rig': rig, 'hand': hand, 'phone': device, 'grip': grip, 'camera': cam, 'status': status, 'reply': reply}
 
