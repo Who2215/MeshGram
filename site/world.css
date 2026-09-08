@@ -77,7 +77,7 @@ body{background:radial-gradient(ellipse at 85% 10%,#122039 0,transparent 45%),va
 .world-stage{z-index:0}
 .world-toolbar,.world-chapter,.world-status{position:relative;z-index:1}
 .world-toolbar{position:sticky}
-.world-vignette{background:linear-gradient(90deg,#070a16e8 0%,#070a16b0 32%,#070a1620 67%),linear-gradient(0deg,#070a16,transparent 25%)}
+.world-vignette{background:linear-gradient(90deg,#070a16b8 0%,#070a1670 32%,#070a160c 67%),linear-gradient(0deg,#070a1660,transparent 25%)}
 .world-chapter .hero-copy,.world-copy{text-shadow:0 2px 24px #070a16}
 .world-chapters,.world-toggle{backdrop-filter:blur(18px);background:#111d36cc;border-color:#4dcbd655}
 @media(max-width:600px){.world-vignette{background:linear-gradient(0deg,#070a16 5%,#070a16c0 40%,transparent 80%)}.world-chapter .hero-copy,.world-copy{background:linear-gradient(0deg,#070a16ed 55%,#070a1666 85%,transparent)}}

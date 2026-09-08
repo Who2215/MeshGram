@@ -89,7 +89,7 @@ function boot() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.5;
+  renderer.toneMappingExposure = 1.75;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x070a16, 0.045);
@@ -98,10 +98,10 @@ function boot() {
   const city = new THREE.Group();
   scene.add(city);
 
-  scene.add(new THREE.HemisphereLight(0x9fe9ff, 0x08091d, 1.25));
-  const cyanLight = new THREE.PointLight(0x52e7ff, 5, 12, 2);
+  scene.add(new THREE.HemisphereLight(0x9fe9ff, 0x08091d, 1.5));
+  const cyanLight = new THREE.PointLight(0x52e7ff, 7, 12, 2);
   cyanLight.position.set(-2.5, 2.2, 2); scene.add(cyanLight);
-  const pinkLight = new THREE.PointLight(0xf35bd8, 4, 10, 2);
+  const pinkLight = new THREE.PointLight(0xf35bd8, 5.5, 10, 2);
   pinkLight.position.set(3.5, 1.4, -2); scene.add(pinkLight);
 
   const ground = new THREE.Mesh(
