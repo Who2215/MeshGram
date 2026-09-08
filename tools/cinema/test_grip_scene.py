@@ -19,9 +19,8 @@ for kind in ('Male_Adult_01', 'Female_Adult_01'):
                any(b.constraints for b in o.pose.bones))
     device = bpy.data.objects['Personal phone ' + kind]
     grip = PhoneGrip(rig, device, col)
-    grip.set_curl([15, 35, 20])
-    # Contact trial only; do not alter the production film before visual QA.
-    grip.translate_phone((0, 0, .05))
+    grip.set_curl({1: [-20, 20, 25], 2: [-20, 30, 35], 3: [-20, 20, 20], 4: [-25, 0, 10]})
+    grip.translate_phone((-.006, 0, 0))
     scene.frame_set(428)
     grip.update()
     for collection in scene.collection.children:

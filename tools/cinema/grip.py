@@ -21,7 +21,8 @@ class PhoneGrip:
         for bone in rig.pose.bones:
             if not bone.name.startswith('Bip01 R Finger'):
                 continue
-            local = hand_world.inverted() @ rig.matrix_world @ bone.matrix
+            # Use neutral anatomy, not an already curled mocap frame.
+            local = rig.data.bones['Bip01 R Hand'].matrix_local.inverted() @ rig.data.bones[bone.name].matrix_local
             self.reference[bone.name] = local.copy()
             target = bpy.data.objects.new(bone.name + ' contact target ' + rig.name, None)
             collection.objects.link(target)
@@ -58,7 +59,8 @@ class PhoneGrip:
         for digit in range(1, 5):
             names = [f'Bip01 R Finger{digit}{suffix}' for suffix in ('', '1', '2')]
             transform = Matrix.Identity(4)
-            for name, angle in zip(names, angles):
+            digit_angles = angles[digit] if isinstance(angles, dict) else angles
+            for name, angle in zip(names, digit_angles):
                 pivot = transform @ self.reference[name].translation
                 axis = transform.to_3x3() @ self.local_axis
                 turn = Matrix.Translation(pivot) @ Matrix.Rotation(math.radians(angle), 4, axis) @ Matrix.Translation(-pivot)

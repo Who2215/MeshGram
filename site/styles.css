@@ -57,3 +57,4 @@ body:before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;opa
   .hero-orbit{width:calc(100% + 28px);max-width:none;margin-left:-14px;margin-right:-14px;transform:scale(.78)}
   .release-badge{max-width:100%;flex-wrap:wrap}
 }
+ .download-compat{margin:14px 0 0;color:var(--muted);font-size:13px}.download-compat a{color:var(--cyan);text-decoration:underline;text-underline-offset:4px}

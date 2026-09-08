@@ -23,10 +23,11 @@ args.add_argument('--start', type=int, default=1)
 args.add_argument('--end', type=int, default=720)
 args.add_argument('--width', type=int, default=720)
 args.add_argument('--samples', type=int, default=48)
+args.add_argument('--output-dir', type=Path)
 opt = args.parse_args(sys.argv[sys.argv.index('--') + 1:])
 ROOT = opt.work
 ASSETS = ROOT / 'models/rocketbox/Assets'
-OUT = ROOT / 'renders/film'
+OUT = opt.output_dir or ROOT / 'renders/film'
 OUT.mkdir(parents=True, exist_ok=True)
 FONT_PATH = Path(__file__).resolve().parents[2] / 'site/assets/Manrope-Semibold.ttf'
 FPS, DURATION = 24, 30
@@ -382,9 +383,8 @@ def person_scene(kind, motion, receiver):
     device, status, reply = phone('Personal phone ' + kind, receiver)
     hand = rig.pose.bones['Bip01 R Hand']
     grip = PhoneGrip(rig, device, col)
-    grip.set_curl([15, 35, 20])
-    # Keep the OLED in front of the curled digits, rather than through them.
-    grip.translate_phone((0, 0, .05))
+    grip.set_curl({1: [-20, 20, 25], 2: [-20, 30, 35], 3: [-20, 20, 20], 4: [-25, 0, 10]})
+    grip.translate_phone((-.006, 0, 0))
     cam = camera('Human portrait ' + kind, (1.1, -2.5, 1.8), (0, -.02, 1.25), 80, 3.2)
     return {'col': col, 'rig': rig, 'hand': hand, 'phone': device, 'grip': grip, 'camera': cam, 'status': status, 'reply': reply}
 
@@ -584,7 +584,7 @@ def render_frame(frame):
 
 
 scene.frame_start, scene.frame_end = 1, FPS * DURATION
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT / 'meshgram-cinema.blend'))
+bpy.ops.wm.save_as_mainfile(filepath=str((OUT if opt.output_dir else ROOT) / 'meshgram-cinema.blend'))
 frames = [49, 145, 241, 325, 409, 505, 565, 649] if opt.preview else range(opt.start, opt.end + 1)
 for frame in frames:
     render_frame(frame)

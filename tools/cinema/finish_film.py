@@ -11,9 +11,12 @@ import numpy as np
 parser = argparse.ArgumentParser()
 parser.add_argument('--work', required=True, type=Path)
 parser.add_argument('--ffmpeg', required=True, type=Path)
+parser.add_argument('--frames-dir', type=Path)
+parser.add_argument('--output', type=Path)
+parser.add_argument('--poster', type=Path)
 args = parser.parse_args()
 RATE, SECONDS, FPS = 48000, 30, 24
-frames = args.work / 'renders/film'
+frames = args.frames_dir or args.work / 'renders/film'
 missing = [i for i in range(1, FPS * SECONDS + 1) if not (frames / f'{i:04d}.png').is_file()]
 if missing:
     raise SystemExit(f'Missing rendered frames: {missing[:12]}')
@@ -63,7 +66,8 @@ with wave.open(str(wav), 'wb') as out:
     out.setframerate(RATE)
     out.writeframes(pcm.tobytes())
 
-output = args.work / 'MeshGram-Connections-3D.mp4'
+output = args.output or args.work / 'MeshGram-Connections-3D.mp4'
+poster = args.poster or args.work / 'cinema-poster.png'
 subprocess.run([str(args.ffmpeg), '-hide_banner', '-y', '-framerate', str(FPS),
                 '-i', str(frames / '%04d.png'), '-i', str(wav),
                 '-vf', 'fade=t=in:st=0:d=0.3,fade=t=out:st=29.5:d=0.5',
@@ -74,6 +78,6 @@ subprocess.run([str(args.ffmpeg), '-hide_banner', '-y', '-framerate', str(FPS),
                 '-metadata', 'comment=Original Blender CGI. Illustrative interface and route, not a live BLE test.',
                 str(output)], check=True)
 subprocess.run([str(args.ffmpeg), '-hide_banner', '-y', '-ss', '27', '-i', str(output),
-                '-frames:v', '1', '-update', '1', str(args.work / 'cinema-poster.png')], check=True)
+                '-frames:v', '1', '-update', '1', str(poster)], check=True)
 subprocess.run([str(args.ffmpeg), '-v', 'error', '-i', str(output), '-f', 'null', '-'], check=True)
 print(json.dumps({'video': str(output), 'bytes': output.stat().st_size, 'frames': FPS * SECONDS, 'audioPeak': peak}))
