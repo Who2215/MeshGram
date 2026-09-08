@@ -22,6 +22,8 @@
     "Плавная навигация жестом назад и корректная системная панель Android",
     "Ограничены размеры BLE/WebSocket кадров и локальной очереди доставки"
   ],
-  "legacyFile": "downloads/MeshGram-v112-legacy-debug.apk",
-  "legacyNotes": "Для установки поверх старой тестовой debug-сборки при несовпадении подписи."
+  "legacyFile": "downloads/MeshGram-v112-legacy.apk",
+  "legacySha256": "239bc5766c7cca6e4b63e62280cd19cc9853023c34d66dbfc18bb694208c9b67",
+  "legacySigningCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
+  "legacyNotes": "Release-код, переподписанный старым debug-сертификатом для обновления ранних тестовых установок."
 }
