@@ -89,7 +89,7 @@ function boot() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.5;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x070a16, 0.045);
@@ -128,7 +128,22 @@ function boot() {
     });
     const building = new THREE.Mesh(new THREE.BoxGeometry(width, height, width), material);
     building.position.set(x, height / 2, z); buildings.add(building);
+    const outline = new THREE.LineSegments(new THREE.EdgesGeometry(building.geometry),
+      new THREE.LineBasicMaterial({ color: i % 3 ? 0x329cab : 0xc568f0, transparent: true, opacity: .5 }));
+    building.add(outline);
+    const windowMaterial = new THREE.MeshBasicMaterial({ color: i % 3 ? 0x75e7ee : 0xefb1ff });
+    for (let floor = .16; floor < height - .06; floor += .22) {
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(width * .72, .025, width + .004), windowMaterial);
+      strip.position.y = floor - height / 2; building.add(strip);
+    }
   }
+
+  const rings = new THREE.Group(); city.add(rings);
+  [2.1, 2.5, 3.0].forEach((radius, i) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, .018, 8, 160),
+      new THREE.MeshBasicMaterial({ color: i === 1 ? 0xd16aff : 0x57f4ea, transparent: true, opacity: .75 }));
+    ring.rotation.x = Math.PI / 2 + i * .16; ring.position.y = .12 + i * .13; rings.add(ring);
+  });
 
   const route = [
     new THREE.Vector3(-3.7, 0.46, 2.4), new THREE.Vector3(-1.55, 0.82, 0.7),
@@ -195,7 +210,6 @@ function boot() {
     root.querySelectorAll('.world-chapters a').forEach((link) => link.toggleAttribute('aria-current', link.getAttribute('href') === `#${current?.id}`));
   };
   const render = (time = 0) => {
-    if (!active) return;
     updateProgress();
     const t = time * 0.00016;
     const segment = Math.min(route.length - 2.001, scrollProgress * (route.length - 1));
@@ -208,6 +222,7 @@ function boot() {
     packet.rotation.x = t * 22; packet.rotation.y = t * 29;
     nodes.children.forEach((node, i) => { const pulse = 1 + Math.sin(t * 7 + i * 1.4) * 0.11; node.scale.setScalar(pulse); });
     stars.rotation.y = t * 0.16;
+    rings.rotation.y = t * .35;
     camera.position.x += ((5.6 + Math.sin(t * 2.2) * 0.35 + (scrollProgress - .5) * 1.1) - camera.position.x) * 0.035;
     camera.position.y += ((3.4 + Math.cos(t * 1.4) * 0.18 + scrollProgress * .7) - camera.position.y) * 0.035;
     camera.lookAt(0, .75, 0);
