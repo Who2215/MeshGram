@@ -1,28 +1,28 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 113,
-  "versionName": "1.0.13",
+  "versionCode": 114,
+  "versionName": "1.0.14",
   "changelog": [
-    "Возврат из профиля и списка чатов на карту без закрытия приложения",
-    "Более просторное поле ввода и переведённые статусы вложений",
-    "Совместимые подписанные обновления ранних тестовых установок без удаления данных",
-    "Повторная проверка версии, подписи и SHA-256 перед установкой"
+    "Фирменные анимированные стикеры MeshGram без подложки",
+    "Прямая отправка стикера с сохранением черновика",
+    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
+    "Категории эмодзи и анимация одиночных эмодзи в чате"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v113-release.apk",
-  "apkSha256": "531f29f398088370f0f5233f92d29751f956e7e941d9a612a65185c6e4dd7e45",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v114-release.apk",
+  "apkSha256": "90db5328996a30c32ffc993aa968e46a3ab90c90e7b779b049fa1abf78ae0715",
   "signingCertificateSha256": "0a13c7fd0e8fba7d2780d49f1513811ab3b72213fe6982c71237ce24d9f4cfe7",
-  "manifestSignature": "MEUCIFVNEQKuERmZeQUDRv2M43zltHHUlD9tK3A/Tbnda/f6AiEAzX+pvg1i0Bn4x5F3OH55j6ac5CE7Gi0TXEUcFCc7IE8=",
-  "file": "downloads/MeshGram-v113-release.apk",
-  "sizeBytes": 17674349,
+  "manifestSignature": "MEUCIQDj8Ixzpi9jH3w+KCAVmFyPmwBr4ZQRbFFEegGOb1OWrQIgEw8zjrWzTxlH/fkRb4/l5fMkR5APng1cFgFbatHQ0uY=",
+  "file": "downloads/MeshGram-v114-release.apk",
+  "sizeBytes": 17687265,
   "releaseType": "signed-release-candidate",
   "notes": [
-    "Возврат из профиля и списка чатов на карту без закрытия приложения",
-    "Более просторное поле ввода и переведённые статусы вложений",
-    "Совместимые подписанные обновления ранних тестовых установок без удаления данных",
-    "Повторная проверка версии, подписи и SHA-256 перед установкой"
+    "Фирменные анимированные стикеры MeshGram без подложки",
+    "Прямая отправка стикера с сохранением черновика",
+    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
+    "Категории эмодзи и анимация одиночных эмодзи в чате"
   ],
-  "legacyFile": "downloads/MeshGram-v113-legacy.apk",
-  "legacySha256": "6e60652d3b111cde403d60c483cc1eba9536963309df72f11dff13868301b673",
+  "legacyFile": "downloads/MeshGram-v114-legacy.apk",
+  "legacySha256": "8e1f1b1fe9b0291cb80a40f3af6d73fcc95f8d247640b3b7157cab9af81745a9",
   "legacySigningCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7"
 }

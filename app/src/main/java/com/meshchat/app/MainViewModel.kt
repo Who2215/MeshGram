@@ -935,7 +935,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             forwardedFromAlias = forwardedFromAlias,
             forwardedFromMessageId = forwardedFromMessageId
         )
-        if (sent) {
+        if (sent && com.meshchat.app.ui.MeshExpressions.shouldConsumeDraft(draft)) {
             clearConversationDraft(activeConversationId)
         }
         return sent
@@ -1840,6 +1840,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun buildMessagePreview(message: ChatMessage): String {
+        if (!message.isDeleted && com.meshchat.app.ui.MeshExpressions.stickerId(message.text) != null) return "✦ MeshGram"
         if (message.isDeleted) {
             return if (message.isLocal) "You: Message deleted" else "Message deleted"
         }

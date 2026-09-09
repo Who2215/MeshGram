@@ -1,6 +1,17 @@
 package com.meshchat.app
 
 import android.Manifest
+import com.meshchat.app.ui.MeshExpressions
+import com.meshchat.app.ui.MeshStickerArt
+import com.meshchat.app.ui.MeshAnimatedEmoji
+import com.meshchat.app.ui.MeshExpressionPanel
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material.icons.rounded.EmojiEmotions
+import androidx.compose.material.icons.rounded.Keyboard
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -3294,6 +3305,11 @@ private fun MeshTelegramScreen(
                                         scheduled
                                     }
                                 },
+                                onSendSticker = { id ->
+                                    val sent = onSend(MeshExpressions.token(id), replyToMessageId, replyToMessage?.let { replyPreview(it) })
+                                    if (sent) replyToMessageId = null
+                                    sent
+                                },
                                 onSend = {
                                     val text = messageDraft.trim()
                                     if (text.isNotBlank()) {
@@ -4255,6 +4271,7 @@ private fun MeshTelegramScreen(
 }
 
 private fun replyPreview(message: ChatMessage): String {
+    if (!message.isDeleted && MeshExpressions.stickerId(message.text) != null) return "✦"
     if (message.contentType == ChatContentType.FILE) {
         return "[file] ${message.attachment?.fileName ?: message.text.ifBlank { "File" }}"
     }
@@ -8005,15 +8022,22 @@ private fun ChatThread(
     onPauseResumeVoiceRecording: () -> Unit,
     onCancelVoiceRecording: () -> Unit,
     onSchedule: (Long) -> Boolean,
+    onSendSticker: (String) -> Boolean,
     onSend: () -> Unit
 ) {
     val strings = rememberMeshStrings()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    val inputFocus = remember { FocusRequester() }
     val canPost = uiState.activeConversationCanPost
     val isSelectionMode = selectedMessageIds.isNotEmpty()
     var showAttachmentTray by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
     var showExpressionPicker by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
     var showFormattingHelp by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
     var showScheduleDialog by rememberSaveable(uiState.activeConversationId) { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = showExpressionPicker || showAttachmentTray) {
+        showExpressionPicker = false; showAttachmentTray = false
+    }
     val messageListState = remember(uiState.activeConversationId) { LazyListState() }
     LaunchedEffect(uiState.activeConversationId, messages.size) {
         if (messages.isNotEmpty()) {
@@ -8408,6 +8432,87 @@ private fun ChatThread(
             }
         }
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(22.dp),
+                color = TgDayPalette.card,
+                shadowElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 2.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { if (showExpressionPicker) { showExpressionPicker = false; inputFocus.requestFocus(); keyboard?.show() } else { keyboard?.hide(); focus.clearFocus(); showAttachmentTray = false; showExpressionPicker = true } },
+                        enabled = canPost,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(imageVector = if (showExpressionPicker) Icons.Rounded.Keyboard else Icons.Rounded.EmojiEmotions, contentDescription = strings.emojiPicker, tint = TgDayPalette.actionBarIcon)
+                    }
+                    TextField(
+                        value = messageDraft,
+                        onValueChange = onDraftChange,
+                        modifier = Modifier.weight(1f).focusRequester(inputFocus).onFocusChanged { if (it.isFocused) { showExpressionPicker = false; showAttachmentTray = false } },
+                        maxLines = 6,
+                        enabled = canPost,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
+                        placeholder = {
+                            Text(
+                                if (canPost) strings.messagePlaceholder
+                                else if (uiState.activeConversationType == ConversationType.DIRECT)
+                                    stringResource(R.string.friends_confirmation_required)
+                                else strings.onlyAdminsCanPost,
+                                color = TgDayPalette.rowMeta
+                            )
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = TgDayPalette.actionBarTitle,
+                            unfocusedTextColor = TgDayPalette.actionBarTitle,
+                            cursorColor = TgDayPalette.composerCursor,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        )
+                    )
+                    IconButton(
+                        onClick = { keyboard?.hide(); focus.clearFocus(); showExpressionPicker = false; showAttachmentTray = !showAttachmentTray },
+                        enabled = canPost,
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AttachFile,
+                            contentDescription = strings.files,
+                            tint = TgDayPalette.actionBarIcon
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = CircleShape,
+                color = TgDayPalette.composerSend,
+                shadowElevation = 1.dp
+            ) {
+                IconButton(onClick = { if (messageDraft.isNotBlank()) onSend() else onToggleVoiceRecording() }, enabled = canPost, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        imageVector = if (messageDraft.isNotBlank()) Icons.AutoMirrored.Rounded.Send else if (isVoiceRecording) Icons.Rounded.Stop else Icons.Rounded.Mic,
+                        contentDescription = if (messageDraft.isNotBlank()) stringResource(R.string.expression_send) else strings.voice,
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+
         if (showAttachmentTray && canPost) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 TextButton(onClick = { showFormattingHelp = true }) { Text(strings.edit) }
@@ -8441,123 +8546,16 @@ private fun ChatThread(
             )
         }
         if (showExpressionPicker && canPost) {
-            ExpressionPicker(
-                strings = strings,
+            MeshExpressionPanel(
+                stickerLabel = strings.liveStickers, emojiLabel = strings.emojiPicker, closeLabel = strings.close,
+                onSendSticker = onSendSticker,
                 onDismiss = { showExpressionPicker = false },
                 onInsert = { expression ->
                     onDraftChange((messageDraft + expression).take(2000))
-                    showExpressionPicker = false
                 }
             )
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Surface(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(22.dp),
-                color = TgDayPalette.card,
-                shadowElevation = 1.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 2.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { showAttachmentTray = !showAttachmentTray },
-                        enabled = canPost,
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AttachFile,
-                            contentDescription = "Attach file",
-                            tint = TgDayPalette.actionBarIcon
-                        )
-                    }
-                    IconButton(
-                        onClick = { showExpressionPicker = !showExpressionPicker },
-                        enabled = canPost,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Text(
-                            text = "☺",
-                            color = if (showExpressionPicker) TgDayPalette.rowBlue else TgDayPalette.actionBarIcon,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    }
-                    IconButton(
-                        onClick = onToggleVoiceRecording,
-                        enabled = canPost,
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isVoiceRecording) {
-                                Icons.Rounded.Stop
-                            } else {
-                                Icons.Rounded.Mic
-                            },
-                            contentDescription = if (isVoiceRecording) {
-                                "Stop voice recording"
-                            } else {
-                                "Record voice message"
-                            },
-                            tint = if (isVoiceRecording) {
-                                Color(0xFFD84F62)
-                            } else {
-                                TgDayPalette.actionBarIcon
-                            }
-                        )
-                    }
-                    TextField(
-                        value = messageDraft,
-                        onValueChange = onDraftChange,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 6,
-                        enabled = canPost,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
-                        placeholder = {
-                            Text(
-                                if (canPost) strings.messagePlaceholder
-                                else if (uiState.activeConversationType == ConversationType.DIRECT)
-                                    stringResource(R.string.friends_confirmation_required)
-                                else strings.onlyAdminsCanPost,
-                                color = TgDayPalette.rowMeta
-                            )
-                        },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = TgDayPalette.actionBarTitle,
-                            unfocusedTextColor = TgDayPalette.actionBarTitle,
-                            cursorColor = TgDayPalette.composerCursor,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        )
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-            Surface(
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = TgDayPalette.composerSend,
-                shadowElevation = 1.dp
-            ) {
-                IconButton(onClick = onSend, enabled = canPost, modifier = Modifier.size(44.dp)) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Send,
-                        contentDescription = "Send",
-                        tint = Color.White
-                    )
-                }
-            }
-        }
 
         if (showFormattingHelp) {
             FormattingHelpDialog(onDismiss = { showFormattingHelp = false })
@@ -8674,125 +8672,21 @@ private fun ScheduleMessageDialog(
 }
 
 @Composable
-private fun AttachmentTray(
-    strings: MeshStrings,
-    onPickPhoto: () -> Unit,
-    onPickVideo: () -> Unit,
-    onPickAudio: () -> Unit,
-    onPickFile: () -> Unit,
-    onRecordVideoNote: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(22.dp),
-        color = TgDayPalette.card,
-        shadowElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AttachmentAction(
-                    title = strings.photos,
-                    subtitle = strings.media,
-                    icon = Icons.Rounded.PhotoLibrary,
-                    onClick = onPickPhoto,
-                    modifier = Modifier.weight(1f)
-                )
-                AttachmentAction(
-                    title = strings.videos,
-                    subtitle = strings.media,
-                    icon = Icons.Rounded.PhotoLibrary,
-                    onClick = onPickVideo,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AttachmentAction(
-                    title = strings.voice,
-                    subtitle = strings.videos,
-                    icon = Icons.Rounded.ChatBubble,
-                    onClick = onRecordVideoNote,
-                    modifier = Modifier.weight(1f)
-                )
-                AttachmentAction(
-                    title = strings.voice,
-                    subtitle = strings.files,
-                    icon = Icons.Rounded.Mic,
-                    onClick = onPickAudio,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            AttachmentAction(
-                title = strings.files,
-                subtitle = strings.mediaAndFiles,
-                icon = Icons.Rounded.AttachFile,
-                onClick = onPickFile,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = "Tip: BLE mesh is happiest with compact media. Everything is still end-to-end encrypted before routing.",
-                style = MaterialTheme.typography.labelMedium,
-                color = TgDayPalette.rowMeta
-            )
-        }
-    }
-}
-
-@Composable
-private fun AttachmentAction(
-    title: String,
-    subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = TgDayPalette.searchField
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(38.dp),
-                shape = CircleShape,
-                color = TgDayPalette.rowBlue.copy(alpha = 0.14f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = title,
-                        tint = TgDayPalette.rowBlue,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = TgDayPalette.actionBarTitle
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TgDayPalette.rowMeta
-                )
+private fun AttachmentTray(strings: MeshStrings, onPickPhoto: () -> Unit, onPickVideo: () -> Unit,
+    onPickAudio: () -> Unit, onPickFile: () -> Unit, onRecordVideoNote: () -> Unit) {
+    val actions = listOf(
+        Triple(strings.photos, Icons.Rounded.PhotoLibrary, onPickPhoto),
+        Triple(strings.videos, Icons.Rounded.PlayArrow, onPickVideo),
+        Triple(strings.voice, Icons.Rounded.Mic, onPickAudio),
+        Triple(strings.files, Icons.Rounded.AttachFile, onPickFile),
+        Triple("◉", Icons.Rounded.ChatBubble, onRecordVideoNote)
+    )
+    Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        actions.forEach { (label, icon, action) ->
+            Column(Modifier.weight(1f).clickable(onClick = action).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(icon, label, Modifier.size(26.dp), tint = TgDayPalette.rowBlue)
+                Text(label, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.labelSmall,
+                    color = TgDayPalette.rowText, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -9906,112 +9800,6 @@ private fun DirectChatDialog(
 }
 
 @Composable
-private fun ExpressionPicker(
-    strings: MeshStrings,
-    onDismiss: () -> Unit,
-    onInsert: (String) -> Unit
-) {
-    var stickerMode by rememberSaveable { mutableStateOf(false) }
-    val emojis = listOf("😀", "😂", "🥳", "😍", "🤔", "😎", "😭", "🔥", "❤️", "👍", "✨", "🙏")
-    val stickers = listOf("nebula", "orbit", "wave", "spark")
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(18.dp),
-        color = TgDayPalette.card.copy(alpha = 0.97f),
-        tonalElevation = 4.dp
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { stickerMode = false }) {
-                    Text(strings.emojiPicker, color = if (!stickerMode) TgDayPalette.rowBlue else TgDayPalette.rowMeta)
-                }
-                TextButton(onClick = { stickerMode = true }) {
-                    Text(strings.liveStickers, color = if (stickerMode) TgDayPalette.rowBlue else TgDayPalette.rowMeta)
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text(strings.close) }
-            }
-            if (stickerMode) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    stickers.forEach { sticker ->
-                        TextButton(onClick = { onInsert("[[sticker:$sticker]]") }) {
-                            Text(stickerGlyph(sticker), fontSize = 26.sp)
-                        }
-                    }
-                }
-                Text(
-                    text = strings.animatedStickersHint,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TgDayPalette.rowMeta
-                )
-            } else {
-                emojis.chunked(6).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        row.forEach { emoji ->
-                            TextButton(onClick = { onInsert(emoji) }) {
-                                Text(emoji, fontSize = 24.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun stickerGlyph(id: String): String = when (id) {
-    "nebula" -> "🌌"
-    "orbit" -> "🪐"
-    "wave" -> "🌊"
-    else -> "✨"
-}
-
-private fun stickerId(text: String): String? =
-    Regex("^\\[\\[sticker:([a-z]+)\\]\\]$").matchEntire(text.trim())?.groupValues?.getOrNull(1)
-
-@Composable
-private fun AnimatedStickerBubble(id: String, textColor: Color) {
-    val transition = rememberInfiniteTransition(label = "sticker-$id")
-    val scale by transition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Reverse),
-        label = "sticker-scale"
-    )
-    val rotation by transition.animateFloat(
-        initialValue = -4f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(tween(2300), RepeatMode.Reverse),
-        label = "sticker-rotation"
-    )
-    val accent = when (id) {
-        "nebula" -> Color(0xFFB76BFF)
-        "orbit" -> Color(0xFF52E7FF)
-        "wave" -> Color(0xFF63B8FF)
-        else -> Color(0xFFFFD166)
-    }
-    Box(
-        modifier = Modifier
-            .size(96.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                rotationZ = rotation
-            }
-            .background(
-                Brush.radialGradient(listOf(accent.copy(alpha = 0.55f), accent.copy(alpha = 0.08f))),
-                CircleShape
-            )
-            .border(1.dp, accent.copy(alpha = 0.75f), CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(stickerGlyph(id), fontSize = 42.sp, color = textColor)
-    }
-}
-
-@Composable
 private fun GalleryAttachmentThumb(
     message: ChatMessage,
     size: Dp
@@ -10606,7 +10394,10 @@ private fun MessageBubble(
     val time = remember(message.createdAtMs) {
         CHAT_TIME_FORMAT.format(Date(message.createdAtMs))
     }
-    val bubbleColor = if (isSelected) {
+    val sticker = if (!message.isDeleted && message.contentType != ChatContentType.FILE) MeshExpressions.stickerId(message.text) else null
+    val largeEmoji = if (!message.isDeleted && message.contentType != ChatContentType.FILE) MeshExpressions.animatedEmoji(message.text) else null
+    val bareArt = sticker != null || largeEmoji != null
+    val bubbleColor = if (bareArt && !isSelected) Color.Transparent else if (isSelected) {
         if (message.isLocal) TgDayPalette.bubbleOutSelected else TgDayPalette.bubbleInSelected
     } else {
         if (message.isLocal) TgDayPalette.bubbleOut else TgDayPalette.bubbleIn
@@ -10635,8 +10426,8 @@ private fun MessageBubble(
         Surface(
             color = bubbleColor,
             shape = bubbleShape,
-            tonalElevation = if (message.isLocal) 0.dp else 1.dp,
-            shadowElevation = if (message.isLocal) 0.dp else 1.dp,
+            tonalElevation = if (message.isLocal || bareArt) 0.dp else 1.dp,
+            shadowElevation = if (message.isLocal || bareArt) 0.dp else 1.dp,
             modifier = Modifier
                 .widthIn(max = 340.dp)
                 .then(
@@ -10694,7 +10485,9 @@ private fun MessageBubble(
                             TgDayPalette.bubbleInSelected
                         }
                     ) {
-                        Text(
+                        if (MeshExpressions.stickerId(message.replyToPreview.orEmpty()) != null) {
+                            MeshStickerArt(MeshExpressions.stickerId(message.replyToPreview.orEmpty())!!, Modifier.size(48.dp), animated = false)
+                        } else Text(
                             text = message.replyToPreview,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                             maxLines = 2,
@@ -10716,9 +10509,10 @@ private fun MessageBubble(
                         color = if (message.isDeleted) metaColor else textColor
                     )
                 } else {
-                    val sticker = stickerId(message.text)
                     if (sticker != null) {
-                        AnimatedStickerBubble(sticker, textColor)
+                        MeshStickerArt(sticker, Modifier.size(168.dp))
+                    } else if (largeEmoji != null) {
+                        MeshAnimatedEmoji(largeEmoji)
                     } else {
                         RichMessageText(
                             text = message.text,
@@ -12150,5 +11944,3 @@ private fun extractSharePayload(intent: Intent?): ExternalSharePayload? {
         uri = streamUri
     )
 }
-
-

@@ -1,25 +1,25 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 113,
-  "versionName": "1.0.13",
+  "versionCode": 114,
+  "versionName": "1.0.14",
   "changelog": [
-    "Возврат из профиля и списка чатов на карту без закрытия приложения",
-    "Более просторное поле ввода и переведённые статусы вложений",
-    "Совместимые подписанные обновления ранних тестовых установок без удаления данных",
-    "Повторная проверка версии, подписи и SHA-256 перед установкой"
+    "Фирменные анимированные стикеры MeshGram без подложки",
+    "Прямая отправка стикера с сохранением черновика",
+    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
+    "Категории эмодзи и анимация одиночных эмодзи в чате"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v113-legacy.apk",
-  "apkSha256": "6e60652d3b111cde403d60c483cc1eba9536963309df72f11dff13868301b673",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v114-legacy.apk",
+  "apkSha256": "8e1f1b1fe9b0291cb80a40f3af6d73fcc95f8d247640b3b7157cab9af81745a9",
   "signingCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
-  "manifestSignature": "MEUCIQCKKoDr5SzCGJhqF35hHIw5Aj5AwzOpfGLC1zjuqBDb5wIgZaD7qynmNOvmHoqC4FKqBNVd0aDPE4U66rZyQrtPxVo=",
-  "file": "downloads/MeshGram-v113-legacy.apk",
-  "sizeBytes": 17669450,
+  "manifestSignature": "MEUCIAIzxuVFc0bzirH4oVWg07nUMKZRNuTiI3F0ggKg6IsQAiEAqVaMHCNIfBwrdu7Fy3lm07TsE1bv0v4MeQossnWzGkw=",
+  "file": "downloads/MeshGram-v114-legacy.apk",
+  "sizeBytes": 17685834,
   "releaseType": "debug-test-build",
   "notes": [
-    "Возврат из профиля и списка чатов на карту без закрытия приложения",
-    "Более просторное поле ввода и переведённые статусы вложений",
-    "Совместимые подписанные обновления ранних тестовых установок без удаления данных",
-    "Повторная проверка версии, подписи и SHA-256 перед установкой"
+    "Фирменные анимированные стикеры MeshGram без подложки",
+    "Прямая отправка стикера с сохранением черновика",
+    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
+    "Категории эмодзи и анимация одиночных эмодзи в чате"
   ]
 }
