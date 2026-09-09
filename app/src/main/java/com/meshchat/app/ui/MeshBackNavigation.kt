@@ -29,10 +29,10 @@ fun MeshBackNavigation(enabled: Boolean, onProgress: (Float) -> Unit = {}, onBac
     }
 }
 
-enum class BackDestination { MEDIA, INFO, SEARCH, SELECTION, EDIT, REPLY, PROFILE, CHAT, SYSTEM }
+enum class BackDestination { MEDIA, INFO, SEARCH, SELECTION, EDIT, REPLY, PROFILE, CHAT, TAB, SYSTEM }
 
 fun backDestination(media: Boolean, info: Boolean, search: Boolean, selection: Boolean,
-    edit: Boolean, reply: Boolean, profile: Boolean, chat: Boolean): BackDestination = when {
+    edit: Boolean, reply: Boolean, profile: Boolean, chat: Boolean, tab: Boolean = false): BackDestination = when {
     media -> BackDestination.MEDIA
     info -> BackDestination.INFO
     search -> BackDestination.SEARCH
@@ -41,5 +41,6 @@ fun backDestination(media: Boolean, info: Boolean, search: Boolean, selection: B
     reply -> BackDestination.REPLY
     profile -> BackDestination.PROFILE
     chat -> BackDestination.CHAT
+    tab -> BackDestination.TAB
     else -> BackDestination.SYSTEM
 }

@@ -9,20 +9,17 @@
     "Совместимые подписанные обновления ранних тестовых установок без удаления данных",
     "Повторная проверка версии, подписи и SHA-256 перед установкой"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v113-release.apk",
-  "apkSha256": "531f29f398088370f0f5233f92d29751f956e7e941d9a612a65185c6e4dd7e45",
-  "signingCertificateSha256": "0a13c7fd0e8fba7d2780d49f1513811ab3b72213fe6982c71237ce24d9f4cfe7",
-  "manifestSignature": "MEUCIFVNEQKuERmZeQUDRv2M43zltHHUlD9tK3A/Tbnda/f6AiEAzX+pvg1i0Bn4x5F3OH55j6ac5CE7Gi0TXEUcFCc7IE8=",
-  "file": "downloads/MeshGram-v113-release.apk",
-  "sizeBytes": 17674349,
-  "releaseType": "signed-release-candidate",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v113-legacy.apk",
+  "apkSha256": "6e60652d3b111cde403d60c483cc1eba9536963309df72f11dff13868301b673",
+  "signingCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
+  "manifestSignature": "MEUCIQCKKoDr5SzCGJhqF35hHIw5Aj5AwzOpfGLC1zjuqBDb5wIgZaD7qynmNOvmHoqC4FKqBNVd0aDPE4U66rZyQrtPxVo=",
+  "file": "downloads/MeshGram-v113-legacy.apk",
+  "sizeBytes": 17669450,
+  "releaseType": "debug-test-build",
   "notes": [
     "Возврат из профиля и списка чатов на карту без закрытия приложения",
     "Более просторное поле ввода и переведённые статусы вложений",
     "Совместимые подписанные обновления ранних тестовых установок без удаления данных",
     "Повторная проверка версии, подписи и SHA-256 перед установкой"
-  ],
-  "legacyFile": "downloads/MeshGram-v113-legacy.apk",
-  "legacySha256": "6e60652d3b111cde403d60c483cc1eba9536963309df72f11dff13868301b673",
-  "legacySigningCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7"
+  ]
 }

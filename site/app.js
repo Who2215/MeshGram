@@ -158,6 +158,8 @@
     const name = `MeshGram ${data.versionName}`; const hash = typeof data.apkSha256 === 'string' ? data.apkSha256.toLowerCase() : ''; const notes = Array.isArray(data.changelog) ? data.changelog.filter(Boolean).slice(0, 6) : [];
     if (release.badgeVersion) release.badgeVersion.textContent = name; if (release.version) release.version.textContent = data.versionName; if (release.notesTitle) release.notesTitle.textContent = name; if (release.size) release.size.textContent = formatBytes(Number(data.sizeBytes));
     if (release.sha && hash) { release.sha.textContent = `SHA-256: ${shortHash(hash)}`; release.sha.title = hash; } if (release.hash && hash) release.hash.textContent = shortHash(hash); if (release.link && isSafeDownloadUrl(data.file)) release.link.href = data.file; if (release.published) release.published.textContent = `GitHub Pages / main / v${data.versionCode}`;
+    const legacyLink = document.getElementById('legacy-download-link');
+    if (legacyLink && isSafeDownloadUrl(data.legacyFile)) legacyLink.href = data.legacyFile;
     const dictionary = translations[effectiveLanguage(storedLanguage())] || en; if (release.proof) release.proof.textContent = dictionary.manifest_verified;
     if (release.notesList && notes.length) release.notesList.replaceChildren(...notes.map((note) => { const item = document.createElement('li'); item.textContent = note; return item; }));
   }

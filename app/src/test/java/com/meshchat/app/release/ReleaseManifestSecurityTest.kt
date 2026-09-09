@@ -20,6 +20,9 @@ class ReleaseManifestSecurityTest {
         )
 
         assertTrue(MeshReleaseVerifier.validateManifest(valid, "com.meshchat.app"))
+        assertTrue(MeshReleaseVerifier.isCompatibleSigner(valid, "B".repeat(64)))
+        assertFalse(MeshReleaseVerifier.isCompatibleSigner(valid, "a".repeat(64)))
+        assertFalse(MeshReleaseVerifier.isCompatibleSigner(valid, null))
         assertFalse(MeshReleaseVerifier.validateManifest(valid.copy(apkUrl = "http://updates.example.test/app.apk"), "com.meshchat.app"))
         assertFalse(MeshReleaseVerifier.validateManifest(valid, "com.other.app"))
     }

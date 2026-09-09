@@ -29,6 +29,8 @@ import java.io.InputStream
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 object MeshUpdateScheduler {
     private const val JOB_ID = 41873
@@ -104,9 +106,19 @@ private class MeshUpdateManager(private val context: Context) {
         if (!isHttpsUrl(manifestUrl) || trustedKey.isBlank()) return null
 
         val rawManifest = fetchText(manifestUrl, MAX_MANIFEST_BYTES) ?: return null
-        val manifest = MeshReleaseVerifier.parseManifest(rawManifest) ?: return null
+        var manifest = MeshReleaseVerifier.parseManifest(rawManifest) ?: return null
         if (!MeshReleaseVerifier.validateManifest(manifest, context.packageName)) return null
         if (!MeshReleaseVerifier.verifyManifestSignature(manifest, trustedKey)) return null
+        val installedSigner = MeshReleaseVerifier.installedCertificateSha256(context)
+        if (!MeshReleaseVerifier.isCompatibleSigner(manifest, installedSigner)) {
+            // Early test installations have a separate, independently signed release feed.
+            val legacyUrl = URI(manifestUrl).resolve("release-legacy.json").toString()
+            val legacyRaw = fetchText(legacyUrl, MAX_MANIFEST_BYTES) ?: return null
+            manifest = MeshReleaseVerifier.parseManifest(legacyRaw) ?: return null
+            if (!MeshReleaseVerifier.validateManifest(manifest, context.packageName) ||
+                !MeshReleaseVerifier.verifyManifestSignature(manifest, trustedKey) ||
+                !MeshReleaseVerifier.isCompatibleSigner(manifest, installedSigner)) return null
+        }
         if (manifest.versionCode <= currentVersionCode()) return null
 
         val updateDirectory = File(context.cacheDir, MeshUpdateScheduler.UPDATE_DIRECTORY)
@@ -124,6 +136,7 @@ private class MeshUpdateManager(private val context: Context) {
             return null
         }
 
+        File(updateDirectory, "${apk.name}.json").writeText(Json.encodeToString(manifest))
         pendingPreferences().edit()
             .putString(KEY_PENDING_PATH, apk.absolutePath)
             .putInt(KEY_PENDING_VERSION, manifest.versionCode)
@@ -145,6 +158,7 @@ private class MeshUpdateManager(private val context: Context) {
 
     private fun isVerifiedApk(apk: File, manifest: MeshReleaseManifest): Boolean {
         return MeshReleaseVerifier.verifyApkSha256(apk, manifest.apkSha256) &&
+            MeshReleaseVerifier.verifyApkVersion(context, apk, manifest.versionCode) &&
             MeshReleaseVerifier.verifyApkPackageName(context, apk, context.packageName) &&
             MeshReleaseVerifier.verifyApkSigningCertificate(
                 context,
@@ -355,6 +369,16 @@ object MeshUpdateInstaller {
             val apk = File(rawPath).canonicalFile
             val rootPath = updatesRoot.path + File.separator
             if (!apk.path.startsWith(rootPath) || !apk.isFile) return false
+            val evidence = File(updatesRoot, "${apk.name}.json")
+            if (!evidence.isFile || evidence.length() > 64 * 1024) return false
+            val manifest = MeshReleaseVerifier.parseManifest(evidence.readText()) ?: return false
+            if (!MeshReleaseVerifier.validateManifest(manifest, activity.packageName) ||
+                !MeshReleaseVerifier.verifyManifestSignature(manifest, BuildConfig.MESHGRAM_RELEASE_PUBLIC_KEY_BASE64) ||
+                !MeshReleaseVerifier.isCompatibleSigner(manifest, MeshReleaseVerifier.installedCertificateSha256(activity)) ||
+                !MeshReleaseVerifier.verifyApkSha256(apk, manifest.apkSha256) ||
+                !MeshReleaseVerifier.verifyApkPackageName(activity, apk, activity.packageName) ||
+                !MeshReleaseVerifier.verifyApkVersion(activity, apk, manifest.versionCode) ||
+                !MeshReleaseVerifier.verifyApkSigningCertificate(activity, apk, manifest.signingCertificateSha256)) return false
 
             val uri = FileProvider.getUriForFile(
                 activity,

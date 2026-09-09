@@ -45,6 +45,36 @@ data class MeshReleaseManifest(
 }
 
 object MeshReleaseVerifier {
+    fun installedCertificateSha256(context: Context): String? = runCatching {
+        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
+        }
+        val signers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.signingInfo?.apkContentsSigners
+        } else {
+            @Suppress("DEPRECATION")
+            info.signatures
+        }
+        val signer = signers?.singleOrNull() ?: return null
+        MessageDigest.getInstance("SHA-256").digest(signer.toByteArray()).toHex()
+    }.getOrNull()
+
+    fun isCompatibleSigner(manifest: MeshReleaseManifest, installedCertificate: String?): Boolean =
+        !installedCertificate.isNullOrBlank() &&
+            manifest.signingCertificateSha256.equals(installedCertificate, ignoreCase = true)
+
+    fun verifyApkVersion(context: Context, apk: File, expectedVersion: Int): Boolean = runCatching {
+        val info = context.packageManager.getPackageArchiveInfo(apk.path, 0) ?: return false
+        val version = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        version == expectedVersion.toLong()
+    }.getOrDefault(false)
+
     private val json = Json { ignoreUnknownKeys = true }
     private val sha256Pattern = Regex("[0-9a-fA-F]{64}")
 

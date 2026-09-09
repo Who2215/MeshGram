@@ -2932,7 +2932,8 @@ private fun MeshTelegramScreen(
     val backTarget = backDestination(showMediaGallery, showChatInfo,
         chatSearchOpen && inChat, selectedMessageIds.isNotEmpty() && inChat,
         editingMessageId != null && inChat, replyToMessageId != null && inChat,
-        profileSettingsSectionId != null && uiState.selectedTab == MeshTab.PROFILE, inChat)
+        profileSettingsSectionId != null && uiState.selectedTab == MeshTab.PROFILE, inChat,
+        uiState.selectedTab != MeshTab.MAP)
     MeshBackNavigation(enabled = backTarget != BackDestination.SYSTEM,
         onProgress = { backProgress = it }) {
         when (backTarget) {
@@ -2944,6 +2945,7 @@ private fun MeshTelegramScreen(
             BackDestination.REPLY -> replyToMessageId = null
             BackDestination.PROFILE -> profileSettingsSectionId = null
             BackDestination.CHAT -> onCloseConversation()
+            BackDestination.TAB -> onSelectTab(MeshTab.MAP)
             BackDestination.SYSTEM -> Unit
         }
     }
@@ -5443,6 +5445,11 @@ private fun ChatTopBar(
     onOpenSearch: () -> Unit
 ) {
     val strings = rememberMeshStrings()
+    val localizedSubtitle = when (subtitle.trim().lowercase(Locale.ROOT)) {
+        "online" -> strings.online
+        "offline" -> strings.offline
+        else -> subtitle
+    }
     Column {
         TopAppBar(
             colors = TopAppBarDefaults.topAppBarColors(
@@ -5472,7 +5479,7 @@ private fun ChatTopBar(
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            text = subtitle,
+                            text = localizedSubtitle,
                             style = MaterialTheme.typography.labelMedium,
                             color = TgDayPalette.actionBarSubtitle,
                             maxLines = 1,
@@ -8402,6 +8409,13 @@ private fun ChatThread(
         }
 
         if (showAttachmentTray && canPost) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                TextButton(onClick = { showFormattingHelp = true }) { Text(strings.edit) }
+                TextButton(onClick = { showScheduleDialog = true },
+                    enabled = messageDraft.isNotBlank() && editingMessage == null) {
+                    Text(strings.scheduleMessage)
+                }
+            }
             AttachmentTray(
                 strings = strings,
                 onPickPhoto = {
@@ -8478,18 +8492,6 @@ private fun ChatThread(
                         )
                     }
                     IconButton(
-                        onClick = { showFormattingHelp = true },
-                        enabled = canPost,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = "Text formatting",
-                            tint = TgDayPalette.actionBarIcon,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    IconButton(
                         onClick = onToggleVoiceRecording,
                         enabled = canPost,
                         modifier = Modifier.size(44.dp)
@@ -8538,18 +8540,6 @@ private fun ChatThread(
                             unfocusedIndicatorColor = Color.Transparent
                         )
                     )
-                    IconButton(
-                        onClick = { showScheduleDialog = true },
-                        enabled = canPost && messageDraft.isNotBlank() && editingMessage == null,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Schedule,
-                            contentDescription = "Schedule message",
-                            tint = TgDayPalette.actionBarIcon,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
                 }
             }
             Spacer(modifier = Modifier.width(6.dp))
@@ -10754,6 +10744,7 @@ private fun MessageBubble(
                 }
                 if (!message.isDeleted && message.contentType == ChatContentType.FILE) {
                     val attachmentKind = message.attachmentKind()
+                    val attachmentLabel = attachmentKind.localizedLabel()
                     if (attachmentKind == AttachmentKind.IMAGE) {
                         Spacer(modifier = Modifier.height(6.dp))
                         AttachmentThumb(
@@ -10782,12 +10773,12 @@ private fun MessageBubble(
                                 AttachmentKind.IMAGE -> Icons.Rounded.PhotoLibrary
                                 AttachmentKind.FILE -> Icons.Rounded.AttachFile
                             },
-                            contentDescription = attachmentKind.label,
+                            contentDescription = attachmentLabel,
                             modifier = Modifier.size(14.dp),
                             tint = metaColor
                         )
                         Text(
-                            text = attachmentKind.label,
+                            text = attachmentLabel,
                             style = MaterialTheme.typography.labelMedium,
                             color = metaColor
                         )
@@ -10801,9 +10792,9 @@ private fun MessageBubble(
                         if (!message.attachment?.localUri.isNullOrBlank()) {
                             Text(
                                 text = if (attachmentKind == AttachmentKind.FILE) {
-                                    message.attachment?.let { fileSizeShort(it.sizeBytes) } ?: "tap to open"
+                                    message.attachment?.let { fileSizeShort(it.sizeBytes) } ?: localizedTapToOpen()
                                 } else {
-                                    "tap to open"
+                                    localizedTapToOpen()
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = metaColor
@@ -10814,7 +10805,10 @@ private fun MessageBubble(
                     if (attachment != null && attachment.mediaAlbumCount > 1) {
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = "Album ${attachment.mediaAlbumIndex + 1}/${attachment.mediaAlbumCount}",
+                            text = localizedAlbumLabel(
+                                attachment.mediaAlbumIndex + 1,
+                                attachment.mediaAlbumCount
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = metaColor
                         )
@@ -10881,16 +10875,11 @@ private fun MessageBubble(
                     if (message.isLocal && !message.isDeleted) {
                         val deliveredCount = message.deliveredToNodeIds.size
                         val relayedCount = message.relayedByNodeIds.size
-                        val deliveryLabel = when (message.deliveryState) {
-                            MessageDeliveryState.DELIVERED -> {
-                                if (deliveredCount > 1) "delivered $deliveredCount" else "delivered"
-                            }
-                            MessageDeliveryState.RELAYED -> {
-                                if (relayedCount > 1) "relayed $relayedCount" else "relayed"
-                            }
-                            MessageDeliveryState.SENT -> "sent"
-                            MessageDeliveryState.PENDING -> "pending"
-                        }
+                        val deliveryLabel = localizedDeliveryLabel(
+                            message.deliveryState,
+                            deliveredCount,
+                            relayedCount
+                        )
                         Text(
                             text = deliveryLabel,
                             style = MaterialTheme.typography.labelSmall,
@@ -10993,6 +10982,209 @@ private enum class AttachmentKind(val label: String) {
     VIDEO("video note"),
     AUDIO("voice message"),
     FILE("file")
+}
+
+private fun AttachmentKind.localizedLabel(): String {
+    return when (Locale.getDefault().language.lowercase(Locale.ROOT)) {
+        "ru" -> when (this) {
+            AttachmentKind.IMAGE -> "фото"
+            AttachmentKind.VIDEO -> "видеосообщение"
+            AttachmentKind.AUDIO -> "голосовое"
+            AttachmentKind.FILE -> "файл"
+        }
+        "es" -> when (this) {
+            AttachmentKind.IMAGE -> "foto"
+            AttachmentKind.VIDEO -> "videomensaje"
+            AttachmentKind.AUDIO -> "nota de voz"
+            AttachmentKind.FILE -> "archivo"
+        }
+        "de" -> when (this) {
+            AttachmentKind.IMAGE -> "Foto"
+            AttachmentKind.VIDEO -> "Videonachricht"
+            AttachmentKind.AUDIO -> "Sprachnachricht"
+            AttachmentKind.FILE -> "Datei"
+        }
+        "fr" -> when (this) {
+            AttachmentKind.IMAGE -> "photo"
+            AttachmentKind.VIDEO -> "message vidéo"
+            AttachmentKind.AUDIO -> "message vocal"
+            AttachmentKind.FILE -> "fichier"
+        }
+        "pt" -> when (this) {
+            AttachmentKind.IMAGE -> "foto"
+            AttachmentKind.VIDEO -> "vídeo"
+            AttachmentKind.AUDIO -> "mensagem de voz"
+            AttachmentKind.FILE -> "arquivo"
+        }
+        "it" -> when (this) {
+            AttachmentKind.IMAGE -> "foto"
+            AttachmentKind.VIDEO -> "video"
+            AttachmentKind.AUDIO -> "messaggio vocale"
+            AttachmentKind.FILE -> "file"
+        }
+        "tr" -> when (this) {
+            AttachmentKind.IMAGE -> "fotoğraf"
+            AttachmentKind.VIDEO -> "video mesajı"
+            AttachmentKind.AUDIO -> "sesli mesaj"
+            AttachmentKind.FILE -> "dosya"
+        }
+        "zh" -> when (this) {
+            AttachmentKind.IMAGE -> "图片"
+            AttachmentKind.VIDEO -> "视频消息"
+            AttachmentKind.AUDIO -> "语音消息"
+            AttachmentKind.FILE -> "文件"
+        }
+        "ja" -> when (this) {
+            AttachmentKind.IMAGE -> "写真"
+            AttachmentKind.VIDEO -> "動画メッセージ"
+            AttachmentKind.AUDIO -> "ボイスメッセージ"
+            AttachmentKind.FILE -> "ファイル"
+        }
+        "ko" -> when (this) {
+            AttachmentKind.IMAGE -> "사진"
+            AttachmentKind.VIDEO -> "동영상 메시지"
+            AttachmentKind.AUDIO -> "음성 메시지"
+            AttachmentKind.FILE -> "파일"
+        }
+        "ar" -> when (this) {
+            AttachmentKind.IMAGE -> "صورة"
+            AttachmentKind.VIDEO -> "رسالة فيديو"
+            AttachmentKind.AUDIO -> "رسالة صوتية"
+            AttachmentKind.FILE -> "ملف"
+        }
+        "hi" -> when (this) {
+            AttachmentKind.IMAGE -> "फ़ोटो"
+            AttachmentKind.VIDEO -> "वीडियो संदेश"
+            AttachmentKind.AUDIO -> "वॉइस मैसेज"
+            AttachmentKind.FILE -> "फ़ाइल"
+        }
+        else -> label
+    }
+}
+
+private fun localizedTapToOpen(): String {
+    return when (Locale.getDefault().language.lowercase(Locale.ROOT)) {
+        "ru" -> "нажмите, чтобы открыть"
+        "es" -> "toca para abrir"
+        "de" -> "zum Öffnen tippen"
+        "fr" -> "appuyez pour ouvrir"
+        "pt" -> "toque para abrir"
+        "it" -> "tocca per aprire"
+        "tr" -> "açmak için dokunun"
+        "zh" -> "点击打开"
+        "ja" -> "タップして開く"
+        "ko" -> "탭하여 열기"
+        "ar" -> "اضغط للفتح"
+        "hi" -> "खोलने के लिए टैप करें"
+        else -> "tap to open"
+    }
+}
+
+private fun localizedAlbumLabel(index: Int, total: Int): String {
+    val value = "$index/$total"
+    return when (Locale.getDefault().language.lowercase(Locale.ROOT)) {
+        "ru" -> "Альбом $value"
+        "es" -> "Álbum $value"
+        "de" -> "Album $value"
+        "fr" -> "Album $value"
+        "pt" -> "Álbum $value"
+        "it" -> "Album $value"
+        "tr" -> "Albüm $value"
+        "zh" -> "相册 $value"
+        "ja" -> "アルバム $value"
+        "ko" -> "앨범 $value"
+        "ar" -> "ألبوم $value"
+        "hi" -> "एल्बम $value"
+        else -> "Album $value"
+    }
+}
+
+private fun localizedDeliveryLabel(
+    state: MessageDeliveryState,
+    deliveredCount: Int,
+    relayedCount: Int
+): String {
+    val language = Locale.getDefault().language.lowercase(Locale.ROOT)
+    return when (language) {
+        "ru" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "доставлено: $deliveredCount" else "доставлено"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "передано: $relayedCount" else "передано"
+            MessageDeliveryState.SENT -> "отправлено"
+            MessageDeliveryState.PENDING -> "ожидает отправки"
+        }
+        "es" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "entregado: $deliveredCount" else "entregado"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "reenviado: $relayedCount" else "reenviado"
+            MessageDeliveryState.SENT -> "enviado"
+            MessageDeliveryState.PENDING -> "pendiente"
+        }
+        "de" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "zugestellt: $deliveredCount" else "zugestellt"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "weitergeleitet: $relayedCount" else "weitergeleitet"
+            MessageDeliveryState.SENT -> "gesendet"
+            MessageDeliveryState.PENDING -> "ausstehend"
+        }
+        "fr" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "distribué : $deliveredCount" else "distribué"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "relayé : $relayedCount" else "relayé"
+            MessageDeliveryState.SENT -> "envoyé"
+            MessageDeliveryState.PENDING -> "en attente"
+        }
+        "pt" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "entregue: $deliveredCount" else "entregue"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "retransmitido: $relayedCount" else "retransmitido"
+            MessageDeliveryState.SENT -> "enviado"
+            MessageDeliveryState.PENDING -> "pendente"
+        }
+        "it" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "consegnato: $deliveredCount" else "consegnato"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "inoltrato: $relayedCount" else "inoltrato"
+            MessageDeliveryState.SENT -> "inviato"
+            MessageDeliveryState.PENDING -> "in attesa"
+        }
+        "tr" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "iletildi: $deliveredCount" else "iletildi"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "aktarıldı: $relayedCount" else "aktarıldı"
+            MessageDeliveryState.SENT -> "gönderildi"
+            MessageDeliveryState.PENDING -> "bekliyor"
+        }
+        "zh" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "已送达：$deliveredCount" else "已送达"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "已转发：$relayedCount" else "已转发"
+            MessageDeliveryState.SENT -> "已发送"
+            MessageDeliveryState.PENDING -> "等待发送"
+        }
+        "ja" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "配信済み: $deliveredCount" else "配信済み"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "中継済み: $relayedCount" else "中継済み"
+            MessageDeliveryState.SENT -> "送信済み"
+            MessageDeliveryState.PENDING -> "送信待ち"
+        }
+        "ko" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "전달됨: $deliveredCount" else "전달됨"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "중계됨: $relayedCount" else "중계됨"
+            MessageDeliveryState.SENT -> "전송됨"
+            MessageDeliveryState.PENDING -> "전송 대기"
+        }
+        "ar" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "تم التسليم: $deliveredCount" else "تم التسليم"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "تم الترحيل: $relayedCount" else "تم الترحيل"
+            MessageDeliveryState.SENT -> "تم الإرسال"
+            MessageDeliveryState.PENDING -> "قيد الانتظار"
+        }
+        "hi" -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "डिलीवर: $deliveredCount" else "डिलीवर"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "रिले किया गया: $relayedCount" else "रिले किया गया"
+            MessageDeliveryState.SENT -> "भेजा गया"
+            MessageDeliveryState.PENDING -> "भेजने की प्रतीक्षा"
+        }
+        else -> when (state) {
+            MessageDeliveryState.DELIVERED -> if (deliveredCount > 1) "delivered $deliveredCount" else "delivered"
+            MessageDeliveryState.RELAYED -> if (relayedCount > 1) "relayed $relayedCount" else "relayed"
+            MessageDeliveryState.SENT -> "sent"
+            MessageDeliveryState.PENDING -> "pending"
+        }
+    }
 }
 
 private fun ChatMessage.attachmentKind(): AttachmentKind {
