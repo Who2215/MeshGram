@@ -189,4 +189,3 @@
   sendStat('visit');
   release.link?.addEventListener('click', () => { sendStat('download'); });
 })();
-

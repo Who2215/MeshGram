@@ -1,30 +1,28 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 125,
-  "versionName": "1.0.25",
+  "versionCode": 126,
+  "versionName": "1.0.26",
   "changelog": [
-    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
-    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
-    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
-    "Компактная панель стикеров и эмодзи с сохранением черновика",
-    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
+    "Ссылки-приглашения в подтверждённые друзья с QR и системным меню «Поделиться»",
+    "Восстановленная история личных чатов корректно отображается после импорта резервной копии",
+    "Счётчики сайта и автоматические Telegram-посты на рубежах аудитории",
+    "Переключатель relay сохраняется сразу, без отдельной кнопки"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v125-release.apk",
-  "apkSha256": "2e6ae293a992c2eab28cf874812e8e7a77469818825bf85a5d20dd6a6f5a7322",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v126-release.apk",
+  "apkSha256": "20af143286495bf6c9ed39308c5117d67352eb3a1db997015c7c6048b2719cc8",
   "signingCertificateSha256": "0a13c7fd0e8fba7d2780d49f1513811ab3b72213fe6982c71237ce24d9f4cfe7",
-  "manifestSignature": "MEQCIGWjZzR1vPKih9K74x2jfVMbhZcl67JscHJt7r/SPBiMAiBXSJuDLdRbt0407doNnUy7VRLQgdv1osIsHHHj09umrA==",
-  "file": "downloads/MeshGram-v125-release.apk",
-  "sizeBytes": 20079939,
+  "manifestSignature": "MEUCIA/CRhvhEEbq73Q65CT1colK/qEZnQPEUqtHIbL9+d5+AiEA7ceGHwKWXhRfNHVVF/bdU1qeemz+9A9O78AiRnKE4II=",
+  "file": "downloads/MeshGram-v126-release.apk",
+  "sizeBytes": 20104049,
   "releaseType": "signed-release-candidate",
   "notes": [
-    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
-    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
-    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
-    "Компактная панель стикеров и эмодзи с сохранением черновика",
-    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
+    "Ссылки-приглашения в подтверждённые друзья с QR и системным меню «Поделиться»",
+    "Восстановленная история личных чатов корректно отображается после импорта резервной копии",
+    "Счётчики сайта и автоматические Telegram-посты на рубежах аудитории",
+    "Переключатель relay сохраняется сразу, без отдельной кнопки"
   ],
-  "legacyFile": "downloads/MeshGram-v125-legacy.apk",
-  "legacySha256": "5a0f7076b8beab64a351d08d6cbf1a6fde91ac1a2db82853641cdbb3c6e93f4d",
+  "legacyFile": "downloads/MeshGram-v126-legacy.apk",
+  "legacySha256": "7d349e6e0937e342342328b1f4df8cb50c60a95e669eb2da51b3630dfcdd01cb",
   "legacySigningCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7"
 }

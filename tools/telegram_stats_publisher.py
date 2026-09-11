@@ -112,4 +112,3 @@ if __name__ == "__main__":
     except PublisherError as exc:
         print(f"error: {exc}", file=sys.stderr)
         raise SystemExit(2)
-

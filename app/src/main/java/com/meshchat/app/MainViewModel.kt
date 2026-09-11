@@ -248,7 +248,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             emptyList()
         } else {
             messages
-                .filter { it.conversationId == resolvedConversationId }
+                // Older backups may contain the legacy broadcast id or an empty
+                // conversation id. Use the same resolver as the chat list so a
+                // restored preview and its open history always point to one chat.
+                .filter { resolveConversationId(it, meshManager.nodeId) == resolvedConversationId }
                 .sortedBy { it.createdAtMs }
         }
         val activeDraft = resolvedConversationId
@@ -1740,6 +1743,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun resolveConversationId(message: ChatMessage, localNodeId: String): String {
         val explicit = message.conversationId.trim()
+
+        // Direct messages from pre-1.0.25 backups can carry a stale chat id.
+        // Rebuild that id from the two node ids so the list and open history
+        // use the same conversation even after a migration.
+        if (message.conversationType == ConversationType.DIRECT) {
+            val otherNode = resolveOtherNodeId(message, localNodeId)
+            if (otherNode != localNodeId && otherNode.isNotBlank()) {
+                return directConversationId(localNodeId, otherNode)
+            }
+        }
+
         if (explicit.isNotBlank() && explicit != ChatMessage.LEGACY_BROADCAST_CONVERSATION_ID) {
             return explicit
         }

@@ -173,6 +173,7 @@ import com.meshchat.app.mesh.ChatMessage
 import com.meshchat.app.mesh.ChatContentType
 import com.meshchat.app.mesh.ConversationSummary
 import com.meshchat.app.mesh.ConversationType
+import com.meshchat.app.mesh.FriendDirectory
 import com.meshchat.app.mesh.IncomingFileTransferProgress
 import com.meshchat.app.mesh.MeshContact
 import androidx.compose.ui.res.stringResource
@@ -224,12 +225,14 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
     private var externalConversationId: String? by mutableStateOf(null)
     private var externalSharePayload: ExternalSharePayload? by mutableStateOf(null)
+    private var externalFriendInvite: String? by mutableStateOf(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MeshUpdateScheduler.schedule(applicationContext)
         externalConversationId = extractConversationId(intent)
         externalSharePayload = extractSharePayload(intent)
+        externalFriendInvite = extractFriendInvite(intent)
         runCatching { pruneTransientDecryptedCaches(applicationContext) }
         setContent {
             val vm: MainViewModel = viewModel()
@@ -237,6 +240,7 @@ class MainActivity : ComponentActivity() {
                 viewModel = vm,
                 externalConversationId = externalConversationId,
                 externalSharePayload = externalSharePayload,
+                externalFriendInvite = externalFriendInvite,
                 onExternalConversationConsumed = { consumedId ->
                     if (externalConversationId == consumedId) {
                         externalConversationId = null
@@ -245,6 +249,11 @@ class MainActivity : ComponentActivity() {
                 onExternalShareConsumed = { consumedToken ->
                     if (externalSharePayload?.token == consumedToken) {
                         externalSharePayload = null
+                    }
+                },
+                onExternalFriendInviteConsumed = { consumedCode ->
+                    if (externalFriendInvite == consumedCode) {
+                        externalFriendInvite = null
                     }
                 }
             )
@@ -257,6 +266,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         externalConversationId = extractConversationId(intent)
         externalSharePayload = extractSharePayload(intent)
+        externalFriendInvite = extractFriendInvite(intent)
         runCatching { pruneTransientDecryptedCaches(applicationContext) }
         MeshUpdateInstaller.openIfRequested(this, intent)
     }
@@ -1811,8 +1821,10 @@ private fun MeshApp(
     viewModel: MainViewModel,
     externalConversationId: String?,
     externalSharePayload: ExternalSharePayload?,
+    externalFriendInvite: String?,
     onExternalConversationConsumed: (String) -> Unit,
-    onExternalShareConsumed: (String) -> Unit
+    onExternalShareConsumed: (String) -> Unit,
+    onExternalFriendInviteConsumed: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -2002,6 +2014,9 @@ private fun MeshApp(
         viewModel.openConversation(conversationId)
         onExternalConversationConsumed(conversationId)
     }
+    val incomingFriendPreview = remember(externalFriendInvite) {
+        externalFriendInvite?.let(viewModel::previewFriendInvite)
+    }
 
     MeshTheme {
         if (onboardingPending) {
@@ -2105,6 +2120,44 @@ private fun MeshApp(
                 externalSharePayload = externalSharePayload,
                 onExternalShareConsumed = onExternalShareConsumed
             )
+            externalFriendInvite?.let { code ->
+                val person = incomingFriendPreview
+                AlertDialog(
+                    onDismissRequest = { onExternalFriendInviteConsumed(code) },
+                    title = {
+                        Text(stringResource(
+                            if (person != null) R.string.friends_invite_title
+                            else R.string.friends_invalid_invite
+                        ))
+                    },
+                    text = {
+                        if (person == null) {
+                            Text(stringResource(R.string.friends_invalid_invite))
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(person.alias, style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.friends_fingerprint))
+                                Text(person.fingerprint.chunked(8).joinToString(" "), style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(R.string.friends_request_help))
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        if (person != null) {
+                            TextButton(onClick = {
+                                if (viewModel.requestFriendInvite(code)) {
+                                    onExternalFriendInviteConsumed(code)
+                                }
+                            }) { Text(stringResource(R.string.friends_accept)) }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { onExternalFriendInviteConsumed(code) }) {
+                            Text(stringResource(R.string.friends_close))
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -11829,4 +11882,13 @@ private fun extractSharePayload(intent: Intent?): ExternalSharePayload? {
         text = text,
         uri = streamUri
     )
+}
+
+private fun extractFriendInvite(intent: Intent?): String? {
+    val raw = when (intent?.action) {
+        Intent.ACTION_VIEW -> intent.dataString
+        Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+        else -> null
+    } ?: return null
+    return runCatching { FriendDirectory.normalizeInviteCode(raw) }.getOrNull()
 }

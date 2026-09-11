@@ -33,4 +33,3 @@ jobs:
           git add .github/site-stats-milestones.json
           git commit -m "chore: record audience milestone"
           git push
-
