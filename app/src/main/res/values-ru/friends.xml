@@ -7,6 +7,7 @@
     <string name="friends_private">Имя и фото скрыты от незнакомцев. Друзья по-прежнему могут связаться с вами.</string>
     <string name="friends_network_note">Ретрансляция зашифрованных пакетов не добавляет людей в контакты.</string>
     <string name="friends_add">Добавить друга</string>
+    <string name="friends_invite_title">Приглашение в MeshGram</string>
     <string name="friends_invite_help">Покажите другу свой QR или отправьте код приглашения. Общение начнётся после подтверждения с обеих сторон.</string>
     <string name="friends_my_qr">Мой QR для друга</string>
     <string name="friends_scan">Сканировать QR друга</string>
@@ -34,6 +35,10 @@
     <string name="friends_qr_help">Одно использование, срок 24 часа. Новый QR отменяет предыдущее приглашение. Передавайте его только нужному человеку.</string>
     <string name="friends_copy">Скопировать код</string>
     <string name="friends_copied">Приглашение скопировано</string>
+    <string name="friends_copy_link">Скопировать ссылку</string>
+    <string name="friends_share_link">Поделиться ссылкой</string>
+    <string name="friends_link_copied">Ссылка приглашения скопирована</string>
+    <string name="friends_link_help">Ссылку можно отправить другу в другом городе. Он увидит имя и отпечаток, а запрос начнёт чат только после его подтверждения.</string>
     <string name="friends_saved">Сохранено. Запросы синхронизируются при появлении маршрута.</string>
     <string name="friends_failed">Не удалось выполнить действие. Проверьте приглашение и попробуйте снова.</string>
     <string name="friends_invalid_invite">Приглашение повреждено, просрочено или не совпадает с ключом устройства.</string>

@@ -1,5 +1,6 @@
 package com.meshchat.app.mesh
 
+import android.net.Uri
 import android.util.Base64
 import java.util.UUID
 import kotlinx.serialization.encodeToString
@@ -41,7 +42,7 @@ class FriendDirectory(
     @Synchronized fun revokeInvite() = save(state.copy(inviteToken = "", inviteExpiresAtMs = 0))
 
     fun parseInvite(raw: String): HelloPacket? = runCatching {
-        val code = raw.trim()
+        val code = normalizeInviteCode(raw)
         require(code.startsWith(INVITE_PREFIX) && code.length < 4000)
         val hello = json.decodeFromString<HelloPacket>(String(Base64.decode(
             code.removePrefix(INVITE_PREFIX), Base64.URL_SAFE or Base64.NO_WRAP)))
@@ -148,5 +149,32 @@ class FriendDirectory(
         alias = crypto().localAlias(), avatarData = crypto().localAvatarData()
     )
 
-    companion object { const val INVITE_PREFIX = "meshgram:friend:v1:" }
+    companion object {
+        const val INVITE_PREFIX = "meshgram:friend:v1:"
+        private const val INVITE_WEB_SCHEME = "https"
+        private const val INVITE_WEB_HOST = "who2215.github.io"
+        private const val INVITE_WEB_PATH = "/MeshGram/"
+
+        fun toShareUrl(code: String): String = Uri.Builder()
+            .scheme(INVITE_WEB_SCHEME)
+            .authority(INVITE_WEB_HOST)
+            .path(INVITE_WEB_PATH)
+            .appendQueryParameter("friend_invite", code.trim())
+            .build()
+            .toString()
+
+        fun normalizeInviteCode(raw: String): String {
+            val value = raw.trim()
+            if (value.startsWith(INVITE_PREFIX)) return value
+            val uri = Uri.parse(value)
+            val validWebLink = uri.scheme == INVITE_WEB_SCHEME &&
+                uri.host == INVITE_WEB_HOST &&
+                uri.path?.startsWith(INVITE_WEB_PATH) == true
+            val validAppLink = uri.scheme == "meshgram" && uri.host == "friend"
+            require(validWebLink || validAppLink)
+            return uri.getQueryParameter("friend_invite")?.trim()
+                ?.takeIf { it.startsWith(INVITE_PREFIX) }
+                ?: error("missing friend invitation")
+        }
+    }
 }

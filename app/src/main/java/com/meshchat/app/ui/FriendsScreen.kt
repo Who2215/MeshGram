@@ -3,6 +3,7 @@ package com.meshchat.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
@@ -27,6 +28,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.meshchat.app.R
 import com.meshchat.app.mesh.FriendRecord
+import com.meshchat.app.mesh.FriendDirectory
 import com.meshchat.app.mesh.HelloPacket
 import com.meshchat.app.mesh.MeshUiState
 import kotlinx.coroutines.Dispatchers
@@ -206,6 +208,7 @@ fun FriendsScreen(state: MeshUiState, actions: FriendActions, onBack: () -> Unit
         dismissButton = { TextButton(onClick = { preview = null }) { Text(stringResource(R.string.friends_close)) } }) }
 
     invite?.let { code ->
+        val shareUrl = remember(code) { FriendDirectory.toShareUrl(code) }
         val bitmap = remember(code) { runCatching {
             val matrix = QRCodeWriter().encode(code, BarcodeFormat.QR_CODE, 720, 720)
             Bitmap.createBitmap(720, 720, Bitmap.Config.ARGB_8888).apply {
@@ -217,11 +220,19 @@ fun FriendsScreen(state: MeshUiState, actions: FriendActions, onBack: () -> Unit
             text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.friends_my_qr), Modifier.fillMaxWidth().aspectRatio(1f)) }
                 Text(stringResource(R.string.friends_qr_help))
+                Text(stringResource(R.string.friends_link_help), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, shareUrl)
+                    }
+                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.friends_share_link)))
+                }) { Text(stringResource(R.string.friends_share_link)) }
             } }, confirmButton = { TextButton(onClick = {
                 (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("MeshGram invitation", code))
-                notice = R.string.friends_copied
-            }) { Text(stringResource(R.string.friends_copy)) } },
+                    .setPrimaryClip(ClipData.newPlainText("MeshGram invitation", shareUrl))
+                notice = R.string.friends_link_copied
+            }) { Text(stringResource(R.string.friends_copy_link)) } },
             dismissButton = { TextButton(onClick = { invite = null }) { Text(stringResource(R.string.friends_close)) } })
     }
 }

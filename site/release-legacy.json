@@ -1,27 +1,25 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 125,
-  "versionName": "1.0.25",
+  "versionCode": 126,
+  "versionName": "1.0.26",
   "changelog": [
-    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
-    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
-    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
-    "Компактная панель стикеров и эмодзи с сохранением черновика",
-    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
+    "Ссылки-приглашения в подтверждённые друзья с QR и системным меню «Поделиться»",
+    "Восстановленная история личных чатов корректно отображается после импорта резервной копии",
+    "Счётчики сайта и автоматические Telegram-посты на рубежах аудитории",
+    "Переключатель relay сохраняется сразу, без отдельной кнопки"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v125-legacy.apk",
-  "apkSha256": "5a0f7076b8beab64a351d08d6cbf1a6fde91ac1a2db82853641cdbb3c6e93f4d",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v126-legacy.apk",
+  "apkSha256": "7d349e6e0937e342342328b1f4df8cb50c60a95e669eb2da51b3630dfcdd01cb",
   "signingCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
-  "manifestSignature": "MEQCICHjyOpBbZaP+860gek9UokiAWcFf6+4xR0DDq/Fvf6WAiBFN0uoaLjNBmVp30Z8xjocg51TBFaYc7HfATDO1zoiLA==",
-  "file": "downloads/MeshGram-v125-legacy.apk",
-  "sizeBytes": 28209628,
+  "manifestSignature": "MEUCICxkOvRfnQ/PSmhmPxNZj6XjTGdeFyab+Njb8PqHfMP1AiEAwocaAQbQE436XtdVDVNI5X9ZaZNvP5UXLLqhSEilpy8=",
+  "file": "downloads/MeshGram-v126-legacy.apk",
+  "sizeBytes": 27943085,
   "releaseType": "debug-test-build",
   "notes": [
-    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
-    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
-    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
-    "Компактная панель стикеров и эмодзи с сохранением черновика",
-    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
+    "Ссылки-приглашения в подтверждённые друзья с QR и системным меню «Поделиться»",
+    "Восстановленная история личных чатов корректно отображается после импорта резервной копии",
+    "Счётчики сайта и автоматические Telegram-посты на рубежах аудитории",
+    "Переключатель relay сохраняется сразу, без отдельной кнопки"
   ]
 }

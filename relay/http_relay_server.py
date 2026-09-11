@@ -16,6 +16,7 @@ import secrets
 import threading
 import time
 from collections import defaultdict, deque
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Deque, Dict, Optional
 from urllib.parse import parse_qs, urlparse
@@ -47,6 +48,7 @@ MAX_QUEUE_PER_NODE = 128
 # Android retries from its encrypted outbox every few seconds. Keep a short
 # duplicate window, then accept the retry if the previous poll was lost.
 FRAME_DEDUP_WINDOW_SECONDS = 5
+DEFAULT_STATS_FILE = Path(os.environ.get("MESHGRAM_STATS_FILE", "site-stats.json"))
 
 
 class HttpRelayHub:
@@ -282,8 +284,47 @@ class HttpRelayHub:
         return result
 
 
+class SiteStats:
+    """Small persistent counter for the public site, separate from relay data."""
+
+    def __init__(self, path: Path = DEFAULT_STATS_FILE) -> None:
+        self.path = path
+        self.lock = threading.RLock()
+        self.data = {"ok": True, "visits": 0, "downloads": 0, "updatedAtMs": 0}
+        self._load()
+
+    def _load(self) -> None:
+        try:
+            value = json.loads(self.path.read_text(encoding="utf-8"))
+            if isinstance(value, dict):
+                self.data["visits"] = max(0, int(value.get("visits", 0)))
+                self.data["downloads"] = max(0, int(value.get("downloads", 0)))
+                self.data["updatedAtMs"] = max(0, int(value.get("updatedAtMs", 0)))
+        except (OSError, ValueError, TypeError):
+            logging.info("Starting site stats at zero: %s", self.path)
+
+    def _persist_locked(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        temporary.write_text(json.dumps(self.data, separators=(",", ":")), encoding="utf-8")
+        temporary.replace(self.path)
+
+    def snapshot(self) -> dict:
+        with self.lock:
+            return dict(self.data)
+
+    def increment(self, field: str) -> dict:
+        if field not in ("visits", "downloads"):
+            raise ValueError("invalid stats field")
+        with self.lock:
+            self.data[field] += 1
+            self.data["updatedAtMs"] = int(time.time() * 1000)
+            self._persist_locked()
+            return dict(self.data)
+
 class RelayRequestHandler(BaseHTTPRequestHandler):
     hub: HttpRelayHub
+    stats: SiteStats
     server_version = "MeshGramHttpRelay/1.0"
     protocol_version = "HTTP/1.1"
 
@@ -304,13 +345,17 @@ class RelayRequestHandler(BaseHTTPRequestHandler):
             raise ValueError("JSON object required")
         return data
 
-    def _send_json(self, status: int, data: dict) -> None:
+    def _send_json(self, status: int, data: dict, cors: bool = False) -> None:
         raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("Connection", "close")
+        if cors:
+            self.send_header("Access-Control-Allow-Origin", "https://who2215.github.io")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(raw)
 
@@ -321,6 +366,9 @@ class RelayRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/healthz":
             self._send_json(200, {"ok": True, "service": "meshgram-http-relay"})
+            return
+        if parsed.path == "/api/site-stats":
+            self._send_json(200, self.stats.snapshot(), cors=True)
             return
         if parsed.path != "/api/poll":
             self._send_error(404, "not found")
@@ -337,6 +385,12 @@ class RelayRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         try:
+            if parsed.path == "/api/site-stats/visit":
+                self._send_json(200, self.stats.increment("visits"), cors=True)
+                return
+            if parsed.path == "/api/site-stats/download":
+                self._send_json(200, self.stats.increment("downloads"), cors=True)
+                return
             data = self._json_body()
             if parsed.path == "/api/hello":
                 self._send_json(200, self.hub.hello(data))
@@ -354,6 +408,13 @@ class RelayRequestHandler(BaseHTTPRequestHandler):
             logging.exception("HTTP relay request failed")
             self._send_error(500, "internal relay error")
 
+    def do_OPTIONS(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/site-stats"):
+            self._send_json(204, {}, cors=True)
+            return
+        self._send_error(404, "not found")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="MeshGram HTTPS fallback relay")
@@ -362,7 +423,9 @@ def main() -> None:
     parser.add_argument("--admission-token", default=os.environ.get("MESHGRAM_RELAY_ADMISSION_TOKEN", ""))
     args = parser.parse_args()
     hub = HttpRelayHub(admission_token=args.admission_token)
+    stats = SiteStats()
     RelayRequestHandler.hub = hub
+    RelayRequestHandler.stats = stats
     server = ThreadingHTTPServer((args.host, args.port), RelayRequestHandler)
     logging.info("HTTP relay listening on http://%s:%d", args.host, args.port)
     try:

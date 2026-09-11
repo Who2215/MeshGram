@@ -1,0 +1,35 @@
+name: MeshGram audience milestones
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Publish new milestone if reached
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python tools/telegram_stats_publisher.py
+      - name: Commit milestone state
+        run: |
+          if git diff --quiet -- .github/site-stats-milestones.json; then
+            echo "No milestone state changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/site-stats-milestones.json
+          git commit -m "chore: record audience milestone"
+          git push

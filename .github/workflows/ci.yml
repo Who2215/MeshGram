@@ -54,6 +54,6 @@ jobs:
         with:
           python-version: "3.x"
       - name: Compile project tools
-        run: python -m py_compile tools/telegram_release_publisher.py tools/telegram_bot_worker.py tools/sign_release_manifest.py tools/generate_teaser.py
+        run: python -m py_compile tools/telegram_release_publisher.py tools/telegram_stats_publisher.py tools/telegram_bot_worker.py tools/sign_release_manifest.py tools/generate_teaser.py
       - name: Validate release publisher without credentials
         run: python tools/telegram_release_publisher.py publish --dry-run
