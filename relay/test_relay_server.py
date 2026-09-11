@@ -70,6 +70,19 @@ class RelayValidationTests(unittest.TestCase):
         })
         self.assertFalse(RelayHub._is_valid_frame(frame, self.config.max_payload_size))
 
+    def test_websocket_path_supports_legacy_and_modern_apis(self):
+        class LegacyConnection:
+            path = "/ws"
+
+        class ModernRequest:
+            path = "/ws"
+
+        class ModernConnection:
+            request = ModernRequest()
+
+        self.assertEqual("/ws", RelayHub._websocket_path(LegacyConnection()))
+        self.assertEqual("/ws", RelayHub._websocket_path(ModernConnection()))
+
     def test_authentication_requires_proof_of_key_ownership(self):
         import asyncio
 

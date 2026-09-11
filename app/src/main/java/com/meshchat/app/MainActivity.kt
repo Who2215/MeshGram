@@ -860,15 +860,9 @@ private data class MeshStrings(
     val bluetoothMeshNetwork: String,
     val offlineOnlyDescription: String,
     val discoveryDescription: String,
-    val relayEnabledLabel: String,
-    val relayEnabledHint: String,
-    val relayUrlLabel: String,
-    val relayUrlPlaceholder: String,
-    val saveRelaySettings: String,
     val relayConnectedStatus: String,
     val relayWaitingStatus: String,
     val bleOnlyStatus: String,
-    val relaySettingsSaved: String,
     val projectSupport: String,
     val projectSupportDescription: String,
     val updates: String,
@@ -1540,15 +1534,9 @@ private fun enMeshStrings() = MeshStrings(
     bluetoothMeshNetwork = "Bluetooth Mesh Network",
     offlineOnlyDescription = "BLE is preferred for nearby MeshGram clients. Internet relay is used only when no BLE route is available.",
     discoveryDescription = "Automatic routing: only MeshGram BLE clients are accepted; the app never changes network settings for other apps.",
-    relayEnabledLabel = "Internet fallback",
-    relayEnabledHint = "Use the relay only when no nearby BLE route is available",
-    relayUrlLabel = "Relay server address",
-    relayUrlPlaceholder = "wss://your-domain.example/ws",
-    saveRelaySettings = "Save hybrid routing",
     relayConnectedStatus = "Relay connected",
     relayWaitingStatus = "Relay waiting for an internet route",
     bleOnlyStatus = "BLE only until a relay is configured",
-    relaySettingsSaved = "Hybrid routing saved: BLE first, internet fallback",
     projectSupport = "Support the project",
     projectSupportDescription = "Use the official support link configured by the owner. The app never stores card details.",
     updates = "Updates",
@@ -1776,15 +1764,9 @@ private fun ruMeshStrings() = MeshStrings(
     bluetoothMeshNetwork = "Bluetooth Mesh-сеть",
     offlineOnlyDescription = "Для ближайших клиентов MeshGram используется BLE. Интернет-реле включается только если BLE-маршрута нет.",
     discoveryDescription = "Автомаршрутизация: принимаются только клиенты MeshGram; настройки сети телефона не меняются.",
-    relayEnabledLabel = "Интернет как резерв",
-    relayEnabledHint = "Реле используется только если рядом нет BLE-маршрута",
-    relayUrlLabel = "Адрес relay-сервера",
-    relayUrlPlaceholder = "wss://ваш-домен.example/ws",
-    saveRelaySettings = "Сохранить гибридную маршрутизацию",
     relayConnectedStatus = "Relay подключён",
     relayWaitingStatus = "Relay ждёт доступный интернет-маршрут",
     bleOnlyStatus = "Только BLE, пока relay не настроен",
-    relaySettingsSaved = "Гибридная маршрутизация сохранена: сначала BLE, затем интернет",
     projectSupport = "Поддержать проект",
     projectSupportDescription = "Используется официальная ссылка поддержки владельца. Данные карты приложение не хранит.",
     updates = "Обновления",
@@ -2083,7 +2065,6 @@ private fun MeshApp(
                  onImportBackup = viewModel::importPortableBackup,
                  onSaveAlias = viewModel::updateAlias,
                  onPickAvatar = { avatarPickerLauncher.launch("image/*") },
-                 onSaveRelaySettings = viewModel::updateRelaySettings,
                 appLockEnabled = appLockEnabled,
                 hasAppPasscode = hasAppPasscode,
                 onEnableAppLock = enableAppLockWithPin,
@@ -2472,7 +2453,6 @@ private fun MeshTelegramScreen(
     onImportBackup: (Uri, String) -> Boolean,
     onSaveAlias: (String) -> Unit,
     onPickAvatar: () -> Unit,
-    onSaveRelaySettings: (Boolean, String) -> Unit,
     appLockEnabled: Boolean,
     hasAppPasscode: Boolean,
     onEnableAppLock: (String) -> Boolean,
@@ -2540,9 +2520,6 @@ private fun MeshTelegramScreen(
     var pendingBackupMode by remember { mutableStateOf<BackupMode?>(null) }
     var showBackupPassDialog by remember { mutableStateOf(false) }
     var backupStatusMessage by remember { mutableStateOf<String?>(null) }
-    var relayStatusMessage by remember { mutableStateOf<String?>(null) }
-    var relayEnabledDraft by rememberSaveable { mutableStateOf(uiState.relayEnabled) }
-    var relayUrlDraft by rememberSaveable { mutableStateOf(uiState.relayUrl) }
     var replyToMessageId by rememberSaveable(uiState.activeConversationId) { mutableStateOf<String?>(null) }
     var editingMessageId by rememberSaveable(uiState.activeConversationId) { mutableStateOf<String?>(null) }
     var actionMessage by remember { mutableStateOf<ChatMessage?>(null) }
@@ -3054,14 +3031,6 @@ private fun MeshTelegramScreen(
             editingMessageId = null
         }
     }
-    LaunchedEffect(uiState.relayEnabled) {
-        relayEnabledDraft = uiState.relayEnabled
-    }
-    LaunchedEffect(uiState.relayUrl) {
-        if (relayUrlDraft.isBlank() || relayUrlDraft == uiState.relayUrl) {
-            relayUrlDraft = uiState.relayUrl
-        }
-    }
     LaunchedEffect(uiState.activeConversationId, uiState.activeDraft, editingMessageId) {
         if (editingMessageId == null) {
             messageDraft = uiState.activeDraft
@@ -3382,21 +3351,12 @@ private fun MeshTelegramScreen(
                                 aliasDraft = aliasDraft,
                                 onAliasDraftChange = { aliasDraft = it },
                                 onSaveAlias = { onSaveAlias(aliasDraft) },
-                                relayEnabledDraft = relayEnabledDraft,
-                                onRelayEnabledChange = { relayEnabledDraft = it },
-                                relayUrlDraft = relayUrlDraft,
-                                onRelayUrlDraftChange = { relayUrlDraft = it },
-                                onSaveRelay = {
-                                    onSaveRelaySettings(relayEnabledDraft, relayUrlDraft)
-                                    relayStatusMessage = strings.relaySettingsSaved
-                                },
                                 visualThemePreset = visualThemePreset,
                                 onVisualThemeChange = onVisualThemeChange,
                                 glowChoice = glowChoice,
                                 onGlowChoiceChange = onGlowChoiceChange,
                                 motionMode = motionMode,
                                 onMotionModeChange = onMotionModeChange,
-                                relayStatusMessage = relayStatusMessage,
                                 backupStatusMessage = backupStatusMessage,
                                 appLockEnabled = appLockEnabled,
                                 hasAppPasscode = hasAppPasscode,
@@ -6948,18 +6908,12 @@ private fun SettingsHome(
     aliasDraft: String,
     onAliasDraftChange: (String) -> Unit,
     onSaveAlias: () -> Unit,
-    relayEnabledDraft: Boolean,
-    onRelayEnabledChange: (Boolean) -> Unit,
-    relayUrlDraft: String,
-    onRelayUrlDraftChange: (String) -> Unit,
-    onSaveRelay: () -> Unit,
     visualThemePreset: MeshVisualPreset,
     onVisualThemeChange: (MeshVisualPreset) -> Unit,
     glowChoice: MeshGlowChoice = MeshGlowChoice.CYAN,
     onGlowChoiceChange: (MeshGlowChoice) -> Unit = {},
     motionMode: MeshMotionMode = MeshMotionMode.FULL,
     onMotionModeChange: (MeshMotionMode) -> Unit = {},
-    relayStatusMessage: String?,
     backupStatusMessage: String?,
     appLockEnabled: Boolean,
     hasAppPasscode: Boolean,
@@ -7051,35 +7005,6 @@ private fun SettingsHome(
                             style = MaterialTheme.typography.labelMedium,
                             color = TgDayPalette.rowBlue
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(strings.relayEnabledLabel, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    text = strings.relayEnabledHint,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = TgDayPalette.rowMeta
-                                )
-                            }
-                            Switch(
-                                checked = relayEnabledDraft,
-                                onCheckedChange = onRelayEnabledChange
-                            )
-                        }
-                        OutlinedTextField(
-                            value = relayUrlDraft,
-                            onValueChange = onRelayUrlDraftChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(strings.relayUrlLabel) },
-                            placeholder = { Text(strings.relayUrlPlaceholder) },
-                            singleLine = true
-                        )
-                        FilledTonalButton(onClick = onSaveRelay) {
-                            Text(strings.saveRelaySettings)
-                        }
                         Text(
                             text = if (uiState.relayConnected) {
                                 strings.relayConnectedStatus
@@ -7091,10 +7016,6 @@ private fun SettingsHome(
                             style = MaterialTheme.typography.labelMedium,
                             color = TgDayPalette.rowMeta
                         )
-                        if (!relayStatusMessage.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(relayStatusMessage, color = TgDayPalette.rowAccent)
-                        }
                     }
                 }
 
@@ -7389,11 +7310,8 @@ private fun LegacySettingsHome(
     aliasDraft: String,
     onAliasDraftChange: (String) -> Unit,
     onSaveAlias: () -> Unit,
-    relayUrlDraft: String,
-    onSaveRelay: () -> Unit,
     visualThemePreset: MeshVisualPreset,
     onVisualThemeChange: (MeshVisualPreset) -> Unit,
-    relayStatusMessage: String?,
     backupStatusMessage: String?,
     appLockEnabled: Boolean,
     hasAppPasscode: Boolean,
@@ -7418,8 +7336,6 @@ private fun LegacySettingsHome(
     var appLockStatusMessage by remember { mutableStateOf<String?>(null) }
     var transientCacheBytes by remember { mutableStateOf(transientCacheSizeBytes(context)) }
     var cacheStatusMessage by remember { mutableStateOf<String?>(null) }
-    var legacyRelayEnabledDraft by rememberSaveable { mutableStateOf(uiState.relayEnabled) }
-    var legacyRelayUrlDraft by rememberSaveable { mutableStateOf(relayUrlDraft) }
 
     LazyColumn(
         modifier = Modifier
@@ -7538,56 +7454,26 @@ private fun LegacySettingsHome(
                         .padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(strings.bluetoothMeshNetwork, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                text = strings.offlineOnlyDescription,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TgDayPalette.rowMeta
-                            )
-                        }
-                        Switch(
-                            checked = legacyRelayEnabledDraft,
-                            onCheckedChange = { legacyRelayEnabledDraft = it },
-                            enabled = true
-                        )
-                    }
+                    Text(strings.bluetoothMeshNetwork, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = strings.offlineOnlyDescription,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TgDayPalette.rowMeta
+                    )
                     Text(
                         text = strings.discoveryDescription,
                         style = MaterialTheme.typography.labelMedium,
                         color = TgDayPalette.rowBlue
                     )
                     Text(
-                        text = strings.relayEnabledHint,
+                        text = if (uiState.relayConnected) {
+                            strings.relayConnectedStatus
+                        } else {
+                            strings.relayWaitingStatus
+                        },
                         style = MaterialTheme.typography.labelMedium,
                         color = TgDayPalette.rowMeta
                     )
-                    OutlinedTextField(
-                        value = legacyRelayUrlDraft,
-                        onValueChange = { legacyRelayUrlDraft = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(strings.relayUrlLabel) },
-                        singleLine = true,
-                        placeholder = { Text(strings.relayUrlPlaceholder) },
-                        enabled = true
-                    )
-                    FilledTonalButton(
-                        onClick = onSaveRelay,
-                        enabled = true
-                    ) {
-                        Text(strings.saveRelaySettings)
-                    }
-                    if (!relayStatusMessage.isNullOrBlank()) {
-                        Text(
-                            text = relayStatusMessage,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = TgDayPalette.rowAccent
-                        )
-                    }
                 }
             }
         }

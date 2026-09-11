@@ -37,8 +37,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -54,26 +56,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedConversationId = MutableStateFlow<String?>(null)
     private val _selectedTab = MutableStateFlow(MeshTab.MAP)
     private val _isConversationOpen = MutableStateFlow(false)
-    private val seenIncomingMessageIds = linkedSetOf<String>().apply {
-        addAll(
-            meshManager.messages.value
-                .filter { !it.isLocal && it.id.isNotBlank() }
-                .map { it.id }
-                .takeLast(MAX_TRACKED_INCOMING_MESSAGES)
-        )
-    }
+    private val conversationStateLock = Any()
+    private val conversationStateReady = CompletableDeferred<Unit>()
+    private var conversationStateLoaded = false
+    private val pendingConversationStateMutations = linkedMapOf<
+        String,
+        MutableList<(ConversationLocalState) -> ConversationLocalState>
+    >()
+    private val seenIncomingMessageIds = linkedSetOf<String>()
+    private var messageHistoryInitialized = false
 
     val groups: StateFlow<List<MeshGroup>> = _groups.asStateFlow()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            _groups.value = localStore.loadGroups()
-            _conversationStates.value = localStore.loadConversationStates()
+            val loadedGroups = localStore.loadGroups()
+            val loadedStates = localStore.loadConversationStates()
                 .filter { it.conversationId.isNotBlank() }
                 .associateBy { it.conversationId }
+            val mergedStates: Map<String, ConversationLocalState> = synchronized(conversationStateLock) {
+                val merged = loadedStates.toMutableMap()
+                pendingConversationStateMutations.forEach { (conversationId, mutations) ->
+                    var state = merged[conversationId] ?: defaultConversationState(conversationId)
+                    mutations.forEach { mutation ->
+                        state = mutation(state).copy(conversationId = conversationId)
+                    }
+                    merged[conversationId] = state
+                }
+                pendingConversationStateMutations.clear()
+                _groups.value = loadedGroups
+                _conversationStates.value = merged
+                conversationStateLoaded = true
+                merged
+            }
+            if (mergedStates != loadedStates) {
+                persistConversationStates(mergedStates)
+            }
+            conversationStateReady.complete(Unit)
         }
         viewModelScope.launch {
+            conversationStateReady.await()
+            meshManager.messagesReady.first { it }
             meshManager.messages.collect { messages ->
+                if (!messageHistoryInitialized) {
+                    seenIncomingMessageIds.clear()
+                    seenIncomingMessageIds.addAll(
+                        messages
+                            .filter { !it.isLocal && it.id.isNotBlank() }
+                            .map { it.id }
+                            .takeLast(MAX_TRACKED_INCOMING_MESSAGES)
+                    )
+                    messageHistoryInitialized = true
+                }
                 discoverGroupsFromMessages(messages)
                 reconcileConversationStates(messages)
                 applyUnreadCounters(messages)
@@ -314,8 +348,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateRelaySettings(enabled: Boolean, relayUrl: String) {
-        meshManager.updateRelaySettings(enabled = enabled, relayUrl = relayUrl)
+    fun updateRelaySettings(enabled: Boolean) {
+        meshManager.updateRelaySettings(enabled = enabled)
     }
 
     fun selectTab(tab: MeshTab) {
@@ -2142,74 +2176,82 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val activeConversationId = _selectedConversationId.value
         val isActiveChatOpen = _isConversationOpen.value && _selectedTab.value == MeshTab.CHATS
 
-        var touched = false
         val now = System.currentTimeMillis()
-        val updates = _conversationStates.value.toMutableMap()
+        var persistedUpdates: Map<String, ConversationLocalState>? = null
+        synchronized(conversationStateLock) {
+            var touched = false
+            val updates = _conversationStates.value.toMutableMap()
 
-        messages
-            .filter { message ->
-                !message.isLocal &&
-                    !message.isDeleted &&
-                    message.id.isNotBlank() &&
-                    !seenIncomingMessageIds.contains(message.id)
-            }
-            .forEach { message ->
-                seenIncomingMessageIds += message.id
-                val conversationId = resolveConversationId(message, meshManager.nodeId)
-                val isActiveConversation = isActiveChatOpen && activeConversationId == conversationId
-                val current = updates[conversationId] ?: defaultConversationState(conversationId)
-                val next = if (isActiveConversation) {
-                    if (current.unreadCount == 0) {
-                        current
+            messages
+                .filter { message ->
+                    !message.isLocal &&
+                        !message.isDeleted &&
+                        message.id.isNotBlank() &&
+                        !seenIncomingMessageIds.contains(message.id)
+                }
+                .forEach { message ->
+                    seenIncomingMessageIds += message.id
+                    val conversationId = resolveConversationId(message, meshManager.nodeId)
+                    val isActiveConversation = isActiveChatOpen && activeConversationId == conversationId
+                    val current = updates[conversationId] ?: defaultConversationState(conversationId)
+                    val next = if (isActiveConversation) {
+                        if (current.unreadCount == 0) {
+                            current
+                        } else {
+                            current.copy(unreadCount = 0, updatedAtMs = now)
+                        }
                     } else {
-                        current.copy(unreadCount = 0, updatedAtMs = now)
+                        current.copy(
+                            unreadCount = (current.unreadCount + 1).coerceAtMost(MAX_UNREAD_COUNTER),
+                            updatedAtMs = now
+                        )
                     }
-                } else {
-                    current.copy(
-                        unreadCount = (current.unreadCount + 1).coerceAtMost(MAX_UNREAD_COUNTER),
-                        updatedAtMs = now
-                    )
+                    if (next != current) {
+                        updates[conversationId] = next
+                        touched = true
+                    } else if (!updates.containsKey(conversationId)) {
+                        updates[conversationId] = next
+                        touched = true
+                    }
                 }
-                if (next != current) {
-                    updates[conversationId] = next
-                    touched = true
-                } else if (!updates.containsKey(conversationId)) {
-                    updates[conversationId] = next
-                    touched = true
-                }
+
+            while (seenIncomingMessageIds.size > MAX_TRACKED_INCOMING_MESSAGES) {
+                val first = seenIncomingMessageIds.firstOrNull() ?: break
+                seenIncomingMessageIds.remove(first)
             }
 
-        while (seenIncomingMessageIds.size > MAX_TRACKED_INCOMING_MESSAGES) {
-            val first = seenIncomingMessageIds.firstOrNull() ?: break
-            seenIncomingMessageIds.remove(first)
+            if (touched) {
+                _conversationStates.value = updates
+                persistedUpdates = updates
+            }
         }
-
-        if (touched) {
-            _conversationStates.value = updates
-            persistConversationStates(updates)
-        }
+        persistedUpdates?.let(::persistConversationStates)
     }
 
     private fun reconcileConversationStates(messages: List<ChatMessage>) {
-        val current = _conversationStates.value
-        var changed = false
-        val updated = current.toMutableMap()
-        val knownConversationIds = linkedSetOf<String>()
-        _groups.value.forEach { knownConversationIds += it.id }
-        messages.forEach { message ->
-            knownConversationIds += resolveConversationId(message, meshManager.nodeId)
-        }
-        knownConversationIds.forEach { conversationId ->
-            if (conversationId.isBlank()) return@forEach
-            if (!updated.containsKey(conversationId)) {
-                updated[conversationId] = defaultConversationState(conversationId)
-                changed = true
+        var persistedUpdates: Map<String, ConversationLocalState>? = null
+        synchronized(conversationStateLock) {
+            val current = _conversationStates.value
+            var changed = false
+            val updated = current.toMutableMap()
+            val knownConversationIds = linkedSetOf<String>()
+            _groups.value.forEach { knownConversationIds += it.id }
+            messages.forEach { message ->
+                knownConversationIds += resolveConversationId(message, meshManager.nodeId)
+            }
+            knownConversationIds.forEach { conversationId ->
+                if (conversationId.isBlank()) return@forEach
+                if (!updated.containsKey(conversationId)) {
+                    updated[conversationId] = defaultConversationState(conversationId)
+                    changed = true
+                }
+            }
+            if (changed) {
+                _conversationStates.value = updated
+                persistedUpdates = updated
             }
         }
-        if (changed) {
-            _conversationStates.value = updated
-            persistConversationStates(updated)
-        }
+        persistedUpdates?.let(::persistConversationStates)
     }
 
     private fun upsertConversationState(
@@ -2218,13 +2260,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         val id = conversationId.trim()
         if (id.isBlank()) return
-        val currentMap = _conversationStates.value
-        val current = currentMap[id] ?: defaultConversationState(id)
-        val updated = transform(current).copy(conversationId = id)
-        if (updated == current && currentMap.containsKey(id)) return
-        val nextMap = currentMap.toMutableMap().apply { put(id, updated) }
-        _conversationStates.value = nextMap
-        persistConversationStates(nextMap)
+        var persistedUpdates: Map<String, ConversationLocalState>? = null
+        synchronized(conversationStateLock) {
+            if (!conversationStateLoaded) {
+                pendingConversationStateMutations
+                    .getOrPut(id) { mutableListOf() }
+                    .add(transform)
+                return
+            }
+            val currentMap = _conversationStates.value
+            val current = currentMap[id] ?: defaultConversationState(id)
+            val updated = transform(current).copy(conversationId = id)
+            if (updated == current && currentMap.containsKey(id)) return
+            val nextMap = currentMap.toMutableMap().apply { put(id, updated) }
+            _conversationStates.value = nextMap
+            persistedUpdates = nextMap
+        }
+        persistedUpdates?.let(::persistConversationStates)
     }
 
     private fun defaultConversationState(conversationId: String): ConversationLocalState {

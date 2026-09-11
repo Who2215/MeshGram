@@ -1,0 +1,5 @@
+Animated Noto Emoji by Google Fonts, CC BY 4.0.
+https://googlefonts.github.io/noto-emoji-animation/
+https://creativecommons.org/licenses/by/4.0/
+Animations are unmodified. Static PNG previews by Google, Apache 2.0.
+See stickers/noto/sources.json for source URLs and checksums.

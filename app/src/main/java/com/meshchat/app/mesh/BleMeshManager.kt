@@ -47,8 +47,11 @@ import android.util.Base64
 import android.util.Log
 import androidx.core.content.ContextCompat
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import kotlinx.coroutines.CompletableDeferred
@@ -66,6 +69,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -145,6 +149,12 @@ class BleMeshManager(
         .pingInterval(25, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
+    private val relayHttpRequestClient = OkHttpClient.Builder()
+        .protocols(listOf(Protocol.HTTP_1_1))
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
     private var wifiSendSocket: DatagramSocket? = null
     private var wifiReceiveSocket: MulticastSocket? = null
     private var wifiReceiveJob: Job? = null
@@ -163,7 +173,18 @@ class BleMeshManager(
     private val wifiP2pPeers = linkedMapOf<String, WifiDirectPeerSnapshot>()
     private var relaySocket: WebSocket? = null
     private var relayAuthenticated = false
+    private var relayAuthResponseSent = false
     private var relayReconnectJob: Job? = null
+    private var relayAuthTimeoutJob: Job? = null
+    private var relayAuthFallbackJob: Job? = null
+    private var relayHeartbeatJob: Job? = null
+    private var relayLastPongAtMs: Long = 0L
+    private var httpRelayJob: Job? = null
+    private var httpRelaySessionId = ""
+    private var httpRelayReady = false
+    // Keep challenge/auth, poll, and frame POSTs from racing one session ID.
+    private val httpRelayRequestLock = Any()
+    private var httpRelayGeneration = 0L
     private var lastOutgoingTransferSnapshotAtMs: Long = 0L
     private var lastIncomingTransferSnapshotAtMs: Long = 0L
     private val relayPrefs = context.getSharedPreferences(PREF_NETWORK, Context.MODE_PRIVATE)
@@ -229,6 +250,8 @@ class BleMeshManager(
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages = _messages.asStateFlow()
+    private val _messagesReady = MutableStateFlow(false)
+    val messagesReady = _messagesReady.asStateFlow()
     private val _scheduledMessages = MutableStateFlow<List<ScheduledMessageRecord>>(emptyList())
     val scheduledMessages = _scheduledMessages.asStateFlow()
     private val _outgoingFileTransfers = MutableStateFlow<List<OutgoingFileTransferProgress>>(emptyList())
@@ -237,13 +260,13 @@ class BleMeshManager(
     val incomingFileTransfers = _incomingFileTransfers.asStateFlow()
     private val _wifiLanActive = MutableStateFlow(false)
     val wifiLanActiveState = _wifiLanActive.asStateFlow()
-    private val _relayEnabled = MutableStateFlow(
-        relayPrefs.getBoolean(KEY_RELAY_ENABLED, false)
-    )
+    // Routing is automatic: BLE is preferred when a ready MeshGram peer exists,
+    // otherwise the built-in HTTPS relay is used without a user toggle.
+    private val _relayEnabled = MutableStateFlow(true)
     val relayEnabled = _relayEnabled.asStateFlow()
-    private val _relayUrl = MutableStateFlow(
-        relayPrefs.getString(KEY_RELAY_URL, DEFAULT_RELAY_URL)?.trim().orEmpty()
-    )
+    // The relay is an app-owned transport endpoint, not user-facing configuration.
+    // Ignore legacy/custom values so old installs cannot route to an arbitrary server.
+    private val _relayUrl = MutableStateFlow(DEFAULT_RELAY_URL)
     val relayUrl = _relayUrl.asStateFlow()
     private val _relayConnected = MutableStateFlow(false)
     val relayConnected = _relayConnected.asStateFlow()
@@ -275,6 +298,7 @@ class BleMeshManager(
             restoreIncomingTransfersFromStore()
             restorePendingPayloadsFromStore()
             restoreScheduledMessagesFromStore()
+            _messagesReady.value = true
         }
     }
 
@@ -296,20 +320,17 @@ class BleMeshManager(
         }
     }
 
-    fun updateRelaySettings(enabled: Boolean, relayUrl: String) {
-        val normalizedUrl = normalizeRelayUrl(relayUrl)
-        _relayEnabled.value = enabled
+    @Suppress("UNUSED_PARAMETER")
+    fun updateRelaySettings(enabled: Boolean) {
+        val normalizedUrl = DEFAULT_RELAY_URL
+        _relayEnabled.value = true
         _relayUrl.value = normalizedUrl
         relayPrefs.edit()
-            .putBoolean(KEY_RELAY_ENABLED, enabled)
+            .putBoolean(KEY_RELAY_ENABLED, true)
             .putString(KEY_RELAY_URL, normalizedUrl)
             .apply()
         if (!_isRunning.value) return
-        if (!enabled || normalizedUrl.isBlank()) {
-            disconnectRelay(reason = "Hybrid relay disabled")
-        } else {
-            connectRelayIfNeeded()
-        }
+        connectRelayIfNeeded()
     }
 
     fun reloadFromSecureStore() {
@@ -351,9 +372,7 @@ class BleMeshManager(
         val wifiP2pStarted = runCatching { startWifiP2pBootstrap() }
             .onFailure { updateStatus("Wi-Fi Direct bootstrap unavailable") }
             .getOrDefault(false)
-        val relayConfigured =
-            _relayEnabled.value &&
-            _relayUrl.value.isNotBlank()
+        val relayConfigured = _relayUrl.value.isNotBlank()
         val localAdapter = adapter
         if (localAdapter != null && localAdapter.isEnabled) {
             val gattReady = runCatching {
@@ -2474,8 +2493,14 @@ class BleMeshManager(
         transferFlushJob?.cancel()
         transferFlushJob = scope.launch(Dispatchers.IO) {
             while (isActive && _isRunning.value) {
-                delay(600L)
+                // Keep all outbound queues moving while BLE and relay are
+                // negotiating. This closes the startup/reconnect race where
+                // a message was queued before the first route became ready.
+                delay(800L)
                 if (_isRunning.value) {
+                    connectRelayIfNeeded()
+                    flushRelayOutbox()
+                    flushPendingPayloads()
                     flushPendingTransfers()
                 }
             }
@@ -2721,9 +2746,26 @@ class BleMeshManager(
 
     private fun isInternetAvailable(): Boolean {
         val manager = connectivityManager ?: return false
-        val network = manager.activeNetwork ?: return false
-        val capabilities = manager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        val networks = buildList {
+            manager.activeNetwork?.let(::add)
+            manager.allNetworks.forEach { network ->
+                if (!contains(network)) add(network)
+            }
+        }
+        val available = networks.any { network ->
+            val capabilities = manager.getNetworkCapabilities(network) ?: return@any false
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                (
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ||
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                    )
+        }
+        if (!available) {
+            Log.d(BLE_TAG, "Relay deferred: no internet-capable network found")
+        }
+        return available
     }
 
     @SuppressLint("MissingPermission")
@@ -2738,13 +2780,16 @@ class BleMeshManager(
     ): Boolean {
         if (!_isRunning.value) return false
         val allowNetworkTransports = !BLE_ONLY_MODE
-        if (cacheForRelay && (BLE_ONLY_MODE || allowNetworkTransports)) {
-            cacheRelayFrame(frameId = frameId, payload = payload)
-        }
         val bleTargets = readyBleTargets(excludedAddress)
         val recipients = bleTargets.first
         val notifyTargets = bleTargets.second
-        if (recipients.isEmpty() && notifyTargets.isEmpty()) {
+        val hasBleRoute = recipients.isNotEmpty() || notifyTargets.isNotEmpty()
+        if (cacheForRelay && (BLE_ONLY_MODE || allowNetworkTransports) && !hasBleRoute) {
+            // Persist only frames that need a fallback route. A successful BLE
+            // send must not create an endless relay duplicate stream.
+            cacheRelayFrame(frameId = frameId, payload = payload)
+        }
+        if (!hasBleRoute) {
             // No MeshGram BLE route is currently available. The relay is an
             // app-level fallback; it does not switch or disable phone radios.
             var networkAccepted = false
@@ -2754,6 +2799,14 @@ class BleMeshManager(
             if (sendToWifiLan && allowNetworkTransports && wifiLanActive) {
                 publishPayloadToWifiLan(frameId = frameId, payload = payload)
                 networkAccepted = true
+            }
+            if (!networkAccepted && sendToRelay && relayConfigured() && isInternetAvailable()) {
+                // The frame was queued before relay authentication completed.
+                // Make it eligible immediately when the route becomes ready.
+                synchronized(lock) {
+                    relayOutbox[frameId]?.lastSentAtMs = 0L
+                }
+                persistRelayOutboxSnapshot()
             }
             completion?.complete(networkAccepted)
             return networkAccepted
@@ -2800,7 +2853,7 @@ class BleMeshManager(
                     }
                     if (!sent) {
                         Log.w(BLE_TAG, "BLE frame send failed address=${address.takeLast(5)}")
-                        scheduleFrameRetry(frameId, cacheForRelay)
+                        scheduleFrameRetry(frameId, payload, cacheForRelay)
                     }
                     completeTransport(sent)
                 }
@@ -2832,7 +2885,12 @@ class BleMeshManager(
                     }
                     if (!sent) {
                         Log.w(BLE_TAG, "BLE notify failed address=${address.takeLast(5)}")
-                        scheduleFrameRetry(frameId, cacheForRelay)
+                        scheduleFrameRetry(frameId, payload, cacheForRelay)
+                    } else {
+                        val removedFromFallback = synchronized(lock) {
+                            relayOutbox.remove(frameId) != null
+                        }
+                        if (removedFromFallback) persistRelayOutboxSnapshot()
                     }
                     completeTransport(sent)
                 }
@@ -2860,10 +2918,22 @@ class BleMeshManager(
         return completion.await()
     }
 
-    private fun scheduleFrameRetry(frameId: String, cacheForRelay: Boolean) {
+    private fun scheduleFrameRetry(frameId: String, payload: ByteArray, cacheForRelay: Boolean) {
         if (!cacheForRelay || !_isRunning.value) return
         synchronized(lock) {
-            relayOutbox[frameId]?.lastSentAtMs = 0L
+            val now = System.currentTimeMillis()
+            val existing = relayOutbox[frameId]
+            if (existing == null) {
+                relayOutbox[frameId] = RelayFrame(
+                    frameId = frameId,
+                    payload = payload,
+                    createdAtMs = now,
+                    lastSentAtMs = 0L
+                )
+            } else {
+                existing.lastSentAtMs = 0L
+            }
+            trimRelayOutboxLocked(now)
         }
         persistRelayOutboxSnapshot()
         scope.launch(Dispatchers.IO) {
@@ -2900,6 +2970,9 @@ class BleMeshManager(
                     now - frame.createdAtMs <= RELAY_OUTBOX_TTL_MS &&
                         now - frame.lastSentAtMs >= RELAY_OUTBOX_RESEND_GAP_MS
                 }
+                // Do not let the oldest four frames starve newer message
+                // ACKs and file chunks while the relay is recovering.
+                .sortedWith(compareBy<RelayFrame> { it.lastSentAtMs }.thenBy { it.createdAtMs })
                 .take(RELAY_OUTBOX_FLUSH_BATCH)
                 .map { frame ->
                     frame.lastSentAtMs = now
@@ -2941,9 +3014,20 @@ class BleMeshManager(
     private fun restoreRelayOutboxFromStore() {
         val persisted = localStore.loadRelayFrames()
         val now = System.currentTimeMillis()
+        val migrateLegacyDirectBleOutbox = !relayPrefs.getBoolean(KEY_RELAY_OUTBOX_V2, false)
+        val records = if (migrateLegacyDirectBleOutbox) {
+            // Old builds cached every successful BLE frame. Keep only frames
+            // explicitly marked for retry; message/file stores remain intact.
+            persisted.filter { it.lastSentAtMs <= 0L }
+        } else {
+            persisted
+        }
+        if (migrateLegacyDirectBleOutbox) {
+            relayPrefs.edit().putBoolean(KEY_RELAY_OUTBOX_V2, true).apply()
+        }
         synchronized(lock) {
             relayOutbox.clear()
-            persisted
+            records
                 .sortedBy { it.createdAtMs }
                 .forEach { record ->
                     if (record.frameId.isBlank()) return@forEach
@@ -2969,7 +3053,7 @@ class BleMeshManager(
                         frameId = record.frameId,
                         payload = payload,
                         createdAtMs = record.createdAtMs,
-                        lastSentAtMs = maxOf(record.lastSentAtMs, record.createdAtMs)
+                        lastSentAtMs = record.lastSentAtMs.coerceAtLeast(0L)
                     )
             }
             trimRelayOutboxLocked(now)
@@ -3834,11 +3918,20 @@ class BleMeshManager(
         fromAddress: String?,
         sourceTransport: TransportSource
     ) {
+        Log.i(
+            BLE_TAG,
+            "Incoming secure frame id=${packet.id.take(12)} origin=${packet.originNodeId} " +
+                "target=${packet.targetNodeId} hops=${packet.hops} transport=$sourceTransport"
+        )
         if (!isValidMessageHopEnvelope(packet.hops, packet.maxHops)) {
             updateStatus("Dropped encrypted packet with invalid hops envelope")
+            Log.w(BLE_TAG, "Dropped secure frame: invalid hops id=${packet.id.take(12)}")
             return
         }
-        if (isKnownFrame(packet.id)) return
+        if (isKnownFrame(packet.id)) {
+            Log.d(BLE_TAG, "Dropped secure frame: duplicate id=${packet.id.take(12)}")
+            return
+        }
         rememberFrame(packet.id)
 
         if (packet.originNodeId == nodeId) return
@@ -3932,12 +4025,18 @@ class BleMeshManager(
                 .getOrNull()
             if (plaintext.isNullOrBlank()) {
                 updateStatus("Decrypt failed from ${senderIdentity.alias}")
+                Log.w(BLE_TAG, "Dropped secure frame: decrypt failed id=${packet.id.take(12)}")
                 return
             }
 
             val meshPayload = runCatching {
                 json.decodeFromString<MeshMessagePayload>(plaintext)
             }.getOrNull()
+            Log.i(
+                BLE_TAG,
+                "Decrypted frame id=${packet.id.take(12)} " +
+                    "kind=${meshPayload?.payloadKind ?: "legacy"} message=${meshPayload?.messageId?.take(12)}"
+            )
             val friendPacket = runCatching { json.decodeFromString<FriendPacket>(plaintext) }.getOrNull()
             if (friendPacket?.type == FriendPacket.TYPE) {
                 friendDirectory.receive(senderIdentity, friendPacket, packet.createdAtMs,
@@ -3952,6 +4051,7 @@ class BleMeshManager(
             }
             if (!_friendState.value.isFriend(senderIdentity.nodeId, senderIdentity.fingerprint) && !allowedGroup) {
                 updateStatus("Contact confirmation required")
+                Log.w(BLE_TAG, "Dropped secure frame: contact confirmation required origin=${packet.originNodeId}")
                 return
             }
             if (meshPayload?.type == MeshMessagePayload.TYPE &&
@@ -4005,6 +4105,8 @@ class BleMeshManager(
                 }
                 if (delivered) {
                     updateStatus("Delivered by ${senderIdentity.alias}")
+                } else {
+                    Log.w(BLE_TAG, "Delivery ACK did not match a local message id=$ackMessageId")
                 }
                 return
             }
@@ -4210,6 +4312,11 @@ class BleMeshManager(
                 conversationType = decodedPayload.conversationType,
                 conversationTitle = decodedPayload.conversationTitle,
                 memberNodeIds = decodedPayload.memberNodeIds
+            )
+            Log.i(
+                BLE_TAG,
+                "Encrypted message stored from=${senderIdentity.nodeId} " +
+                    "message=${decodedPayload.messageId.take(12)}"
             )
             updateStatus("Encrypted message from ${senderIdentity.alias}")
             return
@@ -5026,6 +5133,10 @@ class BleMeshManager(
 
     private fun flushPendingPayloads() {
         if (!_isRunning.value) return
+        // Do not consume the retry window while BLE and relay are negotiating.
+        // The next short tick or the auth callback flushes as soon as a route
+        // becomes usable.
+        if (!hasOutboundRouteReady()) return
         var changed = false
         val plans = synchronized(lock) {
             val now = System.currentTimeMillis()
@@ -5075,6 +5186,12 @@ class BleMeshManager(
         if (changed) {
             persistPendingPayloadsSnapshot()
         }
+    }
+
+    private fun hasOutboundRouteReady(): Boolean {
+        return hasReadyBleTransport() ||
+            wifiLanActive ||
+            (relayConfigured() && _relayConnected.value)
     }
 
     private fun trimPendingPayloadsLocked(nowMs: Long = System.currentTimeMillis()) {
@@ -5543,7 +5660,9 @@ class BleMeshManager(
         sendPayloadToRecipients(
             plaintext = json.encodeToString(payload),
             recipients = listOf(senderIdentity),
-            cacheForRelay = false
+            // Relay ACKs must survive VPN/proxy timeouts just like messages.
+            // The relay deduplicates frame IDs, so retries are safe.
+            cacheForRelay = true
         )
     }
 
@@ -5575,7 +5694,9 @@ class BleMeshManager(
         sendPayloadToRecipients(
             plaintext = json.encodeToString(payload),
             recipients = listOf(senderIdentity),
-            cacheForRelay = false
+            // A delivery receipt is part of the reliable message flow. Keep
+            // it in the encrypted outbox until the relay accepts it.
+            cacheForRelay = true
         )
     }
 
@@ -6489,6 +6610,10 @@ class BleMeshManager(
             return
         }
         if (!isInternetAvailable()) return
+        if (isHttpRelayUrl(relayUrl)) {
+            connectHttpRelayIfNeeded()
+            return
+        }
         if (relaySocket != null) return
 
         val request = runCatching { Request.Builder().url(relayUrl).build() }
@@ -6504,39 +6629,76 @@ class BleMeshManager(
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     relayAuthenticated = false
-                    _relayConnected.value = true
-                    refreshModeStatus("relay connected")
-                    sendRelayAuthHello(webSocket)
+                    relayAuthResponseSent = false
+                    relayAuthFallbackJob?.cancel()
+                    relayAuthFallbackJob = null
+                    relayHeartbeatJob?.cancel()
+                    relayHeartbeatJob = null
+                    relayLastPongAtMs = 0L
+                    _relayConnected.value = false
+                    Log.i(BLE_TAG, "Relay WebSocket opened; authenticating")
+                    if (!sendRelayAuthHello(webSocket)) {
+                        Log.w(BLE_TAG, "Relay auth hello was not sent")
+                        webSocket.close(1008, "relay auth hello failed")
+                        return
+                    }
+                    relayAuthTimeoutJob?.cancel()
+                    relayAuthTimeoutJob = scope.launch(Dispatchers.IO) {
+                        delay(RELAY_AUTH_TIMEOUT_MS)
+                        if (relaySocket === webSocket && !relayAuthenticated && !relayAuthResponseSent) {
+                            Log.w(BLE_TAG, "Relay authentication timed out")
+                            webSocket.close(1008, "relay authentication timeout")
+                        }
+                    }
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     if (text.length > MAX_RELAY_ENVELOPE_CHARS) return
+                    Log.i(BLE_TAG, "Relay envelope received chars=${text.length}")
                     handleRelayEnvelope(text)
                 }
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    Log.w(BLE_TAG, "Relay WebSocket closing code=$code reason=$reason")
                     runCatching { webSocket.close(1000, null) }
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     if (relaySocket === webSocket) {
                         relaySocket = null
-                    }
-                    relayAuthenticated = false
-                    _relayConnected.value = false
-                    if (_isRunning.value) {
-                        scheduleRelayReconnect()
+                        relayAuthTimeoutJob?.cancel()
+                        relayAuthTimeoutJob = null
+                        relayAuthFallbackJob?.cancel()
+                        relayAuthFallbackJob = null
+                        relayHeartbeatJob?.cancel()
+                        relayHeartbeatJob = null
+                        relayLastPongAtMs = 0L
+                        relayAuthenticated = false
+                        relayAuthResponseSent = false
+                        _relayConnected.value = false
+                        if (_isRunning.value) {
+                            scheduleRelayReconnect()
+                        }
                     }
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    Log.w(BLE_TAG, "Relay WebSocket failed: ${t.message ?: "unknown"}")
                     if (relaySocket === webSocket) {
                         relaySocket = null
-                    }
-                    relayAuthenticated = false
-                    _relayConnected.value = false
-                    if (_isRunning.value && _relayEnabled.value) {
-                        scheduleRelayReconnect()
+                        relayAuthTimeoutJob?.cancel()
+                        relayAuthTimeoutJob = null
+                        relayAuthFallbackJob?.cancel()
+                        relayAuthFallbackJob = null
+                        relayHeartbeatJob?.cancel()
+                        relayHeartbeatJob = null
+                        relayLastPongAtMs = 0L
+                        relayAuthenticated = false
+                        relayAuthResponseSent = false
+                        _relayConnected.value = false
+                        if (_isRunning.value && _relayEnabled.value) {
+                            scheduleRelayReconnect()
+                        }
                     }
                 }
             }
@@ -6546,8 +6708,23 @@ class BleMeshManager(
     private fun disconnectRelay(reason: String?, updateStateOnly: Boolean = false) {
         relayReconnectJob?.cancel()
         relayReconnectJob = null
+        relayAuthTimeoutJob?.cancel()
+        relayAuthTimeoutJob = null
+        relayAuthFallbackJob?.cancel()
+        relayAuthFallbackJob = null
+        relayHeartbeatJob?.cancel()
+        relayHeartbeatJob = null
+        httpRelayJob?.cancel()
+        httpRelayJob = null
+        synchronized(httpRelayRequestLock) {
+            httpRelayGeneration += 1L
+            httpRelaySessionId = ""
+            httpRelayReady = false
+        }
         val socket = relaySocket
         relaySocket = null
+        relayLastPongAtMs = 0L
+        relayAuthResponseSent = false
         _relayConnected.value = false
         if (!updateStateOnly) {
             runCatching { socket?.close(1000, reason ?: "closed") }
@@ -6568,11 +6745,19 @@ class BleMeshManager(
     private fun handleRelayEnvelope(raw: String) {
         val type = runCatching {
             json.parseToJsonElement(raw).jsonObject["type"]?.jsonPrimitive?.content
+        }.onFailure {
+            Log.e(BLE_TAG, "Relay envelope type parse failed", it)
         }.getOrNull() ?: return
+        Log.i(BLE_TAG, "Relay envelope type=$type")
         when (type) {
             RELAY_AUTH_CHALLENGE_TYPE -> handleRelayAuthChallenge(raw)
             RELAY_AUTH_ACCEPTED_TYPE -> handleRelayAuthAccepted(raw)
+            RELAY_PONG_TYPE -> {
+                relayLastPongAtMs = System.currentTimeMillis()
+                Log.d(BLE_TAG, "Relay heartbeat acknowledged")
+            }
             RELAY_AUTH_REJECTED_TYPE -> {
+                Log.w(BLE_TAG, "Relay rejected authentication")
                 relayAuthenticated = false
                 relaySocket?.close(1008, "relay authentication rejected")
             }
@@ -6585,12 +6770,24 @@ class BleMeshManager(
         val envelope = runCatching { json.decodeFromString<RelayFrameEnvelope>(raw) }
             .getOrNull() ?: return
         if (envelope.type != RELAY_FRAME_TYPE) return
+        Log.i(
+            BLE_TAG,
+            "Relay frame received id=${envelope.frameId.take(12)} " +
+                "from=${envelope.viaNodeId} recipient=${envelope.recipientNodeId.ifBlank { "broadcast" }}"
+        )
         if (envelope.viaNodeId == nodeId) return
         if (envelope.recipientNodeId.isNotBlank() && envelope.recipientNodeId != nodeId) return
         if (isKnownFrame(envelope.frameId)) return
         val payload = runCatching { Base64.decode(envelope.payloadBase64, Base64.NO_WRAP) }
             .getOrNull() ?: return
         if (payload.isEmpty() || payload.size > MAX_RELAY_FRAME_PAYLOAD_BYTES) return
+        val payloadType = runCatching {
+            json.parseToJsonElement(payload.toString(Charsets.UTF_8))
+                .jsonObject["type"]
+                ?.jsonPrimitive
+                ?.content
+        }.getOrDefault("unknown")
+        Log.i(BLE_TAG, "Relay payload type=$payloadType id=${envelope.frameId.take(12)}")
         onPayloadDecoded(
             payload = payload,
             fromAddress = null,
@@ -6598,17 +6795,30 @@ class BleMeshManager(
         )
     }
 
-    private fun sendRelayAuthHello(socket: WebSocket) {
-        val hello = RelayAuthHelloEnvelope(
-            nodeId = nodeId,
-            signingPublicKey = crypto.localSigningPublicKey()
-        )
-        runCatching { socket.send(json.encodeToString(hello)) }
-            .onFailure { updateStatus("relay authentication hello failed") }
+    private fun sendRelayAuthHello(socket: WebSocket): Boolean {
+        val hello = runCatching {
+            RelayAuthHelloEnvelope(
+                nodeId = nodeId,
+                signingPublicKey = crypto.localSigningPublicKey()
+            )
+        }.getOrElse {
+            Log.e(BLE_TAG, "Relay auth hello construction failed", it)
+            updateStatus("relay authentication hello failed")
+            return false
+        }
+        val sent = runCatching { socket.send(json.encodeToString(hello)) }
+            .getOrElse {
+                Log.e(BLE_TAG, "Relay auth hello send failed", it)
+                updateStatus("relay authentication hello failed")
+                false
+            }
+        Log.i(BLE_TAG, "Relay auth hello sent=$sent")
+        return sent
     }
 
     private fun handleRelayAuthChallenge(raw: String) {
         val challenge = runCatching { json.decodeFromString<RelayAuthChallengeEnvelope>(raw) }
+            .onFailure { Log.e(BLE_TAG, "Relay auth challenge decode failed", it) }
             .getOrNull() ?: return
         if (challenge.sessionId.isBlank() || challenge.challengeBase64.isBlank()) return
         val response = RelayAuthResponseEnvelope(
@@ -6621,18 +6831,59 @@ class BleMeshManager(
             )
         )
         relaySocket?.let { socket ->
-            runCatching { socket.send(json.encodeToString(response)) }
-                .onFailure { updateStatus("relay authentication response failed") }
+            val sent = runCatching { socket.send(json.encodeToString(response)) }
+                .onFailure {
+                    Log.e(BLE_TAG, "Relay auth response send failed", it)
+                    updateStatus("relay authentication response failed")
+                }
+                .getOrDefault(false)
+            Log.i(BLE_TAG, "Relay auth response sent=$sent")
+            if (sent) {
+                relayAuthResponseSent = true
+                relayLastPongAtMs = System.currentTimeMillis()
+                startRelayHeartbeat(socket)
+                relayAuthFallbackJob?.cancel()
+                relayAuthFallbackJob = scope.launch(Dispatchers.IO) {
+                    delay(RELAY_AUTH_FALLBACK_DELAY_MS)
+                    if (relaySocket === socket && !relayAuthenticated && relayAuthResponseSent) {
+                        // The server has already received and verified the
+                        // signed response, but some VPN/proxy paths drop the
+                        // text accepted envelope. Keep the signed session
+                        // usable without sending frames during the handshake.
+                        relayAuthenticated = true
+                        relayAuthResponseSent = false
+                        _relayConnected.value = true
+                        Log.w(BLE_TAG, "Relay accepted envelope missing; using signed handshake fallback")
+                        refreshModeStatus("relay authenticated via signed fallback")
+                        flushRelayOutboxToRelay()
+                    }
+                }
+            }
         }
     }
 
     private fun handleRelayAuthAccepted(raw: String) {
         val accepted = runCatching { json.decodeFromString<RelayAuthAcceptedEnvelope>(raw) }
+            .onFailure { Log.e(BLE_TAG, "Relay auth accepted decode failed", it) }
             .getOrNull() ?: return
-        if (accepted.nodeId != nodeId) return
+        if (accepted.nodeId != nodeId) {
+            Log.w(BLE_TAG, "Relay auth accepted for another node=${accepted.nodeId}")
+            return
+        }
+        relayAuthTimeoutJob?.cancel()
+        relayAuthTimeoutJob = null
+        relayAuthFallbackJob?.cancel()
+        relayAuthFallbackJob = null
         relayAuthenticated = true
+        relayAuthResponseSent = false
+        relayLastPongAtMs = System.currentTimeMillis()
+        _relayConnected.value = true
+        Log.i(BLE_TAG, "Relay authentication accepted")
         refreshModeStatus("relay authenticated")
         flushRelayOutboxToRelay()
+        scope.launch(Dispatchers.IO) {
+            flushPendingPayloads()
+        }
     }
 
     private fun publishFrameToRelay(frameId: String, payload: ByteArray): Boolean {
@@ -6640,24 +6891,66 @@ class BleMeshManager(
         if (!_isRunning.value) return false
         if (!_relayEnabled.value) return false
         if (_relayUrl.value.isBlank()) return false
+        if (isHttpRelayUrl(_relayUrl.value)) {
+            return publishFrameToHttpRelay(frameId, payload)
+        }
         val socket = relaySocket ?: run {
             connectRelayIfNeeded()
-            // The frame is already persisted in relayOutbox. Treat this as
-            // accepted so it is not duplicated into a second pending queue.
-            return true
+            // The frame is already persisted in relayOutbox, but a socket that
+            // has not opened yet is not delivery. Keep the message pending.
+            Log.i(BLE_TAG, "Relay frame deferred: socket is not open")
+            return false
         }
-        if (!relayAuthenticated) return true
+        if (!relayAuthenticated && !relayAuthResponseSent) {
+            // Do not report a false sent state while the signed handshake is
+            // still in progress. The persisted outbox will flush after auth.
+            Log.i(BLE_TAG, "Relay frame deferred: authentication is pending")
+            return false
+        }
+        if (!relayAuthenticated) {
+            // Never put application frames ahead of the server's accepted
+            // envelope. This keeps the protocol ordered through VPN proxies.
+            Log.i(BLE_TAG, "Relay frame deferred: waiting for authentication acceptance")
+            return false
+        }
+        if (relayLastPongAtMs > 0L &&
+            System.currentTimeMillis() - relayLastPongAtMs > RELAY_HEARTBEAT_TIMEOUT_MS
+        ) {
+            Log.w(BLE_TAG, "Relay heartbeat stale; reconnecting before frame send")
+            if (relaySocket === socket) {
+                relaySocket = null
+                relayAuthenticated = false
+                relayAuthResponseSent = false
+                relayHeartbeatJob?.cancel()
+                relayHeartbeatJob = null
+                relayLastPongAtMs = 0L
+                _relayConnected.value = false
+                runCatching { socket.cancel() }
+                scheduleRelayReconnect()
+            }
+            return false
+        }
+        val recipientNodeId = relayRecipientNodeId(payload)
         val envelope = RelayFrameEnvelope(
             frameId = frameId,
             payloadBase64 = Base64.encodeToString(payload, Base64.NO_WRAP),
             viaNodeId = nodeId,
-            recipientNodeId = relayRecipientNodeId(payload),
+            recipientNodeId = recipientNodeId,
             sentAtMs = System.currentTimeMillis()
         )
         val sent = runCatching {
             socket.send(json.encodeToString(envelope))
         }.getOrDefault(false)
-        if (!sent) {
+        Log.i(
+            BLE_TAG,
+            "Relay frame sent=$sent recipient=${recipientNodeId.ifBlank { "broadcast" }}"
+        )
+        if (sent) {
+            val removedFromOutbox = synchronized(lock) {
+                relayOutbox.remove(frameId) != null
+            }
+            if (removedFromOutbox) persistRelayOutboxSnapshot()
+        } else {
             if (relaySocket === socket) {
                 relaySocket = null
             }
@@ -6668,14 +6961,296 @@ class BleMeshManager(
     }
 
     private fun flushRelayOutboxToRelay() {
-        if (!_relayConnected.value || !relayAuthenticated || relaySocket == null) return
+        if (isHttpRelayUrl(_relayUrl.value)) {
+            if (!relayAuthenticated || !httpRelayReady) {
+                connectHttpRelayIfNeeded()
+                return
+            }
+        } else if (!relayAuthenticated || relaySocket == null) {
+            return
+        }
         if (hasReadyBleTransport() || !isInternetAvailable()) return
         val frames = synchronized(lock) {
+            val now = System.currentTimeMillis()
+            trimRelayOutboxLocked(now)
             relayOutbox.values
-                .map { frame -> frame.copy() }
+                .filter { frame ->
+                    now - frame.createdAtMs <= RELAY_OUTBOX_TTL_MS &&
+                        now - frame.lastSentAtMs >= RELAY_OUTBOX_RESEND_GAP_MS
+                }
+                .sortedWith(compareBy<RelayFrame> { it.lastSentAtMs }.thenBy { it.createdAtMs })
+                .take(RELAY_OUTBOX_FLUSH_BATCH)
+                .map { frame ->
+                    frame.lastSentAtMs = now
+                    frame.copy()
+                }
         }
+        if (frames.isNotEmpty()) persistRelayOutboxSnapshot()
         frames.forEach { frame ->
             publishFrameToRelay(frame.frameId, frame.payload)
+        }
+    }
+
+    private fun isHttpRelayUrl(url: String): Boolean {
+        val lowered = url.trim().lowercase(Locale.US)
+        return lowered.startsWith("http://") || lowered.startsWith("https://")
+    }
+
+    private fun connectHttpRelayIfNeeded() {
+        if (httpRelayJob?.isActive == true) return
+        httpRelayJob = scope.launch(Dispatchers.IO) {
+            while (
+                isActive &&
+                _isRunning.value &&
+                _relayEnabled.value &&
+                isHttpRelayUrl(_relayUrl.value)
+            ) {
+                if (!httpRelayReady || httpRelaySessionId.isBlank()) {
+                    httpRelayReady = false
+                    relayAuthenticated = false
+                    _relayConnected.value = false
+                    if (!authenticateHttpRelay()) {
+                        delay(RELAY_HTTP_RECONNECT_DELAY_MS)
+                        continue
+                    }
+                }
+                pollHttpRelay()
+                delay(RELAY_HTTP_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun authenticateHttpRelay(): Boolean {
+        return synchronized(httpRelayRequestLock) {
+            val hello = RelayAuthHelloEnvelope(
+                nodeId = nodeId,
+                signingPublicKey = crypto.localSigningPublicKey()
+            )
+            val challengeRaw = httpPostJson(
+                path = "/api/hello",
+                body = json.encodeToString(hello)
+            ) ?: return@synchronized false
+            val challenge = runCatching {
+                json.decodeFromString<RelayAuthChallengeEnvelope>(challengeRaw)
+            }.getOrNull() ?: return@synchronized false
+            val response = RelayAuthResponseEnvelope(
+                sessionId = challenge.sessionId,
+                nodeId = nodeId,
+                signingPublicKey = crypto.localSigningPublicKey(),
+                signatureBase64 = crypto.signRelayChallenge(
+                    sessionId = challenge.sessionId,
+                    challengeBase64 = challenge.challengeBase64
+                )
+            )
+            val acceptedRaw = httpPostJson(
+                path = "/api/auth",
+                body = json.encodeToString(response)
+            )
+            val accepted = acceptedRaw?.let {
+                runCatching {
+                    json.decodeFromString<RelayAuthAcceptedEnvelope>(it)
+                }.getOrNull()
+            }
+            if (accepted != null && accepted.nodeId != nodeId) return@synchronized false
+            if (acceptedRaw != null && accepted == null) return@synchronized false
+            httpRelayGeneration += 1L
+            httpRelaySessionId = challenge.sessionId
+            httpRelayReady = true
+            relayAuthenticated = true
+            relayAuthResponseSent = false
+            relayLastPongAtMs = System.currentTimeMillis()
+            _relayConnected.value = true
+            Log.i(
+                BLE_TAG,
+                if (accepted != null) {
+                    "HTTP relay authenticated"
+                } else {
+                    "HTTP relay auth response missing; probing signed session"
+                }
+            )
+            refreshModeStatus("HTTP relay authenticated")
+            flushRelayOutboxToRelay()
+            scope.launch(Dispatchers.IO) {
+                flushPendingPayloads()
+            }
+            true
+        }
+    }
+
+    private fun pollHttpRelay() {
+        val sessionSnapshot = synchronized(httpRelayRequestLock) {
+            if (!httpRelayReady || httpRelaySessionId.isBlank()) {
+                null
+            } else {
+                httpRelaySessionId to httpRelayGeneration
+            }
+        } ?: return
+        val session = sessionSnapshot.first
+        val generation = sessionSnapshot.second
+        val raw = httpGetJson(
+            "/api/poll?sessionId=${Uri.encode(session)}&max=$RELAY_HTTP_POLL_BATCH"
+        ) ?: run {
+            synchronized(httpRelayRequestLock) {
+                if (session == httpRelaySessionId && generation == httpRelayGeneration) {
+                    httpRelayReady = false
+                    relayAuthenticated = false
+                    _relayConnected.value = false
+                }
+            }
+            return
+        }
+        val response = runCatching {
+            json.decodeFromString<HttpPollResponse>(raw)
+        }.getOrNull() ?: return
+        synchronized(httpRelayRequestLock) {
+            if (session == httpRelaySessionId && generation == httpRelayGeneration) {
+                relayLastPongAtMs = System.currentTimeMillis()
+            }
+        }
+        Log.i(BLE_TAG, "HTTP relay poll frames=${response.frames.size}")
+        response.frames.forEach { frame ->
+            handleRelayFrame(json.encodeToString(frame))
+        }
+    }
+
+    private fun publishFrameToHttpRelay(frameId: String, payload: ByteArray): Boolean {
+        val sessionSnapshot = synchronized(httpRelayRequestLock) {
+            if (!httpRelayReady || httpRelaySessionId.isBlank()) {
+                null
+            } else {
+                httpRelaySessionId to httpRelayGeneration
+            }
+        }
+        if (sessionSnapshot == null) {
+            connectHttpRelayIfNeeded()
+            return false
+        }
+        val session = sessionSnapshot.first
+        val generation = sessionSnapshot.second
+        val recipientNodeId = relayRecipientNodeId(payload)
+        val frame = RelayFrameEnvelope(
+            frameId = frameId,
+            payloadBase64 = Base64.encodeToString(payload, Base64.NO_WRAP),
+            viaNodeId = nodeId,
+            recipientNodeId = recipientNodeId,
+            sentAtMs = System.currentTimeMillis()
+        )
+        val requestBody = json.encodeToString(
+            HttpFrameRequest(
+                sessionId = session,
+                frame = frame
+            )
+        )
+        scope.launch(Dispatchers.IO) {
+            val accepted = httpPostJson("/api/frame", requestBody) != null
+            if (accepted) {
+                val removedFromOutbox = synchronized(lock) {
+                    relayOutbox.remove(frameId) != null
+                }
+                if (removedFromOutbox) persistRelayOutboxSnapshot()
+            } else {
+                synchronized(lock) {
+                    relayOutbox[frameId]?.lastSentAtMs = 0L
+                }
+                persistRelayOutboxSnapshot()
+                val isCurrentSession = synchronized(httpRelayRequestLock) {
+                    session == httpRelaySessionId && generation == httpRelayGeneration
+                }
+                if (isCurrentSession) {
+                    httpRelayReady = false
+                    relayAuthenticated = false
+                    _relayConnected.value = false
+                    connectHttpRelayIfNeeded()
+                }
+            }
+        }
+        Log.i(
+            BLE_TAG,
+            "HTTP relay frame queued recipient=${recipientNodeId.ifBlank { "broadcast" }}"
+        )
+        return true
+    }
+
+    private fun httpPostJson(path: String, body: String): String? {
+        val url = "${_relayUrl.value.trimEnd('/')}$path"
+        Log.d(BLE_TAG, "HTTP relay POST start path=$path")
+        val request = runCatching {
+            Request.Builder()
+                .url(url)
+                .post(body.toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+        }.getOrNull() ?: return null
+        return runCatching {
+            relayHttpRequestClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(BLE_TAG, "HTTP relay POST failed code=${response.code}")
+                    null
+                } else {
+                    response.body?.string().also {
+                        Log.d(BLE_TAG, "HTTP relay POST complete path=$path code=${response.code}")
+                    }
+                }
+            }
+        }.onFailure {
+            Log.w(BLE_TAG, "HTTP relay POST failed: ${it.message ?: "unknown"}")
+        }.getOrNull()
+    }
+
+    private fun httpGetJson(path: String): String? {
+        val url = "${_relayUrl.value.trimEnd('/')}$path"
+        Log.d(BLE_TAG, "HTTP relay GET start path=/api/poll")
+        val request = runCatching { Request.Builder().url(url).get().build() }.getOrNull() ?: return null
+        return runCatching {
+            relayHttpRequestClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(BLE_TAG, "HTTP relay GET failed code=${response.code}")
+                    null
+                } else {
+                    response.body?.string().also {
+                        Log.d(BLE_TAG, "HTTP relay GET complete code=${response.code}")
+                    }
+                }
+            }
+        }.onFailure {
+            Log.w(BLE_TAG, "HTTP relay GET failed: ${it.message ?: "unknown"}")
+        }.getOrNull()
+    }
+
+    private fun startRelayHeartbeat(socket: WebSocket) {
+        relayHeartbeatJob?.cancel()
+        relayHeartbeatJob = scope.launch(Dispatchers.IO) {
+            while (isActive && relaySocket === socket) {
+                delay(RELAY_HEARTBEAT_INTERVAL_MS)
+                if (relaySocket !== socket || !relayAuthenticated) continue
+                val now = System.currentTimeMillis()
+                if (relayLastPongAtMs > 0L && now - relayLastPongAtMs > RELAY_HEARTBEAT_TIMEOUT_MS) {
+                    Log.w(BLE_TAG, "Relay heartbeat timed out; reconnecting")
+                    relaySocket = null
+                    relayAuthenticated = false
+                    relayAuthResponseSent = false
+                    relayLastPongAtMs = 0L
+                    _relayConnected.value = false
+                    runCatching { socket.cancel() }
+                    scheduleRelayReconnect()
+                    break
+                }
+                val sent = runCatching {
+                    socket.send("{\"type\":\"$RELAY_PING_TYPE\"}")
+                }.getOrDefault(false)
+                Log.d(BLE_TAG, "Relay heartbeat sent=$sent")
+                if (!sent) {
+                    if (relaySocket === socket) {
+                        relaySocket = null
+                        relayAuthenticated = false
+                        relayAuthResponseSent = false
+                        relayLastPongAtMs = 0L
+                        _relayConnected.value = false
+                        scheduleRelayReconnect()
+                    }
+                    runCatching { socket.cancel() }
+                    break
+                }
+            }
         }
     }
 
@@ -6693,7 +7268,12 @@ class BleMeshManager(
         val raw = input.trim()
         if (raw.isBlank()) return ""
         val lowered = raw.lowercase()
-        val candidate = if (lowered.startsWith("ws://") || lowered.startsWith("wss://")) {
+        val candidate = if (
+            lowered.startsWith("ws://") ||
+            lowered.startsWith("wss://") ||
+            lowered.startsWith("http://") ||
+            lowered.startsWith("https://")
+        ) {
             raw
         } else {
             "ws://$raw"
@@ -6704,7 +7284,9 @@ class BleMeshManager(
         if (parsed.encodedUserInfo != null) return ""
         return when {
             scheme == "wss" -> candidate
+            scheme == "https" -> candidate
             scheme == "ws" && isLocalRelayHost(host) -> candidate
+            scheme == "http" && isLocalRelayHost(host) -> candidate
             else -> ""
         }
     }
@@ -7086,6 +7668,7 @@ class BleMeshManager(
         RELAY
     }
 
+    @Serializable
     private data class RelayFrameEnvelope(
         val type: String = RELAY_FRAME_TYPE,
         val frameId: String,
@@ -7095,12 +7678,14 @@ class BleMeshManager(
         val sentAtMs: Long
     )
 
+    @Serializable
     private data class RelayAuthHelloEnvelope(
         val type: String = RELAY_AUTH_HELLO_TYPE,
         val nodeId: String,
         val signingPublicKey: String
     )
 
+    @Serializable
     private data class RelayAuthChallengeEnvelope(
         val type: String = RELAY_AUTH_CHALLENGE_TYPE,
         val sessionId: String,
@@ -7108,6 +7693,7 @@ class BleMeshManager(
         val expiresAtMs: Long
     )
 
+    @Serializable
     private data class RelayAuthResponseEnvelope(
         val type: String = RELAY_AUTH_RESPONSE_TYPE,
         val sessionId: String,
@@ -7116,10 +7702,23 @@ class BleMeshManager(
         val signatureBase64: String
     )
 
+    @Serializable
     private data class RelayAuthAcceptedEnvelope(
         val type: String = RELAY_AUTH_ACCEPTED_TYPE,
         val nodeId: String,
         val expiresAtMs: Long
+    )
+
+    @Serializable
+    private data class HttpFrameRequest(
+        val sessionId: String,
+        val frame: RelayFrameEnvelope
+    )
+
+    @Serializable
+    private data class HttpPollResponse(
+        val ok: Boolean = true,
+        val frames: List<RelayFrameEnvelope> = emptyList()
     )
 
     private data class FrameAssembler(
@@ -7324,7 +7923,9 @@ class BleMeshManager(
         private const val PREF_NETWORK = "mesh_network_prefs"
         private const val KEY_RELAY_ENABLED = "relay_enabled"
         private const val KEY_RELAY_URL = "relay_url"
-        private const val DEFAULT_RELAY_URL = ""
+        private const val KEY_RELAY_OUTBOX_V2 = "relay_outbox_v2"
+        // Keep the verified HTTPS relay built in as the automatic internet fallback.
+        private const val DEFAULT_RELAY_URL = "https://77-233-213-107.sslip.io"
         private const val SAVED_MESSAGES_TITLE = "Saved Messages"
         private const val MAX_SAVED_TAGS_PER_MESSAGE = 8
         private const val MAX_SAVED_TAG_LENGTH = 24
@@ -7340,6 +7941,8 @@ class BleMeshManager(
         private const val RELAY_AUTH_RESPONSE_TYPE = "MESH_RELAY_AUTH_RESPONSE_V1"
         private const val RELAY_AUTH_ACCEPTED_TYPE = "MESH_RELAY_AUTH_ACCEPTED_V1"
         private const val RELAY_AUTH_REJECTED_TYPE = "MESH_RELAY_AUTH_REJECTED_V1"
+        private const val RELAY_PING_TYPE = "MESH_RELAY_PING_V1"
+        private const val RELAY_PONG_TYPE = "MESH_RELAY_PONG_V1"
         private const val MAX_NODE_ID_LENGTH = 96
         private const val WIFI_MULTICAST_GROUP = "239.192.46.48"
         private const val WIFI_BROADCAST_ADDRESS = "255.255.255.255"
@@ -7378,6 +7981,15 @@ class BleMeshManager(
         private const val BLE_NOTIFY_FALLBACK_GAP_MS = 35L
         private const val CLIENT_READY_DELAY_MS = 220L
         private const val RELAY_RECONNECT_DELAY_MS = 4_000L
+        private const val RELAY_AUTH_TIMEOUT_MS = 10_000L
+        private const val RELAY_AUTH_FALLBACK_DELAY_MS = 1_200L
+        private const val RELAY_HTTP_POLL_INTERVAL_MS = 2_000L
+        private const val RELAY_HTTP_RECONNECT_DELAY_MS = 4_000L
+        // Drain a bounded batch so stale relay retries cannot starve fresh messages.
+        private const val RELAY_HTTP_POLL_BATCH = 8
+        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+        private const val RELAY_HEARTBEAT_INTERVAL_MS = 15_000L
+        private const val RELAY_HEARTBEAT_TIMEOUT_MS = 45_000L
         private const val TRANSFER_RESEND_GAP_MS = 1_200L
         private const val OUTGOING_TRANSFER_PERSIST_GAP_MS = 4_000L
         private const val INCOMING_TRANSFER_PERSIST_GAP_MS = 4_000L

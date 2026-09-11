@@ -1,3 +1,11 @@
 <resources>
     <string name="expression_send">Отправить</string>
+    <string name="stickers_tab">Стикеры</string>
+    <string name="stickers_recent">Недавние</string>
+    <string name="stickers_all">Все</string>
+    <string name="stickers_faces">Реакции</string>
+    <string name="stickers_animals">Животные</string>
+    <string name="stickers_fun">Приколы</string>
+    <string name="stickers_empty">Здесь появятся недавно отправленные стикеры</string>
+    <string name="stickers_preview">Просмотр стикера</string>
 </resources>

@@ -19,8 +19,9 @@ android {
         applicationId = "com.meshchat.app"
         minSdk = 23
         targetSdk = 35
-        versionCode = 114
-        versionName = "1.0.14"
+        versionCode = 125
+        versionName = "1.0.25"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     val userKeystorePath = providers.gradleProperty("MESHGRAM_KEYSTORE_PATH").orNull
@@ -90,6 +91,7 @@ android {
 }
 
 dependencies {
+    implementation("com.airbnb.android:lottie-compose:6.4.1")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.2")
@@ -114,6 +116,7 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.6.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

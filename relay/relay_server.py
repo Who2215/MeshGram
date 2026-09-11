@@ -26,6 +26,8 @@ AUTH_CHALLENGE_TYPE = "MESH_RELAY_AUTH_CHALLENGE_V1"
 AUTH_RESPONSE_TYPE = "MESH_RELAY_AUTH_RESPONSE_V1"
 AUTH_ACCEPTED_TYPE = "MESH_RELAY_AUTH_ACCEPTED_V1"
 AUTH_REJECTED_TYPE = "MESH_RELAY_AUTH_REJECTED_V1"
+RELAY_PING_TYPE = "MESH_RELAY_PING_V1"
+RELAY_PONG_TYPE = "MESH_RELAY_PONG_V1"
 AUTH_CHALLENGE_TTL_SECONDS = 30
 # Keep opaque frames long enough for an offline recipient to reconnect.
 # The per-recipient queue remains bounded below, so retention cannot grow
@@ -56,7 +58,10 @@ class RelayHub:
         self.rate_windows: Dict[WebSocketServerProtocol, Deque[float]] = {}
         self.auth_nodes: Dict[WebSocketServerProtocol, str] = {}
         self.node_sockets: Dict[str, WebSocketServerProtocol] = {}
-        self.auth_challenges: Dict[WebSocketServerProtocol, tuple[str, str, float]] = {}
+        self.auth_challenges: Dict[
+            WebSocketServerProtocol,
+            tuple[str, str, float, str, str],
+        ] = {}
         self.pending_by_node: Dict[str, Deque[tuple[float, str]]] = {}
         self.seen_frame_ids: Dict[str, float] = {}
 
@@ -106,6 +111,11 @@ class RelayHub:
                     queue.append((time.monotonic() + QUEUE_TTL_SECONDS, message))
                     while len(queue) > 128:
                         queue.popleft()
+                    logging.info(
+                        "Frame queued for recipient=%s queue_size=%d",
+                        recipient_node_id,
+                        len(queue),
+                    )
                     return
                 peers = [target]
             else:
@@ -115,6 +125,7 @@ class RelayHub:
                 ]
         if not peers:
             return
+        logging.info("Frame forwarded to %d authenticated client(s)", len(peers))
         await asyncio.gather(*(client.send(message) for client in peers), return_exceptions=True)
 
     async def _remember_frame(self, frame_id: str) -> bool:
@@ -131,7 +142,7 @@ class RelayHub:
             return True
 
     async def handle(self, websocket: WebSocketServerProtocol) -> None:
-        if self.config.path and websocket.path != self.config.path:
+        if self.config.path and self._websocket_path(websocket) != self.config.path:
             await websocket.close(code=1008, reason="Invalid path")
             return
 
@@ -144,11 +155,25 @@ class RelayHub:
                     continue
                 if websocket not in self.auth_nodes:
                     if not await self._handle_auth_message(websocket, message):
+                        logging.warning("Authentication rejected: %s", websocket.remote_address)
                         await websocket.close(code=1008, reason="Authentication required")
                         break
                     continue
+                try:
+                    heartbeat = json.loads(message)
+                except (TypeError, json.JSONDecodeError):
+                    heartbeat = None
+                if isinstance(heartbeat, dict) and heartbeat.get("type") == RELAY_PING_TYPE:
+                    await websocket.send(json.dumps({"type": RELAY_PONG_TYPE}, separators=(",", ":")))
+                    continue
+                logging.info(
+                    "Message received from node=%s chars=%d",
+                    self.auth_nodes.get(websocket, "unknown"),
+                    len(message),
+                )
                 frame = self._parse_frame(message, self.config.max_payload_size)
                 if frame is None:
+                    self._log_invalid_frame(message)
                     continue
                 if not await self.allow_frame(websocket):
                     await websocket.close(code=1013, reason="Rate limit exceeded")
@@ -197,10 +222,13 @@ class RelayHub:
         challenge = base64.b64encode(os.urandom(32)).decode("ascii")
         expires_at = time.time() + AUTH_CHALLENGE_TTL_SECONDS
         async with self.lock:
-            existing = self.node_sockets.get(node_id)
-            if existing is not None and existing is not websocket:
-                return False
-            self.auth_challenges[websocket] = (session_id, challenge, expires_at)
+            self.auth_challenges[websocket] = (
+                session_id,
+                challenge,
+                expires_at,
+                node_id,
+                public_key,
+            )
         await websocket.send(json.dumps({
             "type": AUTH_CHALLENGE_TYPE,
             "sessionId": session_id,
@@ -226,8 +254,10 @@ class RelayHub:
             challenge = self.auth_challenges.get(websocket)
         if challenge is None:
             return False
-        expected_session, challenge_b64, expires_at = challenge
+        expected_session, challenge_b64, expires_at, expected_node_id, expected_public_key = challenge
         if session_id != expected_session or time.time() > expires_at:
+            return False
+        if node_id != expected_node_id or public_key_b64 != expected_public_key:
             return False
         signing_payload = "|".join([
             "MESH_RELAY_AUTH_V1",
@@ -246,24 +276,45 @@ class RelayHub:
             public_key.verify(signature, signing_payload, ec.ECDSA(hashes.SHA256()))
         except (ValueError, TypeError, binascii.Error, InvalidSignature):
             return False
+        replaced_socket = None
         async with self.lock:
             existing = self.node_sockets.get(node_id)
             if existing is not None and existing is not websocket:
-                return False
+                self.auth_nodes.pop(existing, None)
+                replaced_socket = existing
             self.auth_nodes[websocket] = node_id
             self.node_sockets[node_id] = websocket
             self.auth_challenges.pop(websocket, None)
             queued = self.pending_by_node.pop(node_id, deque())
+        if replaced_socket is not None:
+            logging.info("Replacing stale connection for node=%s", node_id)
+            # Do not block the new authenticated session on a half-open VPN
+            # connection.  OkHttp/Cloudflare may need several seconds to notice
+            # the old TCP path is gone.
+            asyncio.create_task(
+                replaced_socket.close(code=4001, reason="New authenticated session")
+            )
         await websocket.send(json.dumps({
             "type": AUTH_ACCEPTED_TYPE,
             "nodeId": node_id,
             "expiresAtMs": int((time.time() + 24 * 60 * 60) * 1000),
         }, separators=(",", ":")))
+        logging.info("Client authenticated: %s (total=%d)", node_id, len(self.clients))
         now = time.monotonic()
         queued_messages = [message for expires, message in queued if expires > now]
         if queued_messages:
+            logging.info("Delivering queued frames to node=%s count=%d", node_id, len(queued_messages))
             await asyncio.gather(*(websocket.send(message) for message in queued_messages), return_exceptions=True)
         return True
+
+    @staticmethod
+    def _websocket_path(websocket: WebSocketServerProtocol) -> Optional[str]:
+        """Support both the legacy and the new websockets connection APIs."""
+        path = getattr(websocket, "path", None)
+        if path is not None:
+            return path
+        request = getattr(websocket, "request", None)
+        return getattr(request, "path", None)
 
     @staticmethod
     def _parse_frame(raw: str, max_payload_size: int) -> Optional[dict]:
@@ -299,6 +350,30 @@ class RelayHub:
     @staticmethod
     def _is_valid_frame(raw: str, max_payload_size: int) -> bool:
         return RelayHub._parse_frame(raw, max_payload_size) is not None
+
+    @staticmethod
+    def _log_invalid_frame(raw: str) -> None:
+        """Log only envelope metadata; never log encrypted payload contents."""
+        try:
+            data = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            logging.warning("Invalid relay frame: malformed JSON length=%d", len(raw))
+            return
+        if not isinstance(data, dict):
+            logging.warning("Invalid relay frame: non-object JSON length=%d", len(raw))
+            return
+        payload = data.get("payloadBase64")
+        payload_length = len(payload) if isinstance(payload, str) else -1
+        logging.warning(
+            "Invalid relay frame: type=%r frame_id_length=%d via=%r recipient=%r "
+            "payload_chars=%d envelope_chars=%d",
+            data.get("type"),
+            len(data.get("frameId")) if isinstance(data.get("frameId"), str) else -1,
+            data.get("viaNodeId"),
+            data.get("recipientNodeId", ""),
+            payload_length,
+            len(raw),
+        )
 
     @staticmethod
     def _is_bounded_string(value: object, max_length: int, allow_blank: bool = False) -> bool:

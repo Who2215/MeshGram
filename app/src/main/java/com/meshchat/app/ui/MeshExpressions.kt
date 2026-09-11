@@ -2,7 +2,12 @@ package com.meshchat.app.ui
 
 /** Stable wire IDs: changing these would break already delivered stickers. */
 object MeshExpressions {
-    val stickers = listOf("hello", "love", "laugh", "cool", "wow", "party", "sleep", "hug")
+    val brandedStickers = listOf("hello", "love", "laugh", "cool", "wow", "party", "sleep", "hug",
+        "facepalm", "popcorn", "coffee", "dance", "cry", "rage")
+    val fluentStickers = listOf("fluentlaugh", "fluentrofl", "fluentcat", "fluentheartcat",
+        "fluentghost", "fluentalien", "fluentpoop", "fluentmindblown", "fluentparty",
+        "fluentmelting", "fluenteyes", "fluentclown")
+    val stickers = brandedStickers + fluentStickers + NotoStickerCatalog.entries.map { it.id }
     private val legacy = setOf("nebula", "orbit", "wave", "spark")
     val emojiGroups = listOf(
         listOf("😀", "😂", "🥹", "😍", "😎", "🤔", "😭", "🥳", "😅", "😴", "😡", "🤯", "😘", "🙃", "😇", "🤗"),

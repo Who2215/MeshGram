@@ -5,6 +5,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MeshExpressionsTest {
+    @Test fun thirdPartyPackHasDistinctStableIdsAndPreservesDraft() {
+        assertEquals(12, MeshExpressions.fluentStickers.size)
+        assertEquals(MeshExpressions.stickers.size, MeshExpressions.stickers.toSet().size)
+        MeshExpressions.fluentStickers.forEach {
+            assertEquals(it, MeshExpressions.stickerId(MeshExpressions.token(it)))
+            assertFalse(MeshExpressions.shouldConsumeDraft(MeshExpressions.token(it)))
+        }
+    }
     @Test fun everyBrandedStickerRoundTrips() {
         MeshExpressions.stickers.forEach { assertEquals(it, MeshExpressions.stickerId(MeshExpressions.token(it))) }
     }

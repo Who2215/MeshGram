@@ -1,3 +1,11 @@
 <resources>
     <string name="expression_send">Send</string>
+    <string name="stickers_tab">Stickers</string>
+    <string name="stickers_recent">Recent</string>
+    <string name="stickers_all">All</string>
+    <string name="stickers_faces">Reactions</string>
+    <string name="stickers_animals">Animals</string>
+    <string name="stickers_fun">Fun</string>
+    <string name="stickers_empty">Your recently sent stickers will appear here</string>
+    <string name="stickers_preview">Sticker preview</string>
 </resources>

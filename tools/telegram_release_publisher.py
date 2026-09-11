@@ -9,6 +9,7 @@ only after Telegram confirms that the post was sent successfully.
 from __future__ import annotations
 
 import argparse
+from html import escape
 import json
 import os
 import ssl
@@ -161,17 +162,24 @@ def acquire_lock(path: Path) -> Path | None:
 
 
 def format_release_post(manifest: dict[str, Any], site_url: str, donation_url: str) -> str:
+    version = escape(str(manifest["versionName"]))
+    changes = manifest.get("changelog", manifest.get("notes", []))
     lines = [
-        f"MeshGram {manifest['versionName']} опубликован",
+        f"🚀 <b>MeshGram {version} уже в эфире</b>",
         "",
-        "Что изменилось:",
+        "🛰️ <i>Сообщения находят свой путь.</i>",
+        "",
+        "✨ <b>Что нового</b>",
     ]
-    lines.extend(f"• {item}" for item in manifest.get("changelog", manifest.get("notes", [])))
+    lines.extend(f"• {escape(str(item))}" for item in changes)
     lines.extend([
         "",
-        f"Скачать Android: {manifest['apkUrl']}",
-        f"Сайт проекта: {site_url}",
-        f"Поддержать разработку: {donation_url}",
+        f"📲 <a href=\"{escape(str(manifest['apkUrl']), quote=True)}\">Скачать APK для Android</a>",
+        f"🌐 <a href=\"{escape(site_url, quote=True)}\">Открыть сайт проекта</a>",
+        f"💙 <a href=\"{escape(donation_url, quote=True)}\">Поддержать разработку</a>",
+        "",
+        "🔐 Проверяйте SHA-256 и ставьте обновление только из официальных ссылок.",
+        "#MeshGram #BLE #Android #privacy",
     ])
     return "\n".join(lines)
 
@@ -214,7 +222,12 @@ def publish_once(args: argparse.Namespace) -> int:
         response = api_request(
             token,
             "sendMessage",
-            {"chat_id": args.chat_id, "text": post, "disable_web_page_preview": "true"},
+            {
+                "chat_id": args.chat_id,
+                "text": post,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": "true",
+            },
         )
         message_id = response.get("result", {}).get("message_id")
         save_state(args.state_file, {
@@ -262,6 +275,26 @@ def publish_video(args: argparse.Namespace) -> int:
     return 0
 
 
+def publish_photo(args: argparse.Namespace) -> int:
+    token = load_token(args.token_file)
+    if args.dry_run:
+        print(f"Would publish photo {args.photo} to {args.chat_id}")
+        return 0
+    response = api_request(
+        token,
+        "sendPhoto",
+        {
+            "chat_id": args.chat_id,
+            "caption": args.caption,
+            "parse_mode": "HTML",
+        },
+        ("photo", args.photo),
+    )
+    result = response.get("result", {})
+    print(f"Published photo message {result.get('message_id')} to {args.chat_id}")
+    return 0
+
+
 def delete_message(args: argparse.Namespace) -> int:
     token = load_token(args.token_file)
     if args.dry_run:
@@ -303,12 +336,19 @@ def build_parser() -> argparse.ArgumentParser:
     video.add_argument("--video", type=Path, required=True)
     video.add_argument("--caption", required=True)
 
+    photo = subparsers.add_parser("photo", parents=[common])
+    photo.add_argument("--photo", type=Path, required=True)
+    photo.add_argument("--caption", required=True)
+
     delete = subparsers.add_parser("delete", parents=[common])
     delete.add_argument("--message-id", type=int, required=True)
     return parser
 
 
 def main() -> int:
+    # Keep local Windows dry-runs readable when the shell defaults to CP1251.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     args = build_parser().parse_args()
     try:
         if args.command == "publish":
@@ -317,6 +357,8 @@ def main() -> int:
             return set_avatar(args)
         if args.command == "video":
             return publish_video(args)
+        if args.command == "photo":
+            return publish_photo(args)
         return delete_message(args)
     except PublisherError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
