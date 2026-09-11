@@ -1,28 +1,30 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 114,
-  "versionName": "1.0.14",
+  "versionCode": 125,
+  "versionName": "1.0.25",
   "changelog": [
-    "Фирменные анимированные стикеры MeshGram без подложки",
-    "Прямая отправка стикера с сохранением черновика",
-    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
-    "Категории эмодзи и анимация одиночных эмодзи в чате"
+    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
+    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
+    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
+    "Компактная панель стикеров и эмодзи с сохранением черновика",
+    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v114-release.apk",
-  "apkSha256": "90db5328996a30c32ffc993aa968e46a3ab90c90e7b779b049fa1abf78ae0715",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v125-release.apk",
+  "apkSha256": "2e6ae293a992c2eab28cf874812e8e7a77469818825bf85a5d20dd6a6f5a7322",
   "signingCertificateSha256": "0a13c7fd0e8fba7d2780d49f1513811ab3b72213fe6982c71237ce24d9f4cfe7",
-  "manifestSignature": "MEUCIQDj8Ixzpi9jH3w+KCAVmFyPmwBr4ZQRbFFEegGOb1OWrQIgEw8zjrWzTxlH/fkRb4/l5fMkR5APng1cFgFbatHQ0uY=",
-  "file": "downloads/MeshGram-v114-release.apk",
-  "sizeBytes": 17687265,
+  "manifestSignature": "MEQCIGWjZzR1vPKih9K74x2jfVMbhZcl67JscHJt7r/SPBiMAiBXSJuDLdRbt0407doNnUy7VRLQgdv1osIsHHHj09umrA==",
+  "file": "downloads/MeshGram-v125-release.apk",
+  "sizeBytes": 20079939,
   "releaseType": "signed-release-candidate",
   "notes": [
-    "Фирменные анимированные стикеры MeshGram без подложки",
-    "Прямая отправка стикера с сохранением черновика",
-    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
-    "Категории эмодзи и анимация одиночных эмодзи в чате"
+    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
+    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
+    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
+    "Компактная панель стикеров и эмодзи с сохранением черновика",
+    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
   ],
-  "legacyFile": "downloads/MeshGram-v114-legacy.apk",
-  "legacySha256": "8e1f1b1fe9b0291cb80a40f3af6d73fcc95f8d247640b3b7157cab9af81745a9",
+  "legacyFile": "downloads/MeshGram-v125-legacy.apk",
+  "legacySha256": "5a0f7076b8beab64a351d08d6cbf1a6fde91ac1a2db82853641cdbb3c6e93f4d",
   "legacySigningCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7"
 }

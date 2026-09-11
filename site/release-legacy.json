@@ -1,25 +1,27 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 114,
-  "versionName": "1.0.14",
+  "versionCode": 125,
+  "versionName": "1.0.25",
   "changelog": [
-    "Фирменные анимированные стикеры MeshGram без подложки",
-    "Прямая отправка стикера с сохранением черновика",
-    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
-    "Категории эмодзи и анимация одиночных эмодзи в чате"
+    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
+    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
+    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
+    "Компактная панель стикеров и эмодзи с сохранением черновика",
+    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v114-legacy.apk",
-  "apkSha256": "8e1f1b1fe9b0291cb80a40f3af6d73fcc95f8d247640b3b7157cab9af81745a9",
+  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v125-legacy.apk",
+  "apkSha256": "5a0f7076b8beab64a351d08d6cbf1a6fde91ac1a2db82853641cdbb3c6e93f4d",
   "signingCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
-  "manifestSignature": "MEUCIAIzxuVFc0bzirH4oVWg07nUMKZRNuTiI3F0ggKg6IsQAiEAqVaMHCNIfBwrdu7Fy3lm07TsE1bv0v4MeQossnWzGkw=",
-  "file": "downloads/MeshGram-v114-legacy.apk",
-  "sizeBytes": 17685834,
+  "manifestSignature": "MEQCICHjyOpBbZaP+860gek9UokiAWcFf6+4xR0DDq/Fvf6WAiBFN0uoaLjNBmVp30Z8xjocg51TBFaYc7HfATDO1zoiLA==",
+  "file": "downloads/MeshGram-v125-legacy.apk",
+  "sizeBytes": 28209628,
   "releaseType": "debug-test-build",
   "notes": [
-    "Фирменные анимированные стикеры MeshGram без подложки",
-    "Прямая отправка стикера с сохранением черновика",
-    "Компактные вложения и панель стикеров/эмодзи под строкой ввода",
-    "Категории эмодзи и анимация одиночных эмодзи в чате"
+    "Автоматическая маршрутизация: BLE рядом, интернет-резерв при отсутствии прямого пути",
+    "Очередь сообщений отправляется сразу после готовности маршрута без стартовой гонки",
+    "80 локальных анимированных Noto-стикеров и фирменные живые сценки",
+    "Компактная панель стикеров и эмодзи с сохранением черновика",
+    "Проверки relay, каталога стикеров, Android lint и двух устройств Redmi/Samsung"
   ]
 }
