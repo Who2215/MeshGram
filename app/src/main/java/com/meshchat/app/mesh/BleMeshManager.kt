@@ -2744,6 +2744,23 @@ class BleMeshManager(
         return clientTargets.isNotEmpty() || serverTargets.isNotEmpty()
     }
 
+    private fun hasReadyBleTransportFor(targetNodeId: String, excludedAddress: String?): Boolean {
+        val (clientTargets, serverTargets) = readyBleTargets(excludedAddress)
+        val addresses = (clientTargets.mapNotNull { it.device.address } +
+            serverTargets.mapNotNull { it.address }).toSet()
+        if (addresses.isEmpty()) return false
+        return synchronized(lock) {
+            addresses.any { address -> peerMap[address]?.nodeId == targetNodeId }
+        }
+    }
+
+    private fun isHelloPayload(payload: ByteArray): Boolean {
+        return runCatching {
+            json.parseToJsonElement(payload.toString(Charsets.UTF_8))
+                .jsonObject["type"]?.jsonPrimitive?.content == HelloPacket.TYPE
+        }.getOrDefault(false)
+    }
+
     private fun isInternetAvailable(): Boolean {
         val manager = connectivityManager ?: return false
         val networks = buildList {
@@ -2784,7 +2801,14 @@ class BleMeshManager(
         val recipients = bleTargets.first
         val notifyTargets = bleTargets.second
         val hasBleRoute = recipients.isNotEmpty() || notifyTargets.isNotEmpty()
-        if (cacheForRelay && (BLE_ONLY_MODE || allowNetworkTransports) && !hasBleRoute) {
+        val recipientNodeId = relayRecipientNodeId(payload)
+        val hasDirectBleRoute = if (recipientNodeId.isBlank()) {
+            hasBleRoute
+        } else {
+            hasReadyBleTransportFor(recipientNodeId, excludedAddress)
+        }
+        val relayPresence = recipientNodeId.isBlank() && isHelloPayload(payload)
+        if (cacheForRelay && (BLE_ONLY_MODE || allowNetworkTransports) && !hasDirectBleRoute) {
             // Persist only frames that need a fallback route. A successful BLE
             // send must not create an endless relay duplicate stream.
             cacheRelayFrame(frameId = frameId, payload = payload)
@@ -2812,12 +2836,6 @@ class BleMeshManager(
             return networkAccepted
         }
 
-        // BLE is the preferred route. Do not publish the same outbound frame
-        // to the internet while a MeshGram BLE path is available.
-        if (allowNetworkTransports && hasReadyBleTransport(excludedAddress)) {
-            disconnectRelay(reason = "BLE route preferred")
-        }
-
         val remainingTransports = AtomicInteger(recipients.size + notifyTargets.size)
         val anyTransportSucceeded = AtomicBoolean(false)
         fun completeTransport(success: Boolean) {
@@ -2825,6 +2843,18 @@ class BleMeshManager(
             if (remainingTransports.decrementAndGet() == 0) {
                 completion?.complete(anyTransportSucceeded.get())
             }
+        }
+
+        // Keep a relay presence beacon alive even when a local BLE route is
+        // available. For a targeted packet, BLE wins only when it is a direct
+        // route to that recipient; an unrelated nearby peer must not swallow
+        // a message intended for a remote friend.
+        val shouldUseRelay = sendToRelay && allowNetworkTransports &&
+            (relayPresence || !hasDirectBleRoute)
+        val relayDispatched = if (shouldUseRelay) {
+            publishFrameToRelay(frameId = frameId, payload = payload)
+        } else {
+            false
         }
 
         var dispatched = false
@@ -2887,16 +2917,20 @@ class BleMeshManager(
                         Log.w(BLE_TAG, "BLE notify failed address=${address.takeLast(5)}")
                         scheduleFrameRetry(frameId, payload, cacheForRelay)
                     } else {
-                        val removedFromFallback = synchronized(lock) {
-                            relayOutbox.remove(frameId) != null
+                        // If this was sent to an unrelated nearby peer, keep
+                        // the relay fallback until the target is reached.
+                        if (hasDirectBleRoute) {
+                            val removedFromFallback = synchronized(lock) {
+                                relayOutbox.remove(frameId) != null
+                            }
+                            if (removedFromFallback) persistRelayOutboxSnapshot()
                         }
-                        if (removedFromFallback) persistRelayOutboxSnapshot()
                     }
                     completeTransport(sent)
                 }
             }
         }
-        return dispatched
+        return dispatched || relayDispatched
     }
 
     private suspend fun broadcastPayloadAndAwait(
@@ -6594,12 +6628,6 @@ class BleMeshManager(
             return
         }
         if (!_isRunning.value) return
-        if (hasReadyBleTransport()) {
-            // Presence of a local MeshGram route is enough to keep app traffic
-            // off the internet. Reconnect when that route disappears.
-            disconnectRelay(reason = "BLE route preferred")
-            return
-        }
         if (!_relayEnabled.value) {
             disconnectRelay(reason = null, updateStateOnly = true)
             return
@@ -6969,7 +6997,7 @@ class BleMeshManager(
         } else if (!relayAuthenticated || relaySocket == null) {
             return
         }
-        if (hasReadyBleTransport() || !isInternetAvailable()) return
+        if (!isInternetAvailable()) return
         val frames = synchronized(lock) {
             val now = System.currentTimeMillis()
             trimRelayOutboxLocked(now)

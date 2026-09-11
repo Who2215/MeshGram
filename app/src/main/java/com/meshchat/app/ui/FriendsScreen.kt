@@ -210,7 +210,7 @@ fun FriendsScreen(state: MeshUiState, actions: FriendActions, onBack: () -> Unit
     invite?.let { code ->
         val shareUrl = remember(code) { FriendDirectory.toShareUrl(code) }
         val bitmap = remember(code) { runCatching {
-            val matrix = QRCodeWriter().encode(code, BarcodeFormat.QR_CODE, 720, 720)
+            val matrix = QRCodeWriter().encode(shareUrl, BarcodeFormat.QR_CODE, 720, 720)
             Bitmap.createBitmap(720, 720, Bitmap.Config.ARGB_8888).apply {
                 val pixels = IntArray(720 * 720) { i -> if (matrix[i % 720, i / 720]) android.graphics.Color.BLACK else android.graphics.Color.WHITE }
                 setPixels(pixels, 0, 720, 0, 0, 720, 720)

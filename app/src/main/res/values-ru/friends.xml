@@ -38,7 +38,7 @@
     <string name="friends_copy_link">Скопировать ссылку</string>
     <string name="friends_share_link">Поделиться ссылкой</string>
     <string name="friends_link_copied">Ссылка приглашения скопирована</string>
-    <string name="friends_link_help">Ссылку можно отправить другу в другом городе. Он увидит имя и отпечаток, а запрос начнёт чат только после его подтверждения.</string>
+    <string name="friends_link_help">Ссылка откроет MeshGram напрямую, если он установлен. Если приложение не открылось, вставьте ссылку целиком в «Ввести код приглашения». Запрос начнёт чат только после подтверждения.</string>
     <string name="friends_saved">Сохранено. Запросы синхронизируются при появлении маршрута.</string>
     <string name="friends_failed">Не удалось выполнить действие. Проверьте приглашение и попробуйте снова.</string>
     <string name="friends_invalid_invite">Приглашение повреждено, просрочено или не совпадает с ключом устройства.</string>

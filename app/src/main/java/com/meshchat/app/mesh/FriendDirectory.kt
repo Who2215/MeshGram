@@ -151,11 +151,21 @@ class FriendDirectory(
 
     companion object {
         const val INVITE_PREFIX = "meshgram:friend:v1:"
+        private const val INVITE_APP_SCHEME = "meshgram"
+        private const val INVITE_APP_HOST = "friend"
         private const val INVITE_WEB_SCHEME = "https"
         private const val INVITE_WEB_HOST = "who2215.github.io"
         private const val INVITE_WEB_PATH = "/MeshGram/"
 
         fun toShareUrl(code: String): String = Uri.Builder()
+            .scheme(INVITE_APP_SCHEME)
+            .authority(INVITE_APP_HOST)
+            .appendQueryParameter("friend_invite", code.trim())
+            .build()
+            .toString()
+
+        /** HTTPS fallback kept for older builds and recipients without the app installed. */
+        fun toWebShareUrl(code: String): String = Uri.Builder()
             .scheme(INVITE_WEB_SCHEME)
             .authority(INVITE_WEB_HOST)
             .path(INVITE_WEB_PATH)
@@ -168,9 +178,10 @@ class FriendDirectory(
             if (value.startsWith(INVITE_PREFIX)) return value
             val uri = Uri.parse(value)
             val validWebLink = uri.scheme == INVITE_WEB_SCHEME &&
-                uri.host == INVITE_WEB_HOST &&
-                uri.path?.startsWith(INVITE_WEB_PATH) == true
-            val validAppLink = uri.scheme == "meshgram" && uri.host == "friend"
+                uri.host.equals(INVITE_WEB_HOST, ignoreCase = true) &&
+                (uri.path == "/MeshGram" || uri.path?.startsWith(INVITE_WEB_PATH) == true)
+            val validAppLink = uri.scheme.equals(INVITE_APP_SCHEME, ignoreCase = true) &&
+                uri.host.equals(INVITE_APP_HOST, ignoreCase = true)
             require(validWebLink || validAppLink)
             return uri.getQueryParameter("friend_invite")?.trim()
                 ?.takeIf { it.startsWith(INVITE_PREFIX) }

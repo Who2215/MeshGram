@@ -38,7 +38,7 @@
     <string name="friends_copy_link">Copy invitation link</string>
     <string name="friends_share_link">Share invitation link</string>
     <string name="friends_link_copied">Invitation link copied</string>
-    <string name="friends_link_help">Send this link to a friend in another city. They will see the identity fingerprint and can start the chat only after confirming.</string>
+    <string name="friends_link_help">The link opens MeshGram directly when it is installed. If it does not open, paste the full link into “Enter an invitation code”. Chat starts only after confirmation.</string>
     <string name="friends_saved">Saved. Requests will sync when a route is available.</string>
     <string name="friends_failed">Could not complete this action. Check the invitation and try again.</string>
     <string name="friends_invalid_invite">Invalid, expired or mismatched device invitation.</string>
