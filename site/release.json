@@ -1,28 +1,29 @@
 {
   "schemaVersion": 1,
   "packageName": "com.meshchat.app",
-  "versionCode": 126,
-  "versionName": "1.0.26",
+  "versionCode": 127,
+  "versionName": "1.0.27",
   "changelog": [
-    "Ссылки-приглашения в подтверждённые друзья с QR и системным меню «Поделиться»",
-    "Восстановленная история личных чатов корректно отображается после импорта резервной копии",
-    "Счётчики сайта и автоматические Telegram-посты на рубежах аудитории",
-    "Переключатель relay сохраняется сразу, без отдельной кнопки"
+    "Автоматическая маршрутизация: прямой BLE для нужного получателя и relay как резервный путь",
+    "Очередь сообщений будится сразу после готовности маршрута, без стартовой гонки",
+    "Приглашения друзей открывают MeshGram напрямую через ссылку и QR, с HTTPS-запасным вариантом",
+    "Подписанный релиз v1.0.27 с сохранением данных и совместимостью обновления"
   ],
-  "apkUrl": "https://who2215.github.io/MeshGram/downloads/MeshGram-v126-release.apk",
-  "apkSha256": "20af143286495bf6c9ed39308c5117d67352eb3a1db997015c7c6048b2719cc8",
+  "apkUrl": "https://github.com/Who2215/MeshGram/releases/download/v1.0.27/MeshGram-v127-release.apk",
+  "apkSha256": "03cd9f2035629e754acd5d409e1a4756083e6611a80f509001ec4109284b3e23",
   "signingCertificateSha256": "0a13c7fd0e8fba7d2780d49f1513811ab3b72213fe6982c71237ce24d9f4cfe7",
-  "manifestSignature": "MEUCIA/CRhvhEEbq73Q65CT1colK/qEZnQPEUqtHIbL9+d5+AiEA7ceGHwKWXhRfNHVVF/bdU1qeemz+9A9O78AiRnKE4II=",
-  "file": "downloads/MeshGram-v126-release.apk",
-  "sizeBytes": 20104049,
+  "manifestSignature": "MEUCIHAfyFjsm4HeB+nQsXOe2lrUUoLbO1OsqkMNUisHOXG6AiEAlgV8gFLfpOqvqieVhhG6v6U7FR2KwlOE9atKD5qn/Zs=",
+  "file": "downloads/MeshGram-v127-release.apk",
+  "sizeBytes": 20104379,
   "releaseType": "signed-release-candidate",
   "notes": [
-    "Ссылки-приглашения в подтверждённые друзья с QR и системным меню «Поделиться»",
-    "Восстановленная история личных чатов корректно отображается после импорта резервной копии",
-    "Счётчики сайта и автоматические Telegram-посты на рубежах аудитории",
-    "Переключатель relay сохраняется сразу, без отдельной кнопки"
+    "Автоматическая маршрутизация: прямой BLE для нужного получателя и relay как резервный путь",
+    "Очередь сообщений будится сразу после готовности маршрута, без стартовой гонки",
+    "Приглашения друзей открывают MeshGram напрямую через ссылку и QR, с HTTPS-запасным вариантом",
+    "Подписанный релиз v1.0.27 с сохранением данных и совместимостью обновления"
   ],
   "legacyFile": "downloads/MeshGram-v126-legacy.apk",
   "legacySha256": "7d349e6e0937e342342328b1f4df8cb50c60a95e669eb2da51b3630dfcdd01cb",
-  "legacySigningCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7"
+  "legacySigningCertificateSha256": "363a7a24b95cc691919f98f7a49d8266121d8ac614944ce41680b2f673a0d9f7",
+  "legacyApkUrl": "https://github.com/Who2215/MeshGram/releases/download/v1.0.26/MeshGram-v126-legacy.apk"
 }

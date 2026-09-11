@@ -36,8 +36,10 @@ def main():
             raise ValueError(f"{name}: unexpected package")
         feeds.append(manifest)
         print(f'{name}: signature, SHA-256 and size verified (v{manifest["versionCode"]})')
-    if feeds[0]["versionCode"] != feeds[1]["versionCode"]:
-        raise ValueError("Release and compatibility feeds have different versions")
+    # A legacy-signed APK may intentionally lag behind the current release
+    # while it remains available as a safe fallback for older installations.
+    if feeds[1]["versionCode"] > feeds[0]["versionCode"]:
+        raise ValueError("Compatibility feed must not be newer than the release")
     for source, target in (("legacyFile", "file"), ("legacySha256", "apkSha256"),
                            ("legacySigningCertificateSha256", "signingCertificateSha256")):
         if feeds[0][source] != feeds[1][target]:

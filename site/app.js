@@ -167,8 +167,10 @@
     if (typeof value !== 'string' || !value.trim() || /[\\\s]/.test(value) || value.startsWith('//')) return false;
     try {
       const url = new URL(value, window.location.href);
+      const sameSite = url.origin === window.location.origin;
+      const githubRelease = url.origin === 'https://github.com' && /^\/Who2215\/MeshGram\/releases\/download\/[^/]+\/[^/]+\.apk$/.test(url.pathname);
       return url.protocol === 'https:' && !url.username && !url.password &&
-        url.origin === window.location.origin && url.pathname.endsWith('.apk');
+        (sameSite || githubRelease) && url.pathname.endsWith('.apk');
     } catch { return false; }
   }
   async function loadRelease() {
@@ -178,9 +180,9 @@
     if (!Number.isInteger(data.versionCode) || typeof data.versionName !== 'string') throw new Error('release manifest is incomplete');
     const name = `MeshGram ${data.versionName}`; const hash = typeof data.apkSha256 === 'string' ? data.apkSha256.toLowerCase() : ''; const notes = Array.isArray(data.changelog) ? data.changelog.filter(Boolean).slice(0, 6) : [];
     if (release.badgeVersion) release.badgeVersion.textContent = name; if (release.version) release.version.textContent = data.versionName; if (release.notesTitle) release.notesTitle.textContent = name; if (release.size) release.size.textContent = formatBytes(Number(data.sizeBytes));
-    if (release.sha && hash) { release.sha.textContent = `SHA-256: ${shortHash(hash)}`; release.sha.title = hash; } if (release.hash && hash) release.hash.textContent = shortHash(hash); if (release.link && isSafeDownloadUrl(data.file)) release.link.href = data.file; if (release.published) release.published.textContent = `GitHub Pages / main / v${data.versionCode}`;
+    if (release.sha && hash) { release.sha.textContent = `SHA-256: ${shortHash(hash)}`; release.sha.title = hash; } if (release.hash && hash) release.hash.textContent = shortHash(hash); const downloadUrl = data.apkUrl || data.file; if (release.link && isSafeDownloadUrl(downloadUrl)) release.link.href = downloadUrl; if (release.published) release.published.textContent = `GitHub Pages / main / v${data.versionCode}`;
     const legacyLink = document.getElementById('legacy-download-link');
-    if (legacyLink && isSafeDownloadUrl(data.legacyFile)) legacyLink.href = data.legacyFile;
+    const legacyUrl = data.legacyApkUrl || data.legacyFile; if (legacyLink && isSafeDownloadUrl(legacyUrl)) legacyLink.href = legacyUrl;
     const dictionary = translations[effectiveLanguage(storedLanguage())] || en; if (release.proof) release.proof.textContent = dictionary.manifest_verified;
     if (release.notesList && notes.length) release.notesList.replaceChildren(...notes.map((note) => { const item = document.createElement('li'); item.textContent = note; return item; }));
   }
@@ -189,3 +191,6 @@
   sendStat('visit');
   release.link?.addEventListener('click', () => { sendStat('download'); });
 })();
+
+
+
