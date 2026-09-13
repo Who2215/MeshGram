@@ -59,3 +59,50 @@ body:before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;opa
   .release-badge{max-width:100%;flex-wrap:wrap}
 }
  .download-compat{margin:14px 0 0;color:var(--muted);font-size:13px}.download-compat a{color:var(--cyan);text-decoration:underline;text-underline-offset:4px}
+
+/* Mobile is a compact mission console: rich motion, less empty vertical travel. */
+@media(max-width:800px){
+  .section,.demo-section,.network-section,.trust-section,.showcase-section,.video-section,.roadmap-section,.faq-section{padding-bottom:62px}
+  .section-heading,.compact-heading{margin-bottom:24px}
+  .section-heading h2,.download-panel h2{font-size:clamp(34px,10.5vw,46px);margin:12px 0;letter-spacing:-.045em}
+  .explain-intro h3,.demo-controls h3,.release-card h3{letter-spacing:-.035em}
+  .section-heading p,.video-lead{font-size:13px;line-height:1.6}
+  .signal-strip{display:flex;width:100%;max-width:none;gap:10px;margin:0 0 62px;padding:0 14px 8px;overflow-x:auto;border:0;scroll-snap-type:x mandatory;scrollbar-width:none}
+  .signal-strip::-webkit-scrollbar,.flow-grid::-webkit-scrollbar,.showcase-grid::-webkit-scrollbar{display:none}
+  .signal-strip div,.signal-strip div:first-child,.signal-strip div:last-child{flex:0 0 min(76vw,280px);gap:12px;padding:15px 16px;border:1px solid rgba(129,229,255,.18);border-radius:17px;background:linear-gradient(145deg,rgba(18,29,54,.82),rgba(11,15,33,.7));scroll-snap-align:center}
+  .signal-strip strong{font-size:10px}.signal-strip span{font-size:11px;line-height:1.5}
+  .feature-grid{display:flex;gap:11px;margin-inline:-14px;padding:0 14px 8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+  .feature-grid::-webkit-scrollbar{display:none}
+  .feature-card{flex:0 0 min(82vw,330px);min-height:218px;padding:20px;scroll-snap-align:center}
+  .feature-icon{margin:20px 0 16px}
+  .mini-route,.cipher-lines,.security-meter{margin-top:24px}
+  .flow-grid{display:flex;gap:11px;margin-inline:-14px;margin-bottom:13px;padding:0 14px 8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+  .flow-step{flex:0 0 min(82vw,330px);min-height:210px;padding:20px;scroll-snap-align:center}
+  .flow-icon{margin:16px 0 15px}
+  .flow-note{margin-bottom:28px;padding:14px}
+  .ios-banner{margin-top:18px;padding:17px}
+  .demo-stage{min-height:315px}.demo-controls{padding:20px}.demo-controls h3{font-size:23px;margin:10px 0 8px}
+  .network-board{min-height:340px}.network-board-caption{max-width:180px}.network-side-one,.network-side-two{display:none}
+  .trust-card{gap:14px;padding:20px}.trust-seal{width:46px;height:46px;font-size:21px}.permission-grid{gap:9px}.permission-card{padding:16px}.permission-icon{margin-bottom:11px}
+  .showcase-grid{display:flex;gap:11px;margin-inline:-14px;padding:0 14px 8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+  .showcase-card,.showcase-card-tall{display:block;flex:0 0 min(82vw,350px);padding:17px;scroll-snap-align:center}
+  .showcase-card-tall h3,.showcase-card-tall>p{margin:17px 0 0}
+  .showcase-phone{min-height:260px}.showcase-card h3{margin-top:17px}
+  .quote-section{margin-bottom:62px;padding:48px 0}.quote-mark{font-size:68px}.quote-section blockquote{margin:22px 0;font-size:clamp(28px,9vw,39px)}
+  .video-card{width:min(100%,390px)}.product-video[data-film-orientation="portrait"]{width:auto;max-width:100%;height:min(64svh,650px);margin:auto;aspect-ratio:9/16}
+  .download-panel{padding:21px}.download-meta{flex-wrap:wrap;margin-top:18px}.button-download{margin-top:22px}
+  .download-extra{margin-top:10px}.download-qr,.download-guide{padding:17px}.download-guide ol{gap:4px}
+  .release-section{padding-bottom:62px}.release-card{padding:21px}.release-card h3{margin:23px 0 15px}.release-card-side{min-height:205px}
+  .roadmap-track{gap:18px}.roadmap-item{min-height:74px}.faq-list summary{padding:17px 3px}.faq-list details p{padding-bottom:17px}
+  .project-links{padding-top:18px}.site-footer{padding-bottom:max(28px,env(safe-area-inset-bottom))}
+}
+
+@supports(content-visibility:auto){
+  main>.section,main>.quote-section,main>.download-section,main>.release-section{content-visibility:auto;contain-intrinsic-size:auto 720px}
+}
+
+@media(max-width:800px){
+  @supports(content-visibility:auto){
+    main>.section,main>.quote-section,main>.download-section,main>.release-section{contain-intrinsic-size:auto 520px}
+  }
+}

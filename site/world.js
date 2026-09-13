@@ -86,7 +86,8 @@ function boot() {
   } catch (_) {
     return setStatic();
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const compactDisplay = window.matchMedia('(max-width: 800px), (pointer: coarse)');
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compactDisplay.matches ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.75;
@@ -192,13 +193,16 @@ function boot() {
   stars.geometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3)); scene.add(stars);
 
   let active = !reduced.matches;
+  let pageVisible = !document.hidden;
   let scrollProgress = 0;
   let frame = 0;
   const resize = () => {
     const rect = canvas.getBoundingClientRect();
     const width = Math.max(1, rect.width || window.innerWidth);
     const height = Math.max(1, rect.height || window.innerHeight);
-    camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height, false);
   };
   const updateProgress = () => {
     const rect = root.getBoundingClientRect();
@@ -209,7 +213,11 @@ function boot() {
     chapters.forEach((chapter) => { const r = chapter.getBoundingClientRect(); if (r.top <= window.innerHeight * .46) current = chapter; });
     root.querySelectorAll('.world-chapters a').forEach((link) => link.toggleAttribute('aria-current', link.getAttribute('href') === `#${current?.id}`));
   };
+  const scheduleRender = () => {
+    if (!frame && active && pageVisible && !reduced.matches) frame = requestAnimationFrame(render);
+  };
   const render = (time = 0) => {
+    frame = 0;
     updateProgress();
     const t = time * 0.00016;
     const segment = Math.min(route.length - 2.001, scrollProgress * (route.length - 1));
@@ -227,11 +235,25 @@ function boot() {
     camera.position.y += ((3.4 + Math.cos(t * 1.4) * 0.18 + scrollProgress * .7) - camera.position.y) * 0.035;
     camera.lookAt(0, .75, 0);
     renderer.render(scene, camera);
-    if (!reduced.matches && active) frame = requestAnimationFrame(render);
+    scheduleRender();
   };
   const onScroll = () => { if (reduced.matches) render(0); };
   window.addEventListener('resize', resize, { passive: true });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize, { passive: true });
   window.addEventListener('scroll', onScroll, { passive: true });
+  if ('ResizeObserver' in window) {
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(canvas);
+  }
+  document.addEventListener('visibilitychange', () => {
+    pageVisible = !document.hidden;
+    if (!pageVisible && frame) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    } else {
+      scheduleRender();
+    }
+  });
   const setMotionState = () => {
     const copy = worldCopy[language()];
     toggle.setAttribute('aria-pressed', String(active));
@@ -239,9 +261,17 @@ function boot() {
   };
   resize(); root.dataset.worldState = 'ready'; toggle.hidden = reduced.matches;
   toggle.setAttribute('aria-label', worldCopy[language()].motion);
-  toggle.addEventListener('click', () => { active = !active; setMotionState(); if (active && !reduced.matches) frame = requestAnimationFrame(render); if (!active && frame) cancelAnimationFrame(frame); });
+  toggle.addEventListener('click', () => {
+    active = !active;
+    setMotionState();
+    if (active) scheduleRender();
+    if (!active && frame) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+  });
   setMotionState();
-  if (reduced.matches) render(0); else frame = requestAnimationFrame(render);
+  if (reduced.matches) render(0); else scheduleRender();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
