@@ -85,6 +85,7 @@
   const canvas = document.getElementById('starfield');
   const context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const precisePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
   const menuToggle = document.getElementById('menu-toggle');
   const siteNav = document.getElementById('site-nav');
   if (menuToggle && siteNav) {
@@ -123,6 +124,26 @@
     const next = demoStage && demoStage.dataset.route === 'internet' ? 'ble' : 'internet';
     activateDemoRoute(next);
   }, 7600);
+  if (!reduceMotion.matches && precisePointer.matches) {
+    document.querySelectorAll('[data-tilt-card]').forEach((card) => {
+      let frame = 0;
+      card.addEventListener('pointermove', (event) => {
+        if (frame) cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          const rect = card.getBoundingClientRect();
+          const x = (event.clientX - rect.left) / rect.width - .5;
+          const y = (event.clientY - rect.top) / rect.height - .5;
+          card.style.setProperty('--tilt-x', `${(-y * 5).toFixed(2)}deg`);
+          card.style.setProperty('--tilt-y', `${(x * 7).toFixed(2)}deg`);
+        });
+      });
+      card.addEventListener('pointerleave', () => {
+        if (frame) cancelAnimationFrame(frame);
+        card.style.setProperty('--tilt-x', '0deg');
+        card.style.setProperty('--tilt-y', '0deg');
+      });
+    });
+  }
   let stars = [], width = 0, height = 0, pixelRatio = 1;
   function resize() {
     if (!canvas || !context) return;

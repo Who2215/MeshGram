@@ -10,6 +10,7 @@
   <title id="page-title">MeshGram | Связь без границ</title>
   <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=world-2">
+  <link rel="stylesheet" href="showcase.css?v=immersive-1">
   <link rel="stylesheet" href="world.css?v=signal-field-1">
 </head>
 <body>
@@ -249,14 +250,64 @@
       <p>MeshGram project note / 2026</p>
     </section>
 
-     <section id="showcase" class="showcase-section section shell">
+    <section id="showcase" class="showcase-section section shell">
       <div class="section-heading reveal"><p class="eyebrow" data-i18n="showcase_eyebrow">Внутри приложения</p><h2><span data-i18n="showcase_title">Технология, которую</span><br><em data-i18n="showcase_title_em">приятно открывать.</em></h2></div>
       <div class="showcase-grid">
-        <article class="showcase-card showcase-card-tall reveal"><div class="showcase-phone"><div class="phone-top"><span>9:41</span><i></i></div><div class="phone-brand"><img src="assets/meshgram-mark.svg" alt=""><b>Mesh<span>Gram</span></b></div><div class="phone-heading" data-i18n="showcase_map">Живая карта</div><div class="phone-map"><i class="map-ring"></i><i class="map-line map-line-one"></i><i class="map-line map-line-two"></i><b class="map-core">✦</b><b class="map-dot map-dot-one"></b><b class="map-dot map-dot-two"></b><b class="map-dot map-dot-three"></b></div><div class="phone-chips"><span>2 <small data-i18n="showcase_nodes">узла</small></span><span>1 <small data-i18n="showcase_route">маршрут</small></span></div></div><h3 data-i18n="showcase_map_title">Карта узлов</h3><p data-i18n="showcase_map_body">Видно состояние сети, а не лишние персональные данные.</p></article>
-        <article class="showcase-card reveal reveal-delay-short"><div class="showcase-phone phone-chat"><div class="phone-top"><span>9:41</span><i></i></div><div class="phone-brand"><img src="assets/meshgram-mark.svg" alt=""><b>Mesh<span>Gram</span></b></div><div class="chat-row"><b class="chat-avatar">N</b><span><strong>Node-43d9</strong><small>Mesh connected</small></span><i class="chat-unread">3</i></div><div class="chat-row"><b class="chat-avatar avatar-pink">T</b><span><strong>Team</strong><small>Encrypted message</small></span></div><div class="chat-row"><b class="chat-avatar avatar-lime">S</b><span><strong>Saved</strong><small>Files and notes</small></span></div></div><h3 data-i18n="showcase_chat_title">Чаты без лишнего шума</h3><p data-i18n="showcase_chat_body">Понятные статусы, группы и сохранённые материалы в одном месте.</p></article>
-        <article class="showcase-card reveal reveal-delay"><div class="showcase-phone phone-profile"><div class="phone-top"><span>9:41</span><i></i></div><div class="profile-orb">P</div><strong class="profile-name">MeshGram</strong><small class="profile-status" data-i18n="showcase_online">в сети</small><div class="profile-stats"><span><b>24</b><small data-i18n="showcase_messages">сообщения</small></span><span><b>4</b><small data-i18n="showcase_groups">группы</small></span></div><div class="profile-row"><span>◈</span><span data-i18n="showcase_security">Безопасность</span><b>›</b></div><div class="profile-row"><span>⚙</span><span data-i18n="showcase_settings">Настройки</span><b>›</b></div></div><h3 data-i18n="showcase_profile_title">Профиль под контролем</h3><p data-i18n="showcase_profile_body">Имя, аватар, темы и приватность не спрятаны по меню.</p></article>
+        <article class="showcase-card showcase-card-map reveal" data-tilt-card>
+          <div class="showcase-aura" aria-hidden="true"></div>
+          <div class="showcase-device-wrap" aria-hidden="true">
+            <div class="showcase-phone phone-map-screen">
+              <div class="phone-hardware"><span>9:41</span><i></i><b>▮▮</b></div>
+              <div class="phone-appbar"><span class="phone-logo"><img src="assets/meshgram-mark.svg" alt=""></span><span><strong>MeshGram</strong><small data-i18n="showcase_map">Живая карта</small></span><i class="appbar-signal"></i></div>
+              <div class="map-metrics"><span><b>04</b><small data-i18n="showcase_nodes">узла</small></span><span><b>01</b><small data-i18n="showcase_route">маршрут</small></span><span><b>22 ms</b><small>BLE</small></span></div>
+              <div class="phone-map">
+                <i class="map-orbit orbit-one"></i><i class="map-orbit orbit-two"></i><i class="map-orbit orbit-three"></i>
+                <i class="map-beam beam-one"></i><i class="map-beam beam-two"></i><i class="map-beam beam-three"></i>
+                <b class="map-core"><span>✦</span></b><b class="map-dot map-dot-one"></b><b class="map-dot map-dot-two"></b><b class="map-dot map-dot-three"></b>
+                <span class="map-packet">◆</span>
+              </div>
+              <div class="phone-route-state"><span class="pulse-dot"></span><b>BLE</b><i>→</i><b>E2E</b><i>→</i><b>✓</b></div>
+              <div class="phone-nav"><i>◇</i><i>▢</i><i>○</i><i>⌁</i></div>
+            </div>
+          </div>
+          <div class="showcase-copy"><span class="showcase-index">01 / BLE</span><h3 data-i18n="showcase_map_title">Карта узлов</h3><p data-i18n="showcase_map_body">Видно состояние сети, а не лишние персональные данные.</p></div>
+        </article>
+
+        <article class="showcase-card showcase-card-chat reveal reveal-delay-short" data-tilt-card>
+          <div class="showcase-aura" aria-hidden="true"></div>
+          <div class="showcase-device-wrap" aria-hidden="true">
+            <div class="showcase-phone phone-chat-screen">
+              <div class="phone-hardware"><span>9:41</span><i></i><b>▮▮</b></div>
+              <div class="chat-appbar"><span>‹</span><b class="chat-avatar">M</b><span><strong>Mira</strong><small><i></i><span data-i18n="showcase_online">в сети</span></small></span><em>⌕</em></div>
+              <div class="chat-thread">
+                <div class="message message-in"><span class="sticker-robot"><i></i><b>◡</b></span><small>09:39</small></div>
+                <div class="message message-out"><span>☕</span><small>09:40&nbsp; ✓✓</small></div>
+                <div class="message message-in voice-message"><button type="button" tabindex="-1">▶</button><i></i><i></i><i></i><i></i><i></i><small>0:08</small></div>
+                <div class="message message-out sticker-message"><span>😄</span><small>09:41&nbsp; ✓✓</small></div>
+              </div>
+              <div class="chat-composer"><span>☺</span><i></i><b>⌁</b><em>↑</em></div>
+            </div>
+          </div>
+          <div class="showcase-copy"><span class="showcase-index">02 / CHAT</span><h3 data-i18n="showcase_chat_title">Чаты без лишнего шума</h3><p data-i18n="showcase_chat_body">Понятные статусы, группы и сохранённые материалы в одном месте.</p></div>
+        </article>
+
+        <article class="showcase-card showcase-card-profile reveal reveal-delay" data-tilt-card>
+          <div class="showcase-aura" aria-hidden="true"></div>
+          <div class="showcase-device-wrap" aria-hidden="true">
+            <div class="showcase-phone phone-profile-screen">
+              <div class="phone-hardware"><span>9:41</span><i></i><b>▮▮</b></div>
+              <div class="profile-cover"><i></i><i></i><i></i><span class="profile-orb"><b>R</b></span></div>
+              <strong class="profile-name">Roman</strong><small class="profile-status"><i></i><span data-i18n="showcase_online">в сети</span></small>
+              <div class="profile-stats"><span><b>24</b><small data-i18n="showcase_messages">сообщения</small></span><span><b>4</b><small data-i18n="showcase_groups">группы</small></span></div>
+              <div class="theme-deck"><i></i><i></i><i></i><i></i></div>
+              <div class="profile-row"><span>◈</span><span data-i18n="showcase_security">Безопасность</span><b>›</b></div>
+              <div class="profile-row"><span>⌁</span><span data-i18n="showcase_settings">Настройки</span><b>›</b></div>
+            </div>
+          </div>
+          <div class="showcase-copy"><span class="showcase-index">03 / YOU</span><h3 data-i18n="showcase_profile_title">Профиль под контролем</h3><p data-i18n="showcase_profile_body">Имя, аватар, темы и приватность не спрятаны по меню.</p></div>
+        </article>
       </div>
-     </section>
+    </section>
 
      <section id="watch" class="video-section section shell reveal">
        <div class="video-heading">
@@ -370,7 +421,7 @@
   </main>
 
   <footer class="site-footer shell"><span>© 2026 MeshGram</span><span data-i18n="footer_tagline">Связь через пространство между узлами</span><a href="#top" data-i18n="back_top">Наверх ↑</a></footer>
-  <script src="app.js?v=download-fix-3" defer></script>
+  <script src="app.js?v=showcase-3d-1" defer></script>
   <script type="module" src="world.js?v=signal-field-1"></script>
 </body>
 </html>
