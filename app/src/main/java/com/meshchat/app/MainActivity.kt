@@ -910,6 +910,80 @@ private fun rememberMeshStrings(): MeshStrings {
     return remember(language) { localizedMeshStrings(language) }
 }
 
+private data class AudioStrings(
+    val playVoice: String,
+    val pauseVoice: String,
+    val encryptedVoiceNote: String,
+    val audioUnavailable: String,
+    val preparingPreview: String,
+    val waitingForFile: String,
+    val voiceRecordingStarted: String,
+    val voiceRecordingStartFailed: String,
+    val microphonePermissionDenied: String,
+    val voiceMessageSent: String,
+    val voiceMessageSendFailed: String,
+    val voiceRecordingCanceled: String,
+    val pauseRequiresAndroidSeven: String,
+    val voiceRecordingPaused: String,
+    val voiceRecordingPauseFailed: String,
+    val voiceRecordingResumed: String,
+    val voiceRecordingResumeFailed: String
+)
+
+@Composable
+private fun rememberAudioStrings(): AudioStrings {
+    val configuration = LocalConfiguration.current
+    val language = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        configuration.locales[0]?.language
+    } else {
+        @Suppress("DEPRECATION")
+        configuration.locale?.language
+    } ?: Locale.getDefault().language
+    return remember(language) {
+        if (language.equals("ru", ignoreCase = true)) {
+            AudioStrings(
+                playVoice = "Воспроизвести голосовое",
+                pauseVoice = "Приостановить голосовое",
+                encryptedVoiceNote = "Зашифрованное голосовое",
+                audioUnavailable = "Аудио недоступно",
+                preparingPreview = "Подготовка воспроизведения...",
+                waitingForFile = "Ожидание файла",
+                voiceRecordingStarted = "Запись голосового началась",
+                voiceRecordingStartFailed = "Не удалось начать запись голосового",
+                microphonePermissionDenied = "Нет разрешения на микрофон",
+                voiceMessageSent = "Голосовое отправлено",
+                voiceMessageSendFailed = "Не удалось отправить голосовое",
+                voiceRecordingCanceled = "Запись голосового отменена",
+                pauseRequiresAndroidSeven = "Пауза доступна на Android 7 и новее",
+                voiceRecordingPaused = "Запись приостановлена",
+                voiceRecordingPauseFailed = "Не удалось приостановить запись",
+                voiceRecordingResumed = "Запись продолжена",
+                voiceRecordingResumeFailed = "Не удалось продолжить запись"
+            )
+        } else {
+            AudioStrings(
+                playVoice = "Play voice",
+                pauseVoice = "Pause voice",
+                encryptedVoiceNote = "Encrypted voice note",
+                audioUnavailable = "Audio unavailable",
+                preparingPreview = "Preparing preview...",
+                waitingForFile = "Waiting for file",
+                voiceRecordingStarted = "Voice recording started",
+                voiceRecordingStartFailed = "Failed to start voice recording",
+                microphonePermissionDenied = "Microphone permission denied",
+                voiceMessageSent = "Voice message sent",
+                voiceMessageSendFailed = "Voice message send failed",
+                voiceRecordingCanceled = "Voice recording canceled",
+                pauseRequiresAndroidSeven = "Pause requires Android 7 or newer",
+                voiceRecordingPaused = "Voice recording paused",
+                voiceRecordingPauseFailed = "Failed to pause voice recording",
+                voiceRecordingResumed = "Voice recording resumed",
+                voiceRecordingResumeFailed = "Failed to resume voice recording"
+            )
+        }
+    }
+}
+
 private fun localizedMeshStrings(language: String): MeshStrings {
     val normalized = language.lowercase(Locale.ROOT)
     val base = if (normalized == "ru") ruMeshStrings() else enMeshStrings()
@@ -2537,6 +2611,7 @@ private fun MeshTelegramScreen(
     val localContext = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val strings = rememberMeshStrings()
+    val audioStrings = rememberAudioStrings()
     val notificationPrefs = remember {
         localContext.getSharedPreferences(PREFS_NOTIFICATIONS, Context.MODE_PRIVATE)
     }
@@ -2816,9 +2891,9 @@ private fun MeshTelegramScreen(
             activeVoiceRecording = started
             voiceAmplitudeSamples = emptyList()
             voiceTickerMs = System.currentTimeMillis()
-            inviteStatusMessage = "Voice recording started"
+            inviteStatusMessage = audioStrings.voiceRecordingStarted
         } else {
-            inviteStatusMessage = "Failed to start voice recording"
+            inviteStatusMessage = audioStrings.voiceRecordingStartFailed
         }
     }
     val audioPermissionLauncher = rememberLauncherForActivityResult(
@@ -2827,7 +2902,7 @@ private fun MeshTelegramScreen(
         if (granted) {
             beginVoiceCapture()
         } else {
-            inviteStatusMessage = "Microphone permission denied"
+            inviteStatusMessage = audioStrings.microphonePermissionDenied
         }
     }
     val toggleVoiceRecording = {
@@ -2851,12 +2926,12 @@ private fun MeshTelegramScreen(
                     val sent = onSendVoice(Uri.fromFile(recordedFile))
                     if (sent) {
                         runCatching { recordedFile.delete() }
-                        inviteStatusMessage = "Voice message sent"
+                        inviteStatusMessage = audioStrings.voiceMessageSent
                     } else {
-                        inviteStatusMessage = "Voice message send failed"
+                        inviteStatusMessage = audioStrings.voiceMessageSendFailed
                     }
                 } else {
-                    inviteStatusMessage = "Voice recording canceled"
+                    inviteStatusMessage = audioStrings.voiceRecordingCanceled
                 }
             }
         }
@@ -2867,13 +2942,13 @@ private fun MeshTelegramScreen(
         voiceAmplitudeSamples = emptyList()
         if (current != null) {
             finishVoiceCapture(current, keepFile = false)
-            inviteStatusMessage = "Voice recording canceled"
+            inviteStatusMessage = audioStrings.voiceRecordingCanceled
         }
     }
     val pauseOrResumeVoiceRecording = pauseResume@{
         val current = activeVoiceRecording ?: return@pauseResume
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            inviteStatusMessage = "Pause requires Android 7 or newer"
+            inviteStatusMessage = audioStrings.pauseRequiresAndroidSeven
             return@pauseResume
         }
         val now = System.currentTimeMillis()
@@ -2884,9 +2959,9 @@ private fun MeshTelegramScreen(
             }.getOrDefault(false)
             if (paused) {
                 activeVoiceRecording = current.copy(pausedAtMs = now)
-                inviteStatusMessage = "Voice recording paused"
+                inviteStatusMessage = audioStrings.voiceRecordingPaused
             } else {
-                inviteStatusMessage = "Failed to pause voice recording"
+                inviteStatusMessage = audioStrings.voiceRecordingPauseFailed
             }
         } else {
             val resumed = runCatching {
@@ -2900,9 +2975,9 @@ private fun MeshTelegramScreen(
                     pausedAtMs = null
                 )
                 voiceTickerMs = now
-                inviteStatusMessage = "Voice recording resumed"
+                inviteStatusMessage = audioStrings.voiceRecordingResumed
             } else {
-                inviteStatusMessage = "Failed to resume voice recording"
+                inviteStatusMessage = audioStrings.voiceRecordingResumeFailed
             }
         }
     }
@@ -9093,6 +9168,7 @@ private fun VoiceWaveform(
 @Composable
 private fun InlineAudioPlayer(message: ChatMessage) {
     val localContext = LocalContext.current
+    val strings = rememberAudioStrings()
     val controller = remember(message.id, message.attachment?.transferId) {
         SharedAudioController(localContext)
     }
@@ -9161,7 +9237,7 @@ private fun InlineAudioPlayer(message: ChatMessage) {
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause voice" else "Play voice",
+                        contentDescription = if (isPlaying) strings.pauseVoice else strings.playVoice,
                         tint = Color.White
                     )
                 }
@@ -9169,7 +9245,7 @@ private fun InlineAudioPlayer(message: ChatMessage) {
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Encrypted voice note",
+                    text = strings.encryptedVoiceNote,
                     style = MaterialTheme.typography.titleMedium,
                     color = TgDayPalette.actionBarTitle
                 )
@@ -9189,9 +9265,9 @@ private fun InlineAudioPlayer(message: ChatMessage) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = when {
-                            playbackState.error -> "Audio unavailable"
-                            playbackState.resolving -> "Preparing preview..."
-                            !previewReady -> "Waiting for file"
+                            playbackState.error -> strings.audioUnavailable
+                            playbackState.resolving -> strings.preparingPreview
+                            !previewReady -> strings.waitingForFile
                             else -> {
                                 "${audioTime(positionMs)} / ${audioTime(durationMs)}"
                             }
