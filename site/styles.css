@@ -96,13 +96,3 @@ body:before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;opa
   .roadmap-track{gap:18px}.roadmap-item{min-height:74px}.faq-list summary{padding:17px 3px}.faq-list details p{padding-bottom:17px}
   .project-links{padding-top:18px}.site-footer{padding-bottom:max(28px,env(safe-area-inset-bottom))}
 }
-
-@supports(content-visibility:auto){
-  main>.section,main>.quote-section,main>.download-section,main>.release-section{content-visibility:auto;contain-intrinsic-size:auto 720px}
-}
-
-@media(max-width:800px){
-  @supports(content-visibility:auto){
-    main>.section,main>.quote-section,main>.download-section,main>.release-section{contain-intrinsic-size:auto 520px}
-  }
-}

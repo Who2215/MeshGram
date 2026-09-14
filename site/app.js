@@ -79,6 +79,22 @@
   }
   const initialLanguage = storedLanguage();
   applyLanguage(initialLanguage);
+  function restoreInitialAnchor() {
+    if (!window.location.hash) return;
+    let targetId;
+    try { targetId = decodeURIComponent(window.location.hash.slice(1)); } catch (_) { return; }
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const root = document.documentElement;
+    const previousBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    target.scrollIntoView({ block: 'start' });
+    root.style.scrollBehavior = previousBehavior;
+  }
+  window.addEventListener('load', () => {
+    requestAnimationFrame(() => requestAnimationFrame(restoreInitialAnchor));
+    if (document.fonts?.ready) document.fonts.ready.then(restoreInitialAnchor).catch(() => {});
+  }, { once: true });
   const languageSelect = document.getElementById('language-select');
   if (languageSelect) languageSelect.addEventListener('change', () => { const next = languageSelect.value; try { localStorage.setItem('meshgram-language', next); } catch (_) {} applyLanguage(next); });
 
@@ -144,7 +160,16 @@
       });
     });
   }
-  let stars = [], width = 0, height = 0, pixelRatio = 1;
+  if ('IntersectionObserver' in window) {
+    const motionObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => entry.target.classList.toggle('animation-offscreen', !entry.isIntersecting));
+    }, { rootMargin: '140px 0px' });
+    document.querySelectorAll('[data-motion-region]').forEach((region) => {
+      region.classList.add('animation-offscreen');
+      motionObserver.observe(region);
+    });
+  }
+  let stars = [], width = 0, height = 0, pixelRatio = 1, lastStarFrame = 0;
   function resize() {
     if (!canvas || !context) return;
     pixelRatio = Math.min(window.devicePixelRatio || 1, 2); width = window.innerWidth; height = window.innerHeight;
@@ -154,6 +179,11 @@
   }
   function draw(time) {
     if (!canvas || !context) return;
+    if (!reduceMotion.matches && time - lastStarFrame < 33) {
+      requestAnimationFrame(draw);
+      return;
+    }
+    lastStarFrame = time;
     context.clearRect(0, 0, width, height);
     stars.forEach((star) => { if (!reduceMotion.matches) { star.x += star.drift; if (star.x < -4) star.x = width + 4; if (star.x > width + 4) star.x = -4; } const pulse = reduceMotion.matches ? 1 : .72 + Math.sin(time * star.speed + star.phase) * .28; const alpha = star.alpha * pulse; const color = star.tint === 'cyan' ? '82,231,255' : star.tint === 'pink' ? '243,91,216' : '222,231,255'; context.beginPath(); context.fillStyle = `rgba(${color},${alpha})`; context.shadowBlur = star.radius > 1 ? 10 : 0; context.shadowColor = `rgba(${color},${alpha})`; context.arc(star.x, star.y, star.radius * (star.tint === 'white' ? 1 : 1.2), 0, Math.PI * 2); context.fill(); });
     context.shadowBlur = 0; if (!reduceMotion.matches) requestAnimationFrame(draw);

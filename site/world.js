@@ -267,6 +267,7 @@ function boot() {
 
   let active = !reduced.matches;
   let pageVisible = !document.hidden;
+  let worldVisible = true;
   let scrollProgress = 0;
   let frame = 0;
   const resize = () => {
@@ -290,7 +291,7 @@ function boot() {
     root.querySelectorAll('.world-chapters a').forEach((link) => link.toggleAttribute('aria-current', link.getAttribute('href') === `#${current?.id}`));
   };
   const scheduleRender = () => {
-    if (!frame && active && pageVisible && !reduced.matches) frame = requestAnimationFrame(render);
+    if (!frame && active && pageVisible && worldVisible && !reduced.matches) frame = requestAnimationFrame(render);
   };
   const render = (time = 0) => {
     frame = 0;
@@ -345,8 +346,22 @@ function boot() {
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(canvas);
   }
+  if ('IntersectionObserver' in window) {
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      worldVisible = entry.isIntersecting;
+      root.dataset.worldRunning = String(active && pageVisible && worldVisible && !reduced.matches);
+      if (!worldVisible && frame) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      } else {
+        scheduleRender();
+      }
+    }, { rootMargin: '160px 0px' });
+    visibilityObserver.observe(root);
+  }
   document.addEventListener('visibilitychange', () => {
     pageVisible = !document.hidden;
+    root.dataset.worldRunning = String(active && pageVisible && worldVisible && !reduced.matches);
     if (!pageVisible && frame) {
       cancelAnimationFrame(frame);
       frame = 0;
@@ -358,6 +373,7 @@ function boot() {
     const copy = worldCopy[language()];
     toggle.setAttribute('aria-pressed', String(active));
     status.textContent = active ? (liveCopy[language()] || copy.static) : copy.static;
+    root.dataset.worldRunning = String(active && pageVisible && worldVisible && !reduced.matches);
   };
   resize(); root.dataset.worldState = 'ready'; toggle.hidden = reduced.matches;
   toggle.setAttribute('aria-label', worldCopy[language()].motion);
