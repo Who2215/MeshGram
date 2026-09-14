@@ -95,7 +95,7 @@ function boot() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x050816, 0.038);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-  camera.position.set(5.8, 3.5, 9.4);
+  camera.position.set(compactDisplay.matches ? .15 : 5.8, compactDisplay.matches ? 3.15 : 3.5, compactDisplay.matches ? 11.4 : 9.4);
   const city = new THREE.Group();
   scene.add(city);
 

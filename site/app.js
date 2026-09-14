@@ -1,6 +1,6 @@
 (function () {
   const en = {
-    nav_aria: 'Main navigation', nav_demo: 'Demo', nav_how: 'How it works', nav_security: 'Privacy', nav_releases: 'Releases', nav_download: 'Download', nav_channel: 'Telegram', nav_try: 'Try it', language_label: 'Language', menu_label: 'Open menu',
+    nav_aria: 'Main navigation', nav_demo: 'Demo', nav_how: 'How it works', nav_security: 'Privacy', nav_releases: 'Releases', nav_download: 'Download', nav_channel: 'Telegram', nav_try: 'Try it', language_label: 'Language', menu_label: 'Open menu', menu_close: 'Close menu', skip_content: 'Skip to content', brand_home: 'MeshGram, home', showcase_pager: 'App preview cards', showcase_page_map: 'Show node map', showcase_page_chat: 'Show chats', showcase_page_profile: 'Show profile',
     hero_eyebrow: 'Next-generation mesh connection', hero_title: 'Messages find', hero_title_em: 'their way.', hero_slogan: 'Tired of choosing a VPN? MeshGram finds the route.', hero_lead: 'MeshGram connects people through nearby devices over BLE and uses an encrypted internet fallback for long-distance routes.', hero_download: 'Download MeshGram', hero_explore: 'Understand it in a minute', trust_android: 'Android 6+', trust_encryption: 'E2E encryption', latest_release: 'Latest release',
     signal_1: 'We look for<br>the nearest BLE route', signal_2: 'If it is unavailable,<br>we use a relay', signal_3: 'The content stays<br>encrypted', demo_eyebrow: 'See the packet in motion', demo_title: 'Not just sending.', demo_title_em: 'A smart route.', demo_control_kicker: 'Interactive scheme', demo_control_title: 'Choose the distance', demo_control_body: 'This scheme shows the routing principle. It is an interface demo, not a map of real users.', demo_near_title: 'Nearby', demo_near_body: 'BLE mesh', demo_far_title: 'Far away', demo_far_body: 'encrypted fallback', demo_legend_ble: 'local BLE route', demo_legend_internet: 'distant internet fallback', network_eyebrow: 'Live network scheme', network_title: 'Nodes see the route,', network_title_em: 'not the content.', network_demo_label: 'Demo mode', network_caption_title: 'Routes keep changing', network_caption_body: 'nodes join and leave while the packet chooses an available path', how_eyebrow: 'Route under control', how_title: 'Do not choose between', how_title_em: 'near', how_title_tail: 'and far.', flow_eyebrow: 'What happens to a message', flow_title: 'One recipient. Several possible routes.', flow_lead: 'MeshGram never sends a message in plain text. It finds a suitable path, forwards an encrypted packet, and checks that it reached the intended recipient.', flow_find_title: 'Find our own nodes', flow_find_body: 'The phone scans the BLE air and sees only devices that participate in MeshGram. Unrelated phones never become hidden relays.', flow_wrap_title: 'Seal the packet', flow_wrap_body: 'Text and files are encrypted for the exact recipient. A relay sees technical data, TTL, and routing information, not the content.', flow_deliver_title: 'Deliver precisely', flow_deliver_body: 'Nearby packets use BLE mesh. When the recipient is far away or there are too few nodes, encrypted internet fallback can be used if the user allows it.', flow_note_title: 'About distance', flow_note_body: ' BLE cannot create a kilometre-scale link by itself: a long route requires real MeshGram nodes or an internet fallback.', feature_ble_title: 'BLE priority', feature_ble_body: 'When MeshGram devices are nearby, messages use the local mesh network. The app does not disable internet on your phone or interfere with other apps.', feature_crypto_title: 'Only participants can read', feature_crypto_body: 'Frames pass through nodes like encrypted envelopes. A relay sees only a technical packet, never the text or files.', feature_storage_title: 'Local storage', feature_storage_body: 'History and delivery queues stay in protected device storage. Encrypted export is available for migration.',
     trust_eyebrow: 'Trust center', trust_title: 'Privacy without', trust_title_em: 'magic promises.', trust_card_title: 'A model you can verify', trust_card_body: 'We separate what already works from what is still being built. The site makes no claims of being impossible to hack and does not promise hidden relays through unrelated phones.', permission_ble_title: 'BLE', permission_ble_body: 'For finding and connecting to nearby MeshGram nodes.', permission_storage_title: 'Storage', permission_storage_body: 'For local history, queues, and attachments.', permission_internet_title: 'Internet', permission_internet_body: 'Only as an allowed fallback route for distant contacts.', permission_keys_title: 'Keys', permission_keys_body: 'Cryptographic keys and release verification protect the recipient.', showcase_eyebrow: 'Inside the app', showcase_title: 'Technology you', showcase_title_em: 'enjoy opening.', showcase_map: 'Live map', showcase_nodes: 'nodes', showcase_route: 'route', showcase_map_title: 'Node map', showcase_map_body: 'See network status without exposing unnecessary personal data.', showcase_chat_title: 'Chats without noise', showcase_chat_body: 'Clear statuses, groups, and saved materials in one place.', showcase_online: 'online', showcase_messages: 'messages', showcase_groups: 'groups', showcase_security: 'Security', showcase_settings: 'Settings', showcase_profile_title: 'Your profile, in control', showcase_profile_body: 'Name, avatar, themes, and privacy are not hidden across menus.',
@@ -29,7 +29,7 @@
   const coreKeys = ['nav_aria', 'nav_how', 'nav_security', 'nav_releases', 'nav_download', 'nav_try', 'language_label', 'hero_eyebrow', 'hero_title', 'hero_title_em', 'hero_slogan', 'hero_download', 'latest_release', 'trust_encryption', 'updates_feedback', 'creator_kicker', 'creator_title', 'creator_button', 'back_top'];
   const translations = { en, ru };
   Object.assign(ru, {
-    nav_demo: 'Демо', menu_label: 'Открыть меню',
+    nav_demo: 'Демо', menu_label: 'Открыть меню', menu_close: 'Закрыть меню', skip_content: 'Перейти к содержимому', brand_home: 'MeshGram, на главную', showcase_pager: 'Карточки приложения', showcase_page_map: 'Показать карту узлов', showcase_page_chat: 'Показать чаты', showcase_page_profile: 'Показать профиль',
     demo_eyebrow: 'Посмотри, как идёт пакет', demo_title: 'Не просто отправка.', demo_title_em: 'Умный маршрут.', demo_control_kicker: 'Интерактивная схема', demo_control_title: 'Выбери расстояние', demo_control_body: 'Схема показывает принцип маршрутизации. Это демонстрация интерфейса, а не карта реальных пользователей.', demo_near_title: 'Рядом', demo_near_body: 'BLE mesh', demo_far_title: 'Далеко', demo_far_body: 'зашифрованный резерв', demo_legend_ble: 'локальный BLE-маршрут', demo_legend_internet: 'дальний интернет-резерв',
     network_eyebrow: 'Живая схема сети', network_title: 'Узлы видят маршрут,', network_title_em: 'а не содержимое.', network_demo_label: 'Демонстрационный режим', network_caption_title: 'Маршруты меняются', network_caption_body: 'узлы подключаются и отключаются, а пакет выбирает доступный путь',
     trust_eyebrow: 'Центр доверия', trust_title: 'Приватность без', trust_title_em: 'магических обещаний.', trust_card_title: 'Проверяемая модель', trust_card_body: 'Мы разделяем то, что уже работает, и то, что находится в разработке. На сайте нет обещаний «невзламываемости» и скрытой передачи через чужие телефоны.', permission_ble_title: 'BLE', permission_ble_body: 'Для поиска и связи с узлами MeshGram поблизости.', permission_storage_title: 'Хранилище', permission_storage_body: 'Для локальной истории, очереди и вложений.', permission_internet_title: 'Интернет', permission_internet_body: 'Только как разрешённый резервный маршрут для дальних контактов.', permission_keys_title: 'Ключи', permission_keys_body: 'Криптографические ключи и проверка релиза защищают адресата.',
@@ -95,8 +95,9 @@
     requestAnimationFrame(() => requestAnimationFrame(restoreInitialAnchor));
     if (document.fonts?.ready) document.fonts.ready.then(restoreInitialAnchor).catch(() => {});
   }, { once: true });
+  let setMenuOpen = () => {};
   const languageSelect = document.getElementById('language-select');
-  if (languageSelect) languageSelect.addEventListener('change', () => { const next = languageSelect.value; try { localStorage.setItem('meshgram-language', next); } catch (_) {} applyLanguage(next); });
+  if (languageSelect) languageSelect.addEventListener('change', () => { const next = languageSelect.value; try { localStorage.setItem('meshgram-language', next); } catch (_) {} applyLanguage(next); activateDemoRoute(demoStage?.dataset.route || 'ble'); if (siteNav?.classList.contains('is-open')) setMenuOpen(true); });
 
   const canvas = document.getElementById('starfield');
   const context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
@@ -105,22 +106,27 @@
   const menuToggle = document.getElementById('menu-toggle');
   const siteNav = document.getElementById('site-nav');
   if (menuToggle && siteNav) {
-    menuToggle.addEventListener('click', () => {
-      const open = siteNav.classList.toggle('is-open');
+    const menuText = menuToggle.querySelector('.sr-only');
+    setMenuOpen = (open) => {
+      siteNav.classList.toggle('is-open', open);
       menuToggle.setAttribute('aria-expanded', String(open));
       document.body.classList.toggle('menu-open', open);
+      const dictionary = translations[effectiveLanguage(storedLanguage())] || en;
+      if (menuText) menuText.textContent = open ? dictionary.menu_close : dictionary.menu_label;
+    };
+    menuToggle.addEventListener('click', () => setMenuOpen(!siteNav.classList.contains('is-open')));
+    siteNav.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setMenuOpen(false)));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && siteNav.classList.contains('is-open')) { setMenuOpen(false); menuToggle.focus(); }
     });
-    siteNav.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
-      siteNav.classList.remove('is-open'); menuToggle.setAttribute('aria-expanded', 'false'); document.body.classList.remove('menu-open');
-    }));
   }
   const demoStage = document.getElementById('demo-stage');
   const demoPacket = document.getElementById('demo-packet');
   const demoStatus = document.getElementById('demo-status-text');
   const demoOptions = document.querySelectorAll('.demo-option');
   const demoLabels = {
-    ble: { en: 'BLE mesh • nearby route', ru: 'BLE mesh • маршрут рядом' },
-    internet: { en: 'Encrypted fallback • distant route', ru: 'Зашифрованный резерв • дальний маршрут' }
+    ble: { en: 'BLE mesh • nearby route', ru: 'BLE mesh • маршрут рядом', es: 'BLE mesh • ruta cercana', de: 'BLE mesh • Route in der Nähe', fr: 'BLE mesh • itinéraire proche', pt: 'BLE mesh • rota próxima', it: 'BLE mesh • percorso vicino', tr: 'BLE mesh • yakın rota', zh: 'BLE mesh • 近距离路线', ja: 'BLE mesh • 近距離ルート', ko: 'BLE mesh • 근거리 경로', ar: 'BLE mesh • مسار قريب', hi: 'BLE mesh • नज़दीकी मार्ग' },
+    internet: { en: 'Encrypted fallback • distant route', ru: 'Зашифрованный резерв • дальний маршрут', es: 'Reserva cifrada • ruta lejana', de: 'Verschlüsselter Ersatzweg • Fernroute', fr: 'Relais chiffré • itinéraire distant', pt: 'Reserva cifrada • rota distante', it: 'Fallback cifrato • percorso distante', tr: 'Şifreli yedek • uzak rota', zh: '加密备用路线 • 远距离', ja: '暗号化された予備経路 • 遠距離', ko: '암호화 백업 • 원거리 경로', ar: 'مسار احتياطي مشفّر • بعيد', hi: 'एन्क्रिप्टेड बैकअप • दूर का मार्ग' }
   };
   function activateDemoRoute(route) {
     if (!demoStage || !demoPacket) return;
@@ -160,6 +166,29 @@
       });
     });
   }
+  const showcaseGrid = document.querySelector('.showcase-grid');
+  const showcaseCards = showcaseGrid ? Array.from(showcaseGrid.querySelectorAll('.showcase-card')) : [];
+  const showcasePages = Array.from(document.querySelectorAll('[data-showcase-page]'));
+  function setShowcasePage(index, shouldScroll) {
+    const safeIndex = Math.max(0, Math.min(showcaseCards.length - 1, index));
+    showcasePages.forEach((button, buttonIndex) => {
+      const active = buttonIndex === safeIndex;
+      button.classList.toggle('is-active', active);
+      if (active) button.setAttribute('aria-current', 'true'); else button.removeAttribute('aria-current');
+    });
+    if (shouldScroll && showcaseGrid && showcaseCards[safeIndex]) {
+      const left = showcaseCards[safeIndex].offsetLeft - showcaseCards[0].offsetLeft;
+      showcaseGrid.scrollTo({ left, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+    }
+  }
+  showcasePages.forEach((button) => button.addEventListener('click', () => setShowcasePage(Number(button.dataset.showcasePage), true)));
+  if (showcaseGrid && showcaseCards.length && 'IntersectionObserver' in window) {
+    const cardObserver = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) setShowcasePage(showcaseCards.indexOf(visible.target), false);
+    }, { root: showcaseGrid, threshold: [.55, .75] });
+    showcaseCards.forEach((card) => cardObserver.observe(card));
+  }
   if ('IntersectionObserver' in window) {
     const motionObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => entry.target.classList.toggle('animation-offscreen', !entry.isIntersecting));
@@ -179,6 +208,7 @@
   }
   function draw(time) {
     if (!canvas || !context) return;
+    if (document.hidden) { requestAnimationFrame(draw); return; }
     if (!reduceMotion.matches && time - lastStarFrame < 33) {
       requestAnimationFrame(draw);
       return;

@@ -3,7 +3,7 @@
 .world-skip:focus{transform:none}
 :focus-visible{outline:2px solid var(--cyan);outline-offset:5px}
 body{background:radial-gradient(ellipse at 82% 8%,#122d45 0,transparent 44%),radial-gradient(ellipse at 18% 72%,#281138 0,transparent 38%),var(--ink)}
-.site-header{position:relative;z-index:20}
+.site-header{position:sticky;top:0;z-index:20}
 .world-journey{position:relative;isolation:isolate;margin-bottom:90px;--world-progress:0}
 .world-stage{position:sticky;top:0;height:100vh;height:100svh;width:100%;margin-bottom:-100vh;margin-bottom:-100svh;overflow:hidden;z-index:-1;background:radial-gradient(circle at 68% 42%,#0f2f48 0,transparent 21%),radial-gradient(circle at 75% 68%,#30123f 0,transparent 26%),linear-gradient(145deg,#050714,#080d20 54%,#090617);pointer-events:none}
 .world-stage:before{content:'';position:absolute;z-index:1;inset:-35%;background:conic-gradient(from 210deg at 62% 52%,transparent 0 28%,rgba(82,231,255,.075) 34%,transparent 42% 62%,rgba(243,91,216,.065) 69%,transparent 77%);filter:blur(24px);animation:signal-haze 24s ease-in-out infinite alternate;pointer-events:none}
@@ -15,7 +15,7 @@ body{background:radial-gradient(ellipse at 82% 8%,#122d45 0,transparent 44%),rad
 [data-world-state="ready"] .world-fallback{visibility:hidden}
 .world-vignette{background:linear-gradient(90deg,rgba(7,10,22,.95),rgba(7,10,22,.73) 28%,rgba(7,10,22,.12) 60%,transparent),linear-gradient(0deg,#070a16 0,transparent 20%,transparent 85%,rgba(7,10,22,.5))}
 .world-coordinate{position:absolute;bottom:8%;right:5%;color:#83b9c8;letter-spacing:.15em;font:10px/1.8 MeshManrope,sans-serif;opacity:.75}
-.world-toolbar{position:sticky;top:16px;z-index:12;width:min(1160px,calc(100% - 56px));margin:0 auto;height:58px;display:flex;justify-content:space-between;align-items:start;gap:12px}
+.world-toolbar{position:sticky;top:102px;z-index:12;width:min(1160px,calc(100% - 56px));margin:0 auto;height:58px;display:flex;justify-content:space-between;align-items:start;gap:12px}
 .world-chapters{display:flex;gap:4px;padding:5px;border:1px solid #254550;background:rgba(7,10,22,.94);border-radius:30px}
 .world-chapters a{display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:24px;font-size:11px;color:#b6bfd5;min-height:40px}
 .world-chapters b{color:var(--cyan);font-size:10px;letter-spacing:.1em}
@@ -27,7 +27,7 @@ body{background:radial-gradient(ellipse at 82% 8%,#122d45 0,transparent 44%),rad
 .world-switch:after{content:'';display:block;width:8px;height:8px;border-radius:50%;background:#8e98b1}
 .world-toggle[aria-pressed="true"] .world-switch{border-color:var(--cyan)}
 .world-toggle[aria-pressed="true"] .world-switch:after{background:var(--cyan);transform:translateX(10px)}
-.world-chapter{position:relative;display:flex;align-items:center;min-height:105vh;min-height:105svh;padding-block:110px;scroll-margin-top:76px}
+.world-chapter{position:relative;display:flex;align-items:center;min-height:105vh;min-height:105svh;padding-block:110px;scroll-margin-top:166px}
 .world-chapter.hero{min-height:calc(100svh - 90px);padding-top:60px;gap:0}
 .world-chapter .hero-copy,.world-copy{width:min(530px,48%);position:relative}
 .world-chapter h1,.world-chapter h2{font-size:clamp(46px,5.2vw,76px);font-weight:650;letter-spacing:-.055em;line-height:1.04;margin:20px 0 26px;overflow-wrap:anywhere}
@@ -68,7 +68,7 @@ body{background:radial-gradient(ellipse at 82% 8%,#122d45 0,transparent 44%),rad
 @media(max-width:1000px){.world-chapter .hero-copy,.world-copy{width:55%}.world-chapters a{padding:9px 12px}.world-chapters span{display:none}.world-vignette{background:linear-gradient(90deg,#070a16ee,#070a1680 48%,transparent),linear-gradient(0deg,#070a16,transparent 40%)}.world-chapter h1,.world-chapter h2{font-size:clamp(42px,6.3vw,64px)}}
 @media(max-width:800px){
   .world-journey{margin-bottom:42px}
-  .world-toolbar{width:calc(100% - 24px);top:8px;height:48px;gap:7px}
+  .world-toolbar{width:calc(100% - 24px);top:82px;height:48px;gap:7px}
   .world-chapters{position:relative;flex:1;justify-content:space-between;gap:0;padding:4px;overflow:hidden;border-radius:18px}
   .world-chapters:after{content:'';position:absolute;left:5px;bottom:2px;width:calc((100% - 10px)*var(--world-progress));height:2px;border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--pink),var(--lime));box-shadow:0 0 12px var(--cyan);transition:width .18s linear}
   .world-chapters a{flex:1;justify-content:center;min-width:0;min-height:36px;padding:6px;border-radius:13px}
@@ -76,7 +76,7 @@ body{background:radial-gradient(ellipse at 82% 8%,#122d45 0,transparent 44%),rad
   .world-toggle{min-width:44px;min-height:44px;justify-content:center;gap:0;padding:8px;border-radius:17px}
   .world-toggle>[data-world-text="motion"]{display:none}
   .world-chapter.shell{width:calc(100% - 28px);display:flex;align-items:flex-end;min-height:62svh;padding:84px 0 26px}
-  .world-chapter.hero{min-height:calc(88svh - 74px);padding-top:18svh;padding-bottom:28px}
+  .world-chapter.hero{align-items:center;min-height:calc(88svh - 74px);padding-top:clamp(56px,8svh,72px);padding-bottom:24px}
   .world-chapter .hero-copy,.world-copy{width:100%;max-width:520px;padding:18px;border:1px solid rgba(82,231,255,.2);border-radius:22px;background:linear-gradient(145deg,rgba(13,22,42,.88),rgba(12,10,31,.76));box-shadow:0 18px 55px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.035);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);text-shadow:none}
   .world-chapter .hero-copy:before,.world-copy:before{content:'';position:absolute;inset:9px auto 9px -1px;width:2px;border-radius:2px;background:linear-gradient(180deg,transparent,var(--cyan),var(--pink),transparent);box-shadow:0 0 15px var(--cyan)}
   #relay .world-copy{border-color:rgba(243,91,216,.25)}
@@ -94,7 +94,7 @@ body{background:radial-gradient(ellipse at 82% 8%,#122d45 0,transparent 44%),rad
   .world-coordinate,.world-scene-label{display:none}
   .world-status{padding-block:12px;font-size:9px}
   .world-static .world-chapter{min-height:auto;padding:74px 0 22px}
-  .world-static .world-chapter.hero{padding-top:18svh;min-height:82svh}
+  .world-static .world-chapter.hero{padding-top:clamp(56px,8svh,72px);min-height:82svh}
   [dir="rtl"] .world-scene-label{left:auto;right:0}
 }
 @media(prefers-reduced-motion:reduce){#mesh-world{transition:none}html:focus-within{scroll-behavior:auto}.world-chapter{min-height:75svh}}

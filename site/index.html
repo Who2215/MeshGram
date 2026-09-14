@@ -4,22 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080b19">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://77-233-213-107.sslip.io; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
   <meta name="description" id="meta-description" content="MeshGram — защищённый мессенджер с BLE mesh и интернет-fallback.">
   <meta property="og:title" id="meta-og-title" content="MeshGram — связь без границ">
   <meta property="og:description" id="meta-og-description" content="Сначала BLE. Интернет только как резервный маршрут для дальних контактов.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://who2215.github.io/MeshGram/">
   <title id="page-title">MeshGram | Связь без границ</title>
+  <link rel="canonical" href="https://who2215.github.io/MeshGram/">
   <link rel="icon" href="assets/meshgram-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=polish-1">
-  <link rel="stylesheet" href="showcase.css?v=immersive-3">
-  <link rel="stylesheet" href="world.css?v=signal-field-1">
+  <link rel="preload" href="assets/Manrope.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="styles.css?v=20260914b">
+  <link rel="stylesheet" href="showcase.css?v=20260914b">
+  <link rel="stylesheet" href="world.css?v=20260914a">
 </head>
 <body>
-  <a class="world-skip" href="#download" data-i18n="nav_download">Скачать</a>
+  <a class="world-skip" href="#sender" data-i18n="skip_content">Перейти к содержимому</a>
   <div class="aurora aurora-cyan" aria-hidden="true"></div>
   <div class="aurora aurora-magenta" aria-hidden="true"></div>
 
   <header class="site-header shell">
-    <a class="brand" href="#top" aria-label="MeshGram, на главную">
+    <a class="brand" href="#top" aria-label="MeshGram, на главную" data-i18n-aria-label="brand_home">
       <img src="assets/meshgram-mark.svg" alt="" width="42" height="42">
       <span>Mesh<span>Gram</span></span>
     </a>
@@ -34,7 +41,7 @@
     <div class="header-actions">
       <label class="language-control">
         <span class="sr-only" data-i18n="language_label">Язык</span>
-        <select id="language-select" aria-label="Язык">
+        <select id="language-select" aria-label="Язык" data-i18n-aria-label="language_label">
           <option value="auto">Auto</option>
           <option value="ru">Русский</option>
           <option value="en">English</option>
@@ -89,7 +96,7 @@
         <div class="release-badge" id="release-badge">
           <span class="release-badge-dot"></span>
           <span data-i18n="latest_release">Последний релиз</span>
-          <strong id="release-badge-version">MeshGram 1.0.8</strong>
+          <strong id="release-badge-version">MeshGram 1.0.27</strong>
         </div>
       </div>
 
@@ -307,6 +314,11 @@
           <div class="showcase-copy"><span class="showcase-index">03 / YOU</span><h3 data-i18n="showcase_profile_title">Профиль под контролем</h3><p data-i18n="showcase_profile_body">Имя, аватар, темы и приватность не спрятаны по меню.</p></div>
         </article>
       </div>
+      <div class="showcase-pager" aria-label="Карточки приложения" data-i18n-aria-label="showcase_pager">
+        <button class="is-active" type="button" data-showcase-page="0" aria-current="true" aria-label="Показать карту узлов" data-i18n-aria-label="showcase_page_map"><span></span></button>
+        <button type="button" data-showcase-page="1" aria-label="Показать чаты" data-i18n-aria-label="showcase_page_chat"><span></span></button>
+        <button type="button" data-showcase-page="2" aria-label="Показать профиль" data-i18n-aria-label="showcase_page_profile"><span></span></button>
+      </div>
     </section>
 
      <section id="watch" class="video-section section shell reveal">
@@ -331,9 +343,9 @@
       <div class="download-panel">
         <div>
           <p class="eyebrow" data-i18n="current_release">Текущий релиз</p>
-          <h2>MeshGram <em id="release-version">1.0.14</em></h2>
+          <h2>MeshGram <em id="release-version">1.0.27</em></h2>
           <p class="download-copy" id="release-description" data-i18n="download_description">Гибридная маршрутизация BLE-first, fallback relay, живой фон и адаптивный интерфейс для Android 6 и новее.</p>
-          <div class="download-meta"><span>APK</span><span id="release-size">16.9 MB</span><span id="release-sha" title="94415e6cca8d8a91ba85ac1170b9aaa378f69b65f8abb4a872590fda10f61bf3">SHA-256: 94415e6c...61bf3</span></div>
+          <div class="download-meta"><span>APK</span><span id="release-size">19.2 MB</span><span id="release-sha" title="03cd9f2035629e754acd5d409e1a4756083e6611a80f509001ec4109284b3e23">SHA-256: 03cd9f20...3e23</span></div>
         </div>
         <a class="button button-primary button-download" id="download-link" href="https://github.com/Who2215/MeshGram/releases/download/v1.0.27/MeshGram-v127-release.apk" download><span data-i18n="download_apk">Скачать APK</span> <span>↓</span></a>
       </div>
@@ -383,18 +395,19 @@
       <div class="release-grid">
         <article class="release-card release-card-main">
           <div class="release-card-top"><span class="release-kicker" data-i18n="whats_new">Что нового</span><span class="release-live"><i></i> live</span></div>
-          <h3 id="release-notes-title">MeshGram 1.0.11</h3>
+          <h3 id="release-notes-title">MeshGram 1.0.27</h3>
           <ul class="release-notes" id="release-notes-list">
-            <li>Подписанный GitHub-манифест обновлений</li>
-            <li>Проверка обновлений прямо в настройках</li>
-            <li>Полированная адаптивная страница релиза</li>
+            <li>Автоматическая маршрутизация: прямой BLE и relay как резервный путь</li>
+            <li>Очередь сообщений запускается сразу после готовности маршрута</li>
+            <li>Ссылки-приглашения открывают MeshGram напрямую</li>
+            <li>Подписанный релиз с сохранением данных при обновлении</li>
           </ul>
         </article>
         <article class="release-card release-card-side">
           <span class="release-kicker" data-i18n="verifiable_file">Проверяемый файл</span>
           <div class="hash-visual"><span></span><span></span><span></span><span></span><span></span><span></span></div>
           <p data-i18n="verifiable_body">APK публикуется вместе с SHA-256 и манифестом. Приложение принимает только проверенную версию.</p>
-          <code id="release-hash">eb96de50...d7927d4</code>
+          <code id="release-hash">03cd9f20...3e23</code>
         </article>
       </div>
     </section>
@@ -421,8 +434,8 @@
   </main>
 
   <footer class="site-footer shell"><span>© 2026 MeshGram</span><span data-i18n="footer_tagline">Связь через пространство между узлами</span><a href="#top" data-i18n="back_top">Наверх ↑</a></footer>
-  <script src="app.js?v=site-polish-5" defer></script>
-  <script type="module" src="world.js?v=signal-field-2"></script>
+  <script src="app.js?v=20260914b" defer></script>
+  <script type="module" src="world.js?v=20260914b"></script>
 </body>
 </html>
 
