@@ -19,8 +19,8 @@ android {
         applicationId = "com.meshchat.app"
         minSdk = 23
         targetSdk = 35
-        versionCode = 127
-        versionName = "1.0.27"
+        versionCode = 132
+        versionName = "1.0.32"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

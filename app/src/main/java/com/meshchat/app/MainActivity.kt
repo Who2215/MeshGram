@@ -2047,7 +2047,7 @@ private fun MeshApp(
                 friendActions = FriendActions(viewModel::setDiscoverable, viewModel::createFriendInvite,
                     viewModel::previewFriendInvite, viewModel::requestFriendInvite,
                     viewModel::requestNearbyFriend, viewModel::acceptFriend,
-                    viewModel::declineFriend, viewModel::revokeFriendInvite),
+                    viewModel::declineFriend, viewModel::blockFriend, viewModel::revokeFriendInvite),
                 onUpdateDraft = viewModel::updateDraftForActiveConversation,
                 onPinConversation = viewModel::pinConversation,
                 onMuteConversation = viewModel::muteConversation,
@@ -2073,6 +2073,7 @@ private fun MeshApp(
                 onCancelIncomingFileTransfer = viewModel::cancelIncomingFileTransfer,
                 onForwardMessage = viewModel::forwardMessageToConversations,
                 onSendFile = viewModel::sendFileToActiveConversation,
+                onSendVoice = viewModel::sendVoiceToActiveConversation,
                 onSendMediaAlbum = viewModel::sendMediaAlbumToActiveConversation,
                 onSendTextToConversation = viewModel::sendTextToConversationById,
                 onSendFileToConversation = viewModel::sendFileToConversationById,
@@ -2499,6 +2500,7 @@ private fun MeshTelegramScreen(
     onCancelIncomingFileTransfer: (String) -> Boolean,
     onForwardMessage: (String, List<String>) -> Int,
     onSendFile: (Uri) -> Boolean,
+    onSendVoice: (Uri) -> Boolean,
     onSendMediaAlbum: (List<Uri>, String) -> Int,
     onSendTextToConversation: (String, String) -> Boolean,
     onSendFileToConversation: (String, Uri) -> Boolean,
@@ -2846,7 +2848,7 @@ private fun MeshTelegramScreen(
             if (current != null) {
                 val recordedFile = finishVoiceCapture(current, keepFile = true)
                 if (recordedFile != null) {
-                    val sent = onSendFile(Uri.fromFile(recordedFile))
+                    val sent = onSendVoice(Uri.fromFile(recordedFile))
                     if (sent) {
                         runCatching { recordedFile.delete() }
                         inviteStatusMessage = "Voice message sent"

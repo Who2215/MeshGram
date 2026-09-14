@@ -27,6 +27,7 @@
     <string name="friends_confirmed">Confirmed friends</string>
     <string name="friends_empty">No confirmed friends yet. Start with a QR invitation.</string>
     <string name="friends_chat">Open chat</string>
+    <string name="friends_block">Block</string>
     <string name="friends_code">MeshGram invitation code</string>
     <string name="friends_check">Check invitation</string>
     <string name="friends_close">Close</string>

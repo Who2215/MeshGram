@@ -30,6 +30,7 @@ import com.meshchat.app.mesh.ScheduledMessageRecord
 import com.meshchat.app.mesh.TransferBuffers
 import com.meshchat.app.mesh.directConversationId
 import com.meshchat.app.mesh.isSavedMessagesConversation
+import com.meshchat.app.mesh.timelineOrderMs
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -215,9 +216,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val contacts = allContacts.filter { friends.isFriend(it.nodeId) }
         val nearbyPeople = if (friends.discoverable) allContacts.filter { contact ->
             !friends.isFriend(contact.nodeId) && friends.record(contact.nodeId)?.blocked != true &&
-                knownIdentities.any { it.nodeId == contact.nodeId && it.discoverable } &&
-                peers.any { it.nodeId == contact.nodeId && it.isConnected &&
-                    android.bluetooth.BluetoothAdapter.checkBluetoothAddress(it.address) }
+            knownIdentities.any { it.nodeId == contact.nodeId && it.discoverable } &&
+            peers.any { it.nodeId == contact.nodeId && it.isConnected &&
+                (android.bluetooth.BluetoothAdapter.checkBluetoothAddress(it.address) ||
+                        it.address.startsWith("ble:")) }
         } else emptyList()
         val conversations = buildConversations(
             nodeId = meshManager.nodeId,
@@ -252,7 +254,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // conversation id. Use the same resolver as the chat list so a
                 // restored preview and its open history always point to one chat.
                 .filter { resolveConversationId(it, meshManager.nodeId) == resolvedConversationId }
-                .sortedBy { it.createdAtMs }
+                .sortedWith(compareBy<ChatMessage> { it.timelineOrderMs() }.thenBy { it.id })
         }
         val activeDraft = resolvedConversationId
             ?.let { conversationStates[it]?.draftText.orEmpty() }
@@ -385,6 +387,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun requestNearbyFriend(id: String) = meshManager.requestNearbyFriend(id)
     fun acceptFriend(id: String) = meshManager.acceptFriend(id)
     fun declineFriend(id: String) = meshManager.declineFriend(id)
+    fun blockFriend(id: String) = meshManager.blockFriend(id)
     fun revokeFriendInvite() = meshManager.revokeFriendInvite()
 
     fun openSavedMessages() {
@@ -1391,11 +1394,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sent = sendFileToConversation(
             state = state,
             conversationId = activeConversationId,
-            fileUri = fileUri
+            fileUri = fileUri,
+            isVoiceMessage = false
         )
         if (sent) {
             clearConversationDraft(activeConversationId)
         }
+        return sent
+    }
+
+    fun sendVoiceToActiveConversation(fileUri: Uri): Boolean {
+        val state = uiState.value
+        val activeConversationId = state.activeConversationId ?: return false
+        val sent = sendFileToConversation(
+            state = state,
+            conversationId = activeConversationId,
+            fileUri = fileUri,
+            isVoiceMessage = true
+        )
+        if (sent) clearConversationDraft(activeConversationId)
         return sent
     }
 
@@ -1451,6 +1468,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         state: MeshUiState,
         conversationId: String,
         fileUri: Uri,
+        isVoiceMessage: Boolean = false,
         caption: String = "",
         mediaAlbumId: String? = null,
         mediaAlbumIndex: Int = 0,
@@ -1478,6 +1496,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     conversationId = conversation.id,
                     conversationTitle = conversation.title,
                     caption = caption,
+                    isVoiceMessage = isVoiceMessage,
                     mediaAlbumId = mediaAlbumId,
                     mediaAlbumIndex = mediaAlbumIndex,
                     mediaAlbumCount = mediaAlbumCount
@@ -1500,6 +1519,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     chatType = MeshMessagePayload.CHAT_TYPE_GROUP,
                     conversationType = ConversationType.GROUP,
                     caption = caption,
+                    isVoiceMessage = isVoiceMessage,
                     mediaAlbumId = mediaAlbumId,
                     mediaAlbumIndex = mediaAlbumIndex,
                     mediaAlbumCount = mediaAlbumCount
@@ -1522,6 +1542,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     chatType = MeshMessagePayload.CHAT_TYPE_CHANNEL,
                     conversationType = ConversationType.CHANNEL,
                     caption = caption,
+                    isVoiceMessage = isVoiceMessage,
                     mediaAlbumId = mediaAlbumId,
                     mediaAlbumIndex = mediaAlbumIndex,
                     mediaAlbumCount = mediaAlbumCount

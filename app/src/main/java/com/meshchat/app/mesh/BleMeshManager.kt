@@ -45,6 +45,7 @@ import android.os.ParcelUuid
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -220,9 +221,11 @@ class BleMeshManager(
     fun revokeFriendInvite() = friendDirectory.revokeInvite()
     fun acceptFriend(id: String) = friendDirectory.accept(id)
     fun declineFriend(id: String) = friendDirectory.decline(id)
+    fun blockFriend(id: String) = friendDirectory.block(id)
     fun requestNearbyFriend(id: String): Boolean {
         val nearby = synchronized(lock) { peerMap.values.any {
-            it.nodeId == id && it.isConnected && BluetoothAdapter.checkBluetoothAddress(it.address)
+            it.nodeId == id && it.isConnected &&
+                (BluetoothAdapter.checkBluetoothAddress(it.address) || it.address.startsWith("ble:"))
         } }
         return nearby && friendDirectory.requestNearby(id)
     }
@@ -292,7 +295,7 @@ class BleMeshManager(
                     peerIdentityByNodeId[identity.nodeId] = identity
                 }
             }
-            _messages.value = localStore.loadMessages().takeLast(MAX_MESSAGES)
+            _messages.value = loadMessagesWithStableTimeline()
             restoreRelayOutboxFromStore()
             restoreOutgoingTransfersFromStore()
             restoreIncomingTransfersFromStore()
@@ -334,7 +337,7 @@ class BleMeshManager(
     }
 
     fun reloadFromSecureStore() {
-        val restoredMessages = localStore.loadMessages()
+        val restoredMessages = loadMessagesWithStableTimeline()
         val restoredIdentities = localStore.loadPeerIdentities()
         synchronized(lock) {
             peerIdentityByNodeId.clear()
@@ -355,6 +358,14 @@ class BleMeshManager(
         _knownIdentities.value = restoredIdentities.sortedByDescending { it.lastSeenMs }
         _messages.value = restoredMessages.takeLast(MAX_MESSAGES)
         localStore.persistMessages(_messages.value)
+    }
+
+    /** Rebuild old arrival-order markers once without trusting remote device clocks. */
+    private fun loadMessagesWithStableTimeline(): List<ChatMessage> {
+        val loaded = localStore.loadMessages().takeLast(MAX_MESSAGES)
+        val normalized = normalizeLegacyMessageTimeline(loaded)
+        if (normalized != loaded) localStore.persistMessages(normalized)
+        return normalized
     }
 
     @SuppressLint("MissingPermission")
@@ -1441,6 +1452,7 @@ class BleMeshManager(
         conversationId: String = directConversationId(nodeId, targetNodeId),
         conversationTitle: String? = null,
         caption: String = "",
+        isVoiceMessage: Boolean = false,
         mediaAlbumId: String? = null,
         mediaAlbumIndex: Int = 0,
         mediaAlbumCount: Int = 1
@@ -1467,7 +1479,7 @@ class BleMeshManager(
             return false
         }
 
-        val prepared = prepareAttachmentFromUri(fileUri) ?: return false
+        val prepared = prepareAttachmentFromUri(fileUri, isVoiceMessage) ?: return false
         val payloadChatId = conversationId.ifBlank { directConversationId(nodeId, target) }
         val payloadTitle = conversationTitle ?: recipient.alias
         val members = listOf(nodeId, target)
@@ -1519,6 +1531,7 @@ class BleMeshManager(
                     transferId = prepared.transferId,
                     fileName = prepared.fileName,
                     mimeType = prepared.mimeType,
+                    isVoiceMessage = prepared.isVoiceMessage,
                     sizeBytes = prepared.sizeBytes,
                     sha256 = prepared.sha256,
                     compressed = prepared.compressed,
@@ -1553,6 +1566,7 @@ class BleMeshManager(
         chatType: String = MeshMessagePayload.CHAT_TYPE_GROUP,
         conversationType: ConversationType = ConversationType.GROUP,
         caption: String = "",
+        isVoiceMessage: Boolean = false,
         mediaAlbumId: String? = null,
         mediaAlbumIndex: Int = 0,
         mediaAlbumCount: Int = 1
@@ -1581,7 +1595,7 @@ class BleMeshManager(
             return 0
         }
 
-        val prepared = prepareAttachmentFromUri(fileUri) ?: return 0
+        val prepared = prepareAttachmentFromUri(fileUri, isVoiceMessage) ?: return 0
         val payloadChatId = groupId.ifBlank {
             if (conversationType == ConversationType.CHANNEL) {
                 "chn-${UUID.randomUUID().toString().take(10)}"
@@ -1671,6 +1685,7 @@ class BleMeshManager(
                     transferId = prepared.transferId,
                     fileName = prepared.fileName,
                     mimeType = prepared.mimeType,
+                    isVoiceMessage = prepared.isVoiceMessage,
                     sizeBytes = prepared.sizeBytes,
                     sha256 = prepared.sha256,
                     compressed = prepared.compressed,
@@ -2106,6 +2121,7 @@ class BleMeshManager(
             collectiveAllowMemberDeleteOwnMessages = collectiveAllowMemberDeleteOwnMessages,
             fileName = prepared.fileName,
             mimeType = prepared.mimeType,
+            isVoiceMessage = prepared.isVoiceMessage,
             sizeBytes = prepared.sizeBytes,
             sha256 = prepared.sha256,
             caption = caption.trim().take(MAX_FILE_CAPTION_LENGTH),
@@ -2224,6 +2240,7 @@ class BleMeshManager(
                 transferId = transfer.transferId,
                 fileName = transfer.fileName,
                 mimeType = transfer.mimeType,
+                isVoiceMessage = transfer.isVoiceMessage,
                 fileSizeBytes = transfer.sizeBytes,
                 fileSha256 = transfer.sha256,
                 fileCaption = transfer.caption,
@@ -2248,18 +2265,29 @@ class BleMeshManager(
         return true
     }
 
-    private fun prepareAttachmentFromUri(uri: Uri): OutgoingAttachment? {
+    private fun prepareAttachmentFromUri(uri: Uri, isVoiceMessage: Boolean = false): OutgoingAttachment? {
         val resolver = context.contentResolver
         val (displayName, reportedSize) = queryFileMeta(uri)
         if (reportedSize != null && reportedSize > MAX_FILE_BYTES) {
             updateStatus("File is too large: maximum ${humanSize(MAX_FILE_BYTES.toLong())}")
             return null
         }
-        val fileName = displayName ?: "file_${System.currentTimeMillis()}"
-        val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+        val fileUriFile = if (uri.scheme.equals("file", ignoreCase = true)) {
+            uri.path?.let { path -> java.io.File(path) }
+        } else {
+            null
+        }
+        val fileName = displayName?.trim()?.ifBlank { null }
+            ?: fileUriFile?.name?.trim()?.ifBlank { null }
+            ?: "file_${System.currentTimeMillis()}"
+        val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        val mimeType = resolver.getType(uri)?.trim()?.lowercase(Locale.ROOT)
+            ?.takeIf { it.isNotBlank() }
+            ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+            ?: if (extension == "m4a") "audio/mp4" else "application/octet-stream"
 
         val bytes = runCatching {
-            resolver.openInputStream(uri)?.use { input ->
+            (fileUriFile?.inputStream() ?: resolver.openInputStream(uri))?.use { input ->
                 val out = ByteArrayOutputStream()
                 val buffer = ByteArray(16 * 1024)
                 var zeroReads = 0
@@ -2305,6 +2333,7 @@ class BleMeshManager(
             transferId = UUID.randomUUID().toString(),
             fileName = fileName,
             mimeType = mimeType,
+            isVoiceMessage = isVoiceMessage && mimeType.startsWith("audio/", ignoreCase = true),
             sizeBytes = sizeBytes,
             sha256 = sha256Hex(bytes),
             compressed = useCompressed,
@@ -2616,21 +2645,31 @@ class BleMeshManager(
         val address = device.address ?: return
         val knownNodeId = advertisedNodeId?.trim()?.ifBlank { null }
             ?: synchronized(lock) { addressToNodeId[address] }
-        // Do not connect on an anonymous scan result: wait for the stable node ID
-        // so only the lexicographically elected side opens a single GATT link.
-        if (knownNodeId == null) return
-        if (nodeId.compareTo(knownNodeId) >= 0) return
+        // Full advertisements carry the node ID. Android may trim that payload,
+        // so anonymous MeshGram service results still need a GATT handshake.
+        // Prefer the stable node-id election; before HELLO use the local BT address
+        // when available to avoid both sides opening a client link.
+        if (knownNodeId != null) {
+            if (nodeId.compareTo(knownNodeId) >= 0) return
+        } else {
+            val localAddress = adapter?.address
+                ?.takeIf { BluetoothAdapter.checkBluetoothAddress(it) }
+                ?.takeUnless { it == "02:00:00:00:00:00" }
+            if (localAddress != null && localAddress.compareTo(address) >= 0) return
+        }
         val now = System.currentTimeMillis()
         synchronized(lock) {
             if (clientGatts.containsKey(address) || connectingAddresses.contains(address)) return
             if (now < (connectionRetryAtMs[address] ?: 0L)) return
-            val activeAddress = activeAddressByNodeId[knownNodeId]
-            if (activeAddress != null && activeAddress != address) return
-            if (connectingNodeIds.contains(knownNodeId)) return
-            if (now < (connectionRetryAtNodeIdMs[knownNodeId] ?: 0L)) return
-            connectingNodeIds.add(knownNodeId)
-            activeAddressByNodeId[knownNodeId] = address
-            addressToNodeId[address] = knownNodeId
+            if (knownNodeId != null) {
+                val activeAddress = activeAddressByNodeId[knownNodeId]
+                if (activeAddress != null && activeAddress != address) return
+                if (connectingNodeIds.contains(knownNodeId)) return
+                if (now < (connectionRetryAtNodeIdMs[knownNodeId] ?: 0L)) return
+                connectingNodeIds.add(knownNodeId)
+                activeAddressByNodeId[knownNodeId] = address
+                addressToNodeId[address] = knownNodeId
+            }
             connectingAddresses.add(address)
         }
 
@@ -2643,9 +2682,11 @@ class BleMeshManager(
         if (gatt == null) {
             synchronized(lock) {
                 connectingAddresses.remove(address)
-                connectingNodeIds.remove(knownNodeId)
-                if (activeAddressByNodeId[knownNodeId] == address) {
-                    activeAddressByNodeId.remove(knownNodeId)
+                knownNodeId?.let { stableNodeId ->
+                    connectingNodeIds.remove(stableNodeId)
+                    if (activeAddressByNodeId[stableNodeId] == address) {
+                        activeAddressByNodeId.remove(stableNodeId)
+                    }
                 }
             }
             scheduleConnectionRetry(address, status = null, nodeId = knownNodeId)
@@ -3184,6 +3225,7 @@ class BleMeshManager(
                         collectiveAllowMemberDeleteOwnMessages = record.collectiveAllowMemberDeleteOwnMessages,
                         fileName = record.fileName.trim().ifBlank { "file_$transferId" },
                         mimeType = record.mimeType.trim().ifBlank { "application/octet-stream" },
+                        isVoiceMessage = record.isVoiceMessage,
                         sizeBytes = record.sizeBytes.coerceAtLeast(0L),
                         sha256 = record.sha256.trim(),
                         caption = record.caption.trim().take(MAX_FILE_CAPTION_LENGTH),
@@ -3230,6 +3272,7 @@ class BleMeshManager(
                             collectiveAllowMemberDeleteOwnMessages = transfer.collectiveAllowMemberDeleteOwnMessages,
                             fileName = transfer.fileName,
                             mimeType = transfer.mimeType,
+                            isVoiceMessage = transfer.isVoiceMessage,
                             sizeBytes = transfer.sizeBytes,
                             sha256 = transfer.sha256,
                             caption = transfer.caption,
@@ -3390,6 +3433,7 @@ class BleMeshManager(
                         collectiveAllowMemberDeleteOwnMessages = record.collectiveAllowMemberDeleteOwnMessages,
                         fileName = record.fileName.trim().ifBlank { "file_$transferId" },
                         mimeType = record.mimeType.trim().ifBlank { "application/octet-stream" },
+                        isVoiceMessage = record.isVoiceMessage,
                         sizeBytes = record.sizeBytes.coerceIn(0L, MAX_FILE_BYTES.toLong()),
                         sha256 = record.sha256.trim(),
                         caption = record.caption.trim().take(MAX_FILE_CAPTION_LENGTH),
@@ -3437,6 +3481,7 @@ class BleMeshManager(
                             collectiveAllowMemberDeleteOwnMessages = assembler.collectiveAllowMemberDeleteOwnMessages,
                             fileName = assembler.fileName,
                             mimeType = assembler.mimeType,
+                            isVoiceMessage = assembler.isVoiceMessage,
                             sizeBytes = assembler.sizeBytes,
                             sha256 = assembler.sha256,
                             caption = assembler.caption,
@@ -3854,6 +3899,7 @@ class BleMeshManager(
         fromAddress: String?,
         sourceTransport: TransportSource
     ) {
+        val directBleProfile = sourceTransport == TransportSource.BLE && packet.hops == 0
         val localDiscovery = packet.profileVersion == 2 && packet.discoverable &&
             packet.hops == 0 && packet.maxHops == 0 && sourceTransport == TransportSource.BLE
         if (!localDiscovery && !isValidHelloHopEnvelope(packet.hops, packet.maxHops)) {
@@ -3888,17 +3934,30 @@ class BleMeshManager(
                         fingerprint = packet.fingerprint,
                         firstSeenMs = now,
                         lastSeenMs = now,
-                        avatarData = packet.avatarData,
-                        discoverable = packet.discoverable,
+                        avatarData = packet.avatarData.takeIf {
+                            directBleProfile && packet.discoverable
+                        }.orEmpty(),
+                        discoverable = directBleProfile && packet.discoverable,
                         profileUpdatedAtMs = packet.createdAtMs
                     )
                 } else {
+                    val profileIsNewer = packet.createdAtMs >= existing.profileUpdatedAtMs
                     existing.copy(
-                        alias = if (packet.createdAtMs >= existing.profileUpdatedAtMs) packet.alias else existing.alias,
+                        alias = if (profileIsNewer) packet.alias else existing.alias,
                         fingerprint = packet.fingerprint,
                         lastSeenMs = now,
-                        avatarData = if (packet.createdAtMs >= existing.profileUpdatedAtMs) packet.avatarData else existing.avatarData,
-                        discoverable = if (packet.createdAtMs >= existing.profileUpdatedAtMs) packet.discoverable else existing.discoverable,
+                        // Discovery is a local proximity fact. Relay packets must not
+                        // overwrite the state learned from a direct BLE HELLO.
+                        avatarData = if (directBleProfile && profileIsNewer && packet.discoverable) {
+                            packet.avatarData
+                        } else {
+                            existing.avatarData
+                        },
+                        discoverable = if (directBleProfile && profileIsNewer) {
+                            packet.discoverable
+                        } else {
+                            existing.discoverable
+                        },
                         profileUpdatedAtMs = maxOf(existing.profileUpdatedAtMs, packet.createdAtMs)
                     )
                 }
@@ -3912,6 +3971,11 @@ class BleMeshManager(
             return
         }
         persistPeerIdentityCache()
+        Log.i(
+            BLE_TAG,
+            "HELLO accepted node=${packet.originNodeId} transport=$sourceTransport " +
+                "hops=${packet.hops} directBle=$directBleProfile discoverable=${packet.discoverable}"
+        )
 
         val uiAddress = when (sourceTransport) {
             TransportSource.BLE -> if (packet.hops == 0) fromAddress ?: "ble:${packet.originNodeId.take(6)}"
@@ -4268,7 +4332,7 @@ class BleMeshManager(
                         originNodeId = packet.originNodeId,
                         targetNodeId = packet.targetNodeId,
                         relayNodeId = packet.relayNodeId,
-                        createdAtMs = packet.createdAtMs,
+                        createdAtMs = meshPayload.sentAtMs.takeIf { it > 0L } ?: packet.createdAtMs,
                         isLocal = false,
                         isEncrypted = true,
                         isSystem = true,
@@ -4315,7 +4379,7 @@ class BleMeshManager(
                     originNodeId = packet.originNodeId,
                     targetNodeId = packet.targetNodeId,
                     relayNodeId = packet.relayNodeId,
-                    createdAtMs = packet.createdAtMs,
+                    createdAtMs = meshPayload?.sentAtMs?.takeIf { it > 0L } ?: packet.createdAtMs,
                     isLocal = false,
                     isEncrypted = true,
                     conversationId = decodedPayload.conversationId,
@@ -4573,6 +4637,7 @@ class BleMeshManager(
                     collectiveAllowMemberDeleteOwnMessages = conversationMeta.collectiveAllowMemberDeleteOwnMessages,
                     fileName = payload.fileName?.trim()?.ifBlank { null } ?: "file_$transferId",
                     mimeType = payload.mimeType?.trim()?.ifBlank { null } ?: "application/octet-stream",
+                    isVoiceMessage = payload.isVoiceMessage,
                     sizeBytes = payload.fileSizeBytes ?: 0L,
                     sha256 = payload.fileSha256?.trim().orEmpty(),
                     caption = payload.fileCaption?.trim()?.take(MAX_FILE_CAPTION_LENGTH).orEmpty(),
@@ -4706,6 +4771,7 @@ class BleMeshManager(
                     transferId = completedTransfer.assembler.transferId,
                     fileName = completedTransfer.assembler.fileName,
                     mimeType = completedTransfer.assembler.mimeType,
+                    isVoiceMessage = completedTransfer.assembler.isVoiceMessage,
                     sizeBytes = if (completedTransfer.assembler.sizeBytes > 0) {
                         completedTransfer.assembler.sizeBytes
                     } else {
@@ -5301,8 +5367,10 @@ class BleMeshManager(
 
     private fun appendMessage(message: ChatMessage) {
         mutateMessages { current ->
+            val existing = current.firstOrNull { it.id == message.id }
             val withoutDuplicate = current.filterNot { it.id == message.id }
-            withoutDuplicate + message
+            val timelineOrder = resolveMessageTimelineForAppend(existing, message)
+            withoutDuplicate + message.copy(timelineAtMs = timelineOrder)
         }
     }
 
@@ -7773,6 +7841,7 @@ class BleMeshManager(
         val transferId: String,
         val fileName: String,
         val mimeType: String,
+        val isVoiceMessage: Boolean,
         val sizeBytes: Long,
         val sha256: String,
         val compressed: Boolean,
@@ -7796,6 +7865,7 @@ class BleMeshManager(
         val collectiveAllowMemberDeleteOwnMessages: Boolean,
         val fileName: String,
         val mimeType: String,
+        val isVoiceMessage: Boolean,
         val sizeBytes: Long,
         val sha256: String,
         val caption: String,
@@ -7864,6 +7934,7 @@ class BleMeshManager(
         val collectiveAllowMemberDeleteOwnMessages: Boolean?,
         val fileName: String,
         val mimeType: String,
+        val isVoiceMessage: Boolean,
         val sizeBytes: Long,
         val sha256: String,
         val caption: String,

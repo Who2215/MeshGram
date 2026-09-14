@@ -99,6 +99,10 @@ class FriendDirectory(
     }
 
     @Synchronized fun decline(id: String) {
+        block(id)
+    }
+
+    @Synchronized fun block(id: String) {
         save(state.copy(records = state.records.map {
             if (it.nodeId == id) it.copy(blocked = true, accepted = false,
                 outgoingId = null, incomingId = null, avatarData = "") else it

@@ -43,6 +43,7 @@ data class FriendActions(
     val requestNearby: (String) -> Boolean,
     val accept: (String) -> Boolean,
     val decline: (String) -> Unit,
+    val block: (String) -> Unit,
     val revokeInvite: () -> Unit
 )
 
@@ -180,7 +181,12 @@ fun FriendsScreen(state: MeshUiState, actions: FriendActions, onBack: () -> Unit
         items(state.contacts, key = { "friend:${it.nodeId}" }) { person ->
             FriendCard {
                 Text(person.alias, style = MaterialTheme.typography.titleMedium)
-                Button(onClick = { onChat(person.nodeId) }) { Text(stringResource(R.string.friends_chat)) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onChat(person.nodeId) }) { Text(stringResource(R.string.friends_chat)) }
+                    TextButton(onClick = { runAction { actions.block(person.nodeId); true } }, enabled = !busy) {
+                        Text(stringResource(R.string.friends_block))
+                    }
+                }
             }
         }
     }

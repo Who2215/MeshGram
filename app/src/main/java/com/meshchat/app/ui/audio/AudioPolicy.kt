@@ -3,11 +3,13 @@ package com.meshchat.app.ui.audio
 import com.meshchat.app.mesh.ChatMessage
 import java.util.Locale
 
-/** The wire model has no voice flag. Only the recorder's filename convention is inferred. */
+/** Keep the filename fallback for messages created by older app versions. */
 fun isInlineVoiceMessage(message: ChatMessage): Boolean =
     message.attachment?.let {
-        it.mimeType.startsWith("audio/", ignoreCase = true) &&
-            Regex("voice_[0-9]+\\.m4a", RegexOption.IGNORE_CASE).matches(it.fileName)
+        it.isVoiceMessage || (
+            it.mimeType.startsWith("audio/", ignoreCase = true) &&
+                Regex("voice_[0-9]+\\.m4a", RegexOption.IGNORE_CASE).matches(it.fileName)
+        )
     } == true
 
 internal data class AudioMessageKey(

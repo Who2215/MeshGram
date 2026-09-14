@@ -27,6 +27,7 @@
     <string name="friends_confirmed">Подтверждённые друзья</string>
     <string name="friends_empty">Подтверждённых друзей пока нет. Начните с QR-приглашения.</string>
     <string name="friends_chat">Открыть чат</string>
+    <string name="friends_block">Заблокировать</string>
     <string name="friends_code">Код приглашения MeshGram</string>
     <string name="friends_check">Проверить приглашение</string>
     <string name="friends_close">Закрыть</string>

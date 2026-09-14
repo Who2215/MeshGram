@@ -69,6 +69,8 @@ data class MessageAttachment(
     val transferId: String,
     val fileName: String,
     val mimeType: String,
+    // Explicit media kind survives renaming and relay/file-provider metadata loss.
+    val isVoiceMessage: Boolean = false,
     val sizeBytes: Long,
     val sha256: String,
     val compressed: Boolean = false,
@@ -94,6 +96,9 @@ data class ChatMessage(
     val targetNodeId: String? = null,
     val relayNodeId: String,
     val createdAtMs: Long,
+    // Local timeline position. It avoids reversing a chat when device clocks differ.
+    // Older messages keep 0 and fall back to createdAtMs.
+    val timelineAtMs: Long = 0L,
     val isLocal: Boolean,
     val isEncrypted: Boolean = true,
     val isSystem: Boolean = false,
@@ -131,6 +136,31 @@ data class ChatMessage(
     }
 }
 
+fun ChatMessage.timelineOrderMs(): Long = timelineAtMs.takeIf { it > 0L } ?: createdAtMs
+
+internal fun normalizeLegacyMessageTimeline(
+    messages: List<ChatMessage>,
+    nowMs: Long = System.currentTimeMillis()
+): List<ChatMessage> {
+    if (messages.isEmpty() || messages.all { it.timelineAtMs > 0L }) return messages
+
+    // The persisted list is append-ordered. Preserve that order instead of trusting
+    // sender clocks, which may differ by minutes or even hours between phones.
+    val firstMarker = (nowMs - messages.size.toLong()).coerceAtLeast(1L)
+    return messages.mapIndexed { index, message ->
+        message.copy(timelineAtMs = firstMarker + index)
+    }
+}
+
+internal fun resolveMessageTimelineForAppend(
+    existing: ChatMessage?,
+    message: ChatMessage,
+    nowMs: Long = System.currentTimeMillis()
+): Long = existing?.timelineAtMs?.takeIf { it > 0L }
+    ?: message.timelineAtMs.takeIf { it > 0L }
+    ?: message.createdAtMs.takeIf { message.isLocal && it > 0L }
+    ?: nowMs.coerceAtLeast(1L)
+
 @Serializable
 data class MeshMessagePayload(
     val type: String = TYPE,
@@ -159,6 +189,7 @@ data class MeshMessagePayload(
     val transferId: String? = null,
     val fileName: String? = null,
     val mimeType: String? = null,
+    val isVoiceMessage: Boolean = false,
     val fileSizeBytes: Long? = null,
     val fileSha256: String? = null,
     val fileCaption: String? = null,
@@ -244,6 +275,7 @@ data class OutgoingFileTransferRecord(
     val collectiveAllowMemberDeleteOwnMessages: Boolean = true,
     val fileName: String,
     val mimeType: String,
+    val isVoiceMessage: Boolean = false,
     val sizeBytes: Long,
     val sha256: String,
     val caption: String = "",
@@ -326,6 +358,7 @@ data class IncomingFileTransferRecord(
     val collectiveAllowMemberDeleteOwnMessages: Boolean? = null,
     val fileName: String,
     val mimeType: String,
+    val isVoiceMessage: Boolean = false,
     val sizeBytes: Long,
     val sha256: String,
     val caption: String = "",
