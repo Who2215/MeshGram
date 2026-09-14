@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="security_change_pin">Change PIN</string>
+    <string name="security_current_pin">Current PIN</string>
+    <string name="security_new_pin">New PIN</string>
+    <string name="security_pin_mismatch">The new PIN values do not match</string>
+    <string name="security_pin_action_failed">Check the current PIN and try again</string>
+</resources>

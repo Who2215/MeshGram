@@ -3478,9 +3478,6 @@ private fun MeshTelegramScreen(
                                 friendActions = friendActions,
                                 onOpenFriendChat = onOpenDirect,
                                 uiState = uiState,
-                                aliasDraft = aliasDraft,
-                                onAliasDraftChange = { aliasDraft = it },
-                                onSaveAlias = { onSaveAlias(aliasDraft) },
                                 visualThemePreset = visualThemePreset,
                                 onVisualThemeChange = onVisualThemeChange,
                                 glowChoice = glowChoice,
@@ -7035,9 +7032,6 @@ private fun SettingsHome(
     friendActions: FriendActions,
     onOpenFriendChat: (String) -> Unit,
     uiState: MeshUiState,
-    aliasDraft: String,
-    onAliasDraftChange: (String) -> Unit,
-    onSaveAlias: () -> Unit,
     visualThemePreset: MeshVisualPreset,
     onVisualThemeChange: (MeshVisualPreset) -> Unit,
     glowChoice: MeshGlowChoice = MeshGlowChoice.CYAN,
@@ -7070,8 +7064,10 @@ private fun SettingsHome(
     var cacheStatusMessage by remember { mutableStateOf<String?>(null) }
     var showPinDialog by remember { mutableStateOf(false) }
     var pinDialogMode by remember { mutableStateOf("enable") }
+    var pinCurrentDraft by rememberSaveable { mutableStateOf("") }
     var pinDraft by rememberSaveable { mutableStateOf("") }
     var pinConfirmDraft by rememberSaveable { mutableStateOf("") }
+    var pinDialogError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val sectionTitle = when (section) {
         ProfileSettingsSection.NETWORK -> strings.networkSettings
@@ -7177,8 +7173,10 @@ private fun SettingsHome(
                             FilledTonalButton(
                                 onClick = {
                                     pinDialogMode = if (appLockEnabled && hasAppPasscode) "disable" else "enable"
+                                    pinCurrentDraft = ""
                                     pinDraft = ""
                                     pinConfirmDraft = ""
+                                    pinDialogError = null
                                     showPinDialog = true
                                 }
                             ) {
@@ -7189,6 +7187,20 @@ private fun SettingsHome(
                                 enabled = appLockEnabled && hasAppPasscode
                             ) {
                                 Text(strings.lockNow)
+                            }
+                        }
+                        if (appLockEnabled && hasAppPasscode) {
+                            TextButton(
+                                onClick = {
+                                    pinDialogMode = "change"
+                                    pinCurrentDraft = ""
+                                    pinDraft = ""
+                                    pinConfirmDraft = ""
+                                    pinDialogError = null
+                                    showPinDialog = true
+                                }
+                            ) {
+                                Text(stringResource(R.string.security_change_pin))
                             }
                         }
                     }
@@ -7346,25 +7358,67 @@ private fun SettingsHome(
     if (showPinDialog) {
         AlertDialog(
             onDismissRequest = { showPinDialog = false },
-            title = { Text(if (pinDialogMode == "enable") strings.enablePin else strings.disablePin) },
+            title = {
+                Text(
+                    when (pinDialogMode) {
+                        "enable" -> strings.enablePin
+                        "change" -> stringResource(R.string.security_change_pin)
+                        else -> strings.disablePin
+                    }
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (pinDialogMode == "change") {
+                        OutlinedTextField(
+                            value = pinCurrentDraft,
+                            onValueChange = {
+                                pinCurrentDraft = it.filter(Char::isDigit).take(PASSCODE_MAX_LEN)
+                                pinDialogError = null
+                            },
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.security_current_pin)) },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                        )
+                    }
                     OutlinedTextField(
                         value = pinDraft,
-                        onValueChange = { pinDraft = it.filter(Char::isDigit).take(PASSCODE_MAX_LEN) },
+                        onValueChange = {
+                            pinDraft = it.filter(Char::isDigit).take(PASSCODE_MAX_LEN)
+                            pinDialogError = null
+                        },
                         singleLine = true,
-                        label = { Text(strings.pinCode) },
+                        label = {
+                            Text(
+                                if (pinDialogMode == "change") {
+                                    stringResource(R.string.security_new_pin)
+                                } else {
+                                    strings.pinCode
+                                }
+                            )
+                        },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
                     )
-                    if (pinDialogMode == "enable") {
+                    if (pinDialogMode == "enable" || pinDialogMode == "change") {
                         OutlinedTextField(
                             value = pinConfirmDraft,
-                            onValueChange = { pinConfirmDraft = it.filter(Char::isDigit).take(PASSCODE_MAX_LEN) },
+                            onValueChange = {
+                                pinConfirmDraft = it.filter(Char::isDigit).take(PASSCODE_MAX_LEN)
+                                pinDialogError = null
+                            },
                             singleLine = true,
                             label = { Text(strings.repeatPin) },
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                        )
+                    }
+                    pinDialogError?.let { error ->
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -7373,16 +7427,30 @@ private fun SettingsHome(
                 TextButton(
                     onClick = {
                         val valid = pinDraft.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN
-                        val success = if (!valid) {
-                            false
-                        } else if (pinDialogMode == "enable") {
-                            pinDraft == pinConfirmDraft && onEnableAppLock(pinDraft)
-                        } else {
-                            onDisableAppLock(pinDraft)
+                        val pinsMatch = pinDraft == pinConfirmDraft
+                        val success = when {
+                            !valid -> false
+                            pinDialogMode == "enable" -> pinsMatch && onEnableAppLock(pinDraft)
+                            pinDialogMode == "change" -> pinsMatch &&
+                                onChangeAppLockPin(pinCurrentDraft, pinDraft)
+                            else -> onDisableAppLock(pinDraft)
                         }
-                        if (success) showPinDialog = false
+                        if (success) {
+                            showPinDialog = false
+                            pinDialogError = null
+                        } else {
+                            pinDialogError = if (
+                                (pinDialogMode == "enable" || pinDialogMode == "change") && !pinsMatch
+                            ) {
+                                context.getString(R.string.security_pin_mismatch)
+                            } else {
+                                context.getString(R.string.security_pin_action_failed)
+                            }
+                        }
                     },
-                    enabled = pinDraft.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN
+                    enabled = pinDraft.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN &&
+                        (pinDialogMode != "change" ||
+                            pinCurrentDraft.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN)
                 ) { Text(strings.confirm) }
             },
             dismissButton = {
@@ -7430,563 +7498,6 @@ private fun NotificationChoice(
     ) {
         RadioButton(selected = selected, onClick = onClick)
         Text(label, color = TgDayPalette.rowText)
-    }
-}
-
-@Composable
-private fun LegacySettingsHome(
-    section: ProfileSettingsSection,
-    uiState: MeshUiState,
-    aliasDraft: String,
-    onAliasDraftChange: (String) -> Unit,
-    onSaveAlias: () -> Unit,
-    visualThemePreset: MeshVisualPreset,
-    onVisualThemeChange: (MeshVisualPreset) -> Unit,
-    backupStatusMessage: String?,
-    appLockEnabled: Boolean,
-    hasAppPasscode: Boolean,
-    onEnableAppLock: (String) -> Boolean,
-    onDisableAppLock: (String) -> Boolean,
-    onChangeAppLockPin: (String, String) -> Boolean,
-    onLockNow: () -> Unit,
-    onExportBackup: () -> Unit,
-    onImportBackup: () -> Unit,
-    onBack: () -> Unit,
-    onToggleMesh: () -> Unit,
-    notificationSound: String,
-    vibrationLevel: String,
-    onNotificationSoundChange: (String) -> Unit,
-    onVibrationLevelChange: (String) -> Unit
-) {
-    val context = LocalContext.current
-    val strings = rememberMeshStrings()
-    var showEnableLockDialog by remember { mutableStateOf(false) }
-    var showDisableLockDialog by remember { mutableStateOf(false) }
-    var showChangeLockDialog by remember { mutableStateOf(false) }
-    var appLockStatusMessage by remember { mutableStateOf<String?>(null) }
-    var transientCacheBytes by remember { mutableStateOf(transientCacheSizeBytes(context)) }
-    var cacheStatusMessage by remember { mutableStateOf<String?>(null) }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDayPalette.card)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(
-                            label = uiState.nodeAlias,
-                            seed = uiState.nodeId,
-                            size = 52.dp,
-                            online = uiState.isRunning
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(strings.profile, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                text = "Node ${uiState.nodeId}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = aliasDraft,
-                            onValueChange = onAliasDraftChange,
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            label = { Text(strings.displayName) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        FilledTonalButton(onClick = onSaveAlias) {
-                            Icon(Icons.Rounded.Done, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.save)
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            AppearanceCard(
-                visualThemePreset = visualThemePreset,
-                onVisualThemeChange = onVisualThemeChange
-            )
-        }
-
-        item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDayPalette.card)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(strings.storagePrivacy, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "${strings.tempPreviews}: ${fileSizeShort(transientCacheBytes)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TgDayPalette.rowText
-                    )
-                    Text(
-                        text = strings.encryptedHistoryKept,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                    FilledTonalButton(
-                        onClick = {
-                            val removed = clearTransientDecryptedCaches(context)
-                            transientCacheBytes = transientCacheSizeBytes(context)
-                            cacheStatusMessage = if (removed > 0) {
-                                strings.clearedTempFiles(removed)
-                            } else {
-                                strings.tempCacheEmpty
-                            }
-                        }
-                    ) {
-                        Text(strings.clearTempCache)
-                    }
-                    if (!cacheStatusMessage.isNullOrBlank()) {
-                        Text(
-                            text = cacheStatusMessage.orEmpty(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = TgDayPalette.rowAccent
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDayPalette.card)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(strings.bluetoothMeshNetwork, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = strings.offlineOnlyDescription,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                    Text(
-                        text = strings.discoveryDescription,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TgDayPalette.rowBlue
-                    )
-                    Text(
-                        text = if (uiState.relayConnected) {
-                            strings.relayConnectedStatus
-                        } else {
-                            strings.relayWaitingStatus
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                }
-            }
-        }
-
-        item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDayPalette.card)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("Known Recipients", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "Saved by Node ID. Delivery is always addressed to exact recipient.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                    HorizontalDivider()
-                    if (uiState.contacts.isEmpty()) {
-                        Text(
-                            text = "No recipients yet",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TgDayPalette.rowMeta
-                        )
-                    } else {
-                        uiState.contacts.take(24).forEach { contact ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Avatar(
-                                    label = contact.alias,
-                                    seed = contact.nodeId,
-                                    size = 36.dp,
-                                    online = contact.isOnline
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = contact.alias,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                    Text(
-                                        text = "Node ${contact.nodeId} • ${contact.fingerprintShort ?: "no-fp"}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = TgDayPalette.rowMeta
-                                    )
-                                }
-                                Text(
-                                    text = if (contact.isOnline) "online" else "saved",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (contact.isOnline) TgDayPalette.rowBlue else TgDayPalette.rowMeta
-                                )
-                            }
-                            HorizontalDivider(color = TgDayPalette.divider)
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDayPalette.card)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp)
-                ) {
-                    Text("Security", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "E2E active: ${uiState.encryptionLabel}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Fingerprint", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = uiState.nodeFingerprint,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Contacts: ${uiState.contacts.size} • Communities: ${uiState.groups.size}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("App Lock", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = if (appLockEnabled && hasAppPasscode) {
-                            "PIN lock is enabled. App auto-locks when you leave it."
-                        } else {
-                            "PIN lock is disabled."
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilledTonalButton(
-                            onClick = {
-                                if (appLockEnabled && hasAppPasscode) {
-                                    showDisableLockDialog = true
-                                } else {
-                                    showEnableLockDialog = true
-                                }
-                            }
-                        ) {
-                            Text(if (appLockEnabled && hasAppPasscode) "Disable PIN" else "Enable PIN")
-                        }
-                        FilledTonalButton(
-                            onClick = { showChangeLockDialog = true },
-                            enabled = hasAppPasscode
-                        ) {
-                            Text("Change PIN")
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FilledTonalButton(
-                        onClick = {
-                            onLockNow()
-                            appLockStatusMessage = "App locked"
-                        },
-                        enabled = appLockEnabled && hasAppPasscode
-                    ) {
-                        Text("Lock now")
-                    }
-                    if (!appLockStatusMessage.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = appLockStatusMessage ?: "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = TgDayPalette.rowAccent
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = TgDayPalette.card)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp)
-                ) {
-                    Text("Backup", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Encrypted export/import for device migration",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilledTonalButton(onClick = onExportBackup) {
-                            Text("Export")
-                        }
-                        FilledTonalButton(onClick = onImportBackup) {
-                            Text("Import")
-                        }
-                    }
-                    if (!backupStatusMessage.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = backupStatusMessage,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = TgDayPalette.rowAccent
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    if (showEnableLockDialog) {
-        var pinDraft by rememberSaveable { mutableStateOf("") }
-        var pinConfirmDraft by rememberSaveable { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showEnableLockDialog = false },
-            title = { Text("Enable App PIN") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "PIN length: $PASSCODE_MIN_LEN-$PASSCODE_MAX_LEN digits.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                    OutlinedTextField(
-                        value = pinDraft,
-                        onValueChange = { next ->
-                            pinDraft = next.filter { it.isDigit() }.take(PASSCODE_MAX_LEN)
-                        },
-                        singleLine = true,
-                        label = { Text("New PIN") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-                    )
-                    OutlinedTextField(
-                        value = pinConfirmDraft,
-                        onValueChange = { next ->
-                            pinConfirmDraft = next.filter { it.isDigit() }.take(PASSCODE_MAX_LEN)
-                        },
-                        singleLine = true,
-                        label = { Text("Repeat PIN") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-                    )
-                }
-            },
-            confirmButton = {
-                val validLength = pinDraft.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN
-                TextButton(
-                    onClick = {
-                        if (pinDraft != pinConfirmDraft) {
-                            appLockStatusMessage = "PIN mismatch"
-                            return@TextButton
-                        }
-                        val enabled = onEnableAppLock(pinDraft)
-                        appLockStatusMessage = if (enabled) {
-                            "PIN lock enabled"
-                        } else {
-                            "Failed to enable PIN (check format)"
-                        }
-                        if (enabled) {
-                            showEnableLockDialog = false
-                            pinDraft = ""
-                            pinConfirmDraft = ""
-                        }
-                    },
-                    enabled = validLength
-                ) {
-                    Text("Enable")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEnableLockDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    if (showDisableLockDialog) {
-        var pinDraft by rememberSaveable { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showDisableLockDialog = false },
-            title = { Text("Disable App PIN") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Enter current PIN to disable lock.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TgDayPalette.rowMeta
-                    )
-                    OutlinedTextField(
-                        value = pinDraft,
-                        onValueChange = { next ->
-                            pinDraft = next.filter { it.isDigit() }.take(PASSCODE_MAX_LEN)
-                        },
-                        singleLine = true,
-                        label = { Text("Current PIN") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val disabled = onDisableAppLock(pinDraft)
-                        appLockStatusMessage = if (disabled) {
-                            "PIN lock disabled"
-                        } else {
-                            "Wrong PIN"
-                        }
-                        if (disabled) {
-                            showDisableLockDialog = false
-                            pinDraft = ""
-                        }
-                    },
-                    enabled = pinDraft.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN
-                ) {
-                    Text("Disable")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDisableLockDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    if (showChangeLockDialog) {
-        var currentPin by rememberSaveable { mutableStateOf("") }
-        var nextPin by rememberSaveable { mutableStateOf("") }
-        var nextPinConfirm by rememberSaveable { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showChangeLockDialog = false },
-            title = { Text("Change PIN") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = currentPin,
-                        onValueChange = { next ->
-                            currentPin = next.filter { it.isDigit() }.take(PASSCODE_MAX_LEN)
-                        },
-                        singleLine = true,
-                        label = { Text("Current PIN") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-                    )
-                    OutlinedTextField(
-                        value = nextPin,
-                        onValueChange = { next ->
-                            nextPin = next.filter { it.isDigit() }.take(PASSCODE_MAX_LEN)
-                        },
-                        singleLine = true,
-                        label = { Text("New PIN") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-                    )
-                    OutlinedTextField(
-                        value = nextPinConfirm,
-                        onValueChange = { next ->
-                            nextPinConfirm = next.filter { it.isDigit() }.take(PASSCODE_MAX_LEN)
-                        },
-                        singleLine = true,
-                        label = { Text("Repeat new PIN") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-                    )
-                }
-            },
-            confirmButton = {
-                val canSubmit = currentPin.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN &&
-                    nextPin.length in PASSCODE_MIN_LEN..PASSCODE_MAX_LEN
-                TextButton(
-                    onClick = {
-                        if (nextPin != nextPinConfirm) {
-                            appLockStatusMessage = "New PIN mismatch"
-                            return@TextButton
-                        }
-                        val changed = onChangeAppLockPin(currentPin, nextPin)
-                        appLockStatusMessage = if (changed) {
-                            "PIN updated"
-                        } else {
-                            "Failed to update PIN"
-                        }
-                        if (changed) {
-                            showChangeLockDialog = false
-                            currentPin = ""
-                            nextPin = ""
-                            nextPinConfirm = ""
-                        }
-                    },
-                    enabled = canSubmit
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showChangeLockDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
