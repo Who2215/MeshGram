@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.meshchat.app.R
@@ -73,8 +75,15 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
                 } else key(pack, category) {
                     LazyVerticalGrid(GridCells.Adaptive(80.dp), Modifier.weight(1f), contentPadding = PaddingValues(8.dp)) {
                         items(entries, key = { it.id }) { entry ->
-                            MeshStickerArt(entry.id, Modifier.size(88.dp).padding(4.dp).combinedClickable(
-                                onClick = { send(entry.id) }, onLongClick = { preview = entry.id }),
+                            val accessibleName = entry.id.substringAfterLast(':')
+                                .replace('_', ' ')
+                                .replace('-', ' ')
+                            MeshStickerArt(entry.id, Modifier.size(88.dp).padding(4.dp)
+                                .semantics { contentDescription = "$stickerLabel: $accessibleName" }
+                                .combinedClickable(
+                                    onClick = { send(entry.id) },
+                                    onLongClick = { preview = entry.id }
+                                ),
                                 animated = preview == null, loop = true, replayOnTap = false)
                         }
                     }
@@ -82,7 +91,12 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
             } else {
                 LazyVerticalGrid(GridCells.Adaptive(44.dp), Modifier.weight(1f), contentPadding = PaddingValues(8.dp)) {
                     items(MeshExpressions.emojiGroups[emojiCategory]) { emoji ->
-                        Box(Modifier.size(46.dp).clickable { onInsert(emoji) }, contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.size(46.dp)
+                                .semantics { contentDescription = "$emojiLabel: $emoji" }
+                                .clickable { onInsert(emoji) },
+                            contentAlignment = Alignment.Center
+                        ) {
                             MeshAnimatedEmoji(emoji, 38.dp)
                         }
                     }

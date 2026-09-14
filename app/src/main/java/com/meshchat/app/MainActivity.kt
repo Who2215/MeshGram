@@ -927,7 +927,13 @@ private data class AudioStrings(
     val voiceRecordingPaused: String,
     val voiceRecordingPauseFailed: String,
     val voiceRecordingResumed: String,
-    val voiceRecordingResumeFailed: String
+    val voiceRecordingResumeFailed: String,
+    val recordingNow: String,
+    val recordingPausedNow: String,
+    val cancelRecording: String,
+    val sendRecording: String,
+    val pauseRecording: String,
+    val resumeRecording: String
 )
 
 @Composable
@@ -958,7 +964,13 @@ private fun rememberAudioStrings(): AudioStrings {
                 voiceRecordingPaused = "Запись приостановлена",
                 voiceRecordingPauseFailed = "Не удалось приостановить запись",
                 voiceRecordingResumed = "Запись продолжена",
-                voiceRecordingResumeFailed = "Не удалось продолжить запись"
+                voiceRecordingResumeFailed = "Не удалось продолжить запись",
+                recordingNow = "Запись",
+                recordingPausedNow = "Пауза",
+                cancelRecording = "Отмена",
+                sendRecording = "Отправить",
+                pauseRecording = "Приостановить запись",
+                resumeRecording = "Продолжить запись"
             )
         } else {
             AudioStrings(
@@ -978,7 +990,13 @@ private fun rememberAudioStrings(): AudioStrings {
                 voiceRecordingPaused = "Voice recording paused",
                 voiceRecordingPauseFailed = "Failed to pause voice recording",
                 voiceRecordingResumed = "Voice recording resumed",
-                voiceRecordingResumeFailed = "Failed to resume voice recording"
+                voiceRecordingResumeFailed = "Failed to resume voice recording",
+                recordingNow = "Recording",
+                recordingPausedNow = "Paused",
+                cancelRecording = "Cancel",
+                sendRecording = "Send",
+                pauseRecording = "Pause recording",
+                resumeRecording = "Resume recording"
             )
         }
     }
@@ -3075,6 +3093,17 @@ private fun MeshTelegramScreen(
             uiState.conversations.firstOrNull { it.id == activeId }
         }
     }
+    val isSavedConversation = isSavedMessagesConversation(uiState.activeConversationId.orEmpty())
+    val localizedConversationTitle = if (isSavedConversation) {
+        strings.savedMessages
+    } else {
+        uiState.activeConversationTitle
+    }
+    val localizedConversationSubtitle = if (isSavedConversation) {
+        strings.savedMessagesSubtitle
+    } else {
+        uiState.activeConversationSubtitle
+    }
     val filteredConversations = remember(uiState.conversations, searchQuery) {
         val query = searchQuery.trim().lowercase()
         if (query.isBlank()) {
@@ -3208,8 +3237,8 @@ private fun MeshTelegramScreen(
         topBar = {
             if (inChat) {
                 ChatTopBar(
-                    title = uiState.activeConversationTitle,
-                    subtitle = uiState.activeConversationSubtitle,
+                    title = localizedConversationTitle,
+                    subtitle = localizedConversationSubtitle,
                     mediaCount = mediaMessages.size,
                     onBack = onCloseConversation,
                     onOpenMedia = { showMediaGallery = true },
@@ -7553,6 +7582,7 @@ private fun ChatThread(
     onSend: () -> Unit
 ) {
     val strings = rememberMeshStrings()
+    val audioStrings = rememberAudioStrings()
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val inputFocus = remember { FocusRequester() }
@@ -7894,49 +7924,62 @@ private fun ChatThread(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+                shape = RoundedCornerShape(24.dp),
                 color = TgDayPalette.card
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .height(48.dp)
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = onCancelVoiceRecording,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = audioStrings.cancelRecording,
+                            tint = TgDayPalette.rowMeta,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
                     Icon(
                         imageVector = if (isVoiceRecordingPaused) {
                             Icons.Rounded.Pause
                         } else {
                             Icons.Rounded.Mic
                         },
-                        contentDescription = if (isVoiceRecordingPaused) "Paused" else "Recording",
+                        contentDescription = if (isVoiceRecordingPaused) {
+                            audioStrings.recordingPausedNow
+                        } else {
+                            audioStrings.recordingNow
+                        },
                         tint = if (isVoiceRecordingPaused) TgDayPalette.rowMeta else Color(0xFFD84F62),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = formatRecordingDuration(voiceRecordingElapsedMs),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TgDayPalette.rowText
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                    Box(modifier = Modifier.weight(1f)) {
                         VoiceWaveform(
                             samples = voiceAmplitudeSamples,
                             progress = 1f,
                             activeColor = Color(0xFFD84F62),
                             inactiveColor = TgDayPalette.rowMeta.copy(alpha = 0.25f)
                         )
-                        Text(
-                            text = if (isVoiceRecordingPaused) {
-                                "Paused ${formatRecordingDuration(voiceRecordingElapsedMs)}"
-                            } else {
-                                "Recording ${formatRecordingDuration(voiceRecordingElapsedMs)}"
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = TgDayPalette.rowText
-                        )
-                    }
-                    TextButton(onClick = onCancelVoiceRecording) {
-                        Text("Cancel")
                     }
                     if (canPauseVoiceRecording) {
-                        IconButton(onClick = onPauseResumeVoiceRecording) {
+                        IconButton(
+                            onClick = onPauseResumeVoiceRecording,
+                            modifier = Modifier.size(40.dp)
+                        ) {
                             Icon(
                                 imageVector = if (isVoiceRecordingPaused) {
                                     Icons.Rounded.PlayArrow
@@ -7944,16 +7987,24 @@ private fun ChatThread(
                                     Icons.Rounded.Pause
                                 },
                                 contentDescription = if (isVoiceRecordingPaused) {
-                                    "Resume recording"
+                                    audioStrings.resumeRecording
                                 } else {
-                                    "Pause recording"
+                                    audioStrings.pauseRecording
                                 },
                                 tint = TgDayPalette.rowBlue
                             )
                         }
                     }
-                    TextButton(onClick = onToggleVoiceRecording) {
-                        Text("Send")
+                    IconButton(
+                        onClick = onToggleVoiceRecording,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.Send,
+                            contentDescription = audioStrings.sendRecording,
+                            tint = TgDayPalette.composerSend,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                 }
             }
@@ -10847,7 +10898,15 @@ private fun startVoiceCapture(context: Context): ActiveVoiceRecording? {
     val recordingDir = File(context.cacheDir, "voice_notes").apply { mkdirs() }
     val output = File(recordingDir, "voice_${System.currentTimeMillis()}.m4a")
     val recorder = runCatching {
-        MediaRecorder().apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MediaRecorder(context)
+        } else {
+            @Suppress("DEPRECATION")
+            MediaRecorder()
+        }
+    }.getOrNull() ?: return null
+    return runCatching {
+        recorder.apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
@@ -10856,12 +10915,17 @@ private fun startVoiceCapture(context: Context): ActiveVoiceRecording? {
             prepare()
             start()
         }
-    }.getOrNull() ?: return null
-    return ActiveVoiceRecording(
-        recorder = recorder,
-        outputFile = output,
-        startedAtMs = System.currentTimeMillis()
-    )
+        ActiveVoiceRecording(
+            recorder = recorder,
+            outputFile = output,
+            startedAtMs = System.currentTimeMillis()
+        )
+    }.getOrElse {
+        runCatching { recorder.reset() }
+        runCatching { recorder.release() }
+        runCatching { output.delete() }
+        null
+    }
 }
 
 private fun finishVoiceCapture(recording: ActiveVoiceRecording, keepFile: Boolean): File? {
