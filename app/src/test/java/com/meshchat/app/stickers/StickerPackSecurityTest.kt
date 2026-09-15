@@ -110,8 +110,13 @@ class StickerPackSecurityTest {
     }
 
     @Test
-    fun publishedNotoReactionsPackIsSignedAndInstallable() {
-        val packRoot = File("../site/stickers/noto.reactions/1")
+    fun publishedNotoPacksAreSignedAndInstallable() {
+        assertPublishedPack("noto.reactions", 12)
+        assertPublishedPack("noto.animals", 24)
+    }
+
+    private fun assertPublishedPack(packId: String, expectedStickers: Int) {
+        val packRoot = File("../site/stickers/$packId/1")
         val manifest = StickerPackVerifier.parse(packRoot.resolve("manifest.json").readText())
         assertNotNull(manifest)
         val signed = manifest!!
@@ -127,7 +132,7 @@ class StickerPackSecurityTest {
                 packRoot.resolve("$stem.preview.png")
             )
         }
-        val installRoot = Files.createTempDirectory("meshgram-published-pack").toFile()
+        val installRoot = Files.createTempDirectory("meshgram-published-$packId").toFile()
         try {
             val installed = StickerPackInstaller(installRoot).install(
                 signed,
@@ -136,8 +141,8 @@ class StickerPackSecurityTest {
                 MeshExpressions.stickers.toSet()
             )
             assertNotNull(installed)
-            assertEquals(12, installed!!.manifest.stickers.size)
-            assertEquals(12, installed.manifest.stickers.map { it.id }.toSet().size)
+            assertEquals(expectedStickers, installed!!.manifest.stickers.size)
+            assertEquals(expectedStickers, installed.manifest.stickers.map { it.id }.toSet().size)
         } finally {
             installRoot.deleteRecursively()
         }

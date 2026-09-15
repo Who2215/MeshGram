@@ -5,6 +5,7 @@
 - 14 original animated Neon Bots with permanent wire IDs.
 - 12 transparent Microsoft Fluent Emoji stickers under the MIT license.
 - 220 bundled Google Noto Emoji Lottie animations under CC BY 4.0.
+- 36 signed Google Noto animations in two live packs: Reactions and Animals.
 - 576 categorized Unicode emoji with recents and category-specific motion.
 - Every third-party bundled asset keeps its source URL, attribution, license, and SHA-256.
 
@@ -14,7 +15,8 @@
 - Implemented: EC signatures verified against the release public key already pinned in the app.
 - Implemented: per-file and pack limits, safe derived filenames, Lottie complexity checks, and atomic internal installation.
 - Implemented: a publication tool that computes hashes from reviewed local files and signs the canonical manifest.
-- Next: HTTPS index/downloader, installed-pack registry, fallback previews, and pack UI.
+- Implemented: a pinned HTTPS index, background downloader, verified installed-pack registry, fallback previews, and pack UI.
+- Implemented: a reproducible Noto publisher that rejects duplicates, unsafe Lottie complexity, invalid previews, and unsigned output.
 - Next: transfer pack ID/version in messages and offer only the matching signed pack when it is missing.
 
 ## Telegram-compatible import

@@ -9,4 +9,9 @@
     <string name="stickers_empty">Здесь появятся недавно отправленные стикеры</string>
     <string name="stickers_preview">Просмотр стикера</string>
     <string name="emoji_recent_empty">Здесь появятся недавно использованные эмодзи</string>
+    <string name="sticker_pack_neon">Неоновые боты</string>
+    <string name="sticker_pack_noto">Noto</string>
+    <string name="sticker_pack_fluent">Fluent 3D</string>
+    <string name="sticker_pack_noto_reactions">Реакции</string>
+    <string name="sticker_pack_noto_animals">Животные</string>
 </resources>

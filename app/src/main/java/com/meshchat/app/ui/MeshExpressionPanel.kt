@@ -44,11 +44,22 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
     }
     val height = (LocalConfiguration.current.screenHeightDp * .4f).coerceIn(180f, 340f).dp
     val colors = MaterialTheme.colorScheme
+    val localizedPackLabels = mapOf(
+        "neon" to stringResource(R.string.sticker_pack_neon),
+        "noto" to stringResource(R.string.sticker_pack_noto),
+        "fluent" to stringResource(R.string.sticker_pack_fluent),
+        "noto.reactions" to stringResource(R.string.sticker_pack_noto_reactions),
+        "noto.animals" to stringResource(R.string.sticker_pack_noto_animals)
+    )
     val dynamicPacks = catalogEntries.filter { it.localAsset != null }
         .distinctBy { it.pack }
-        .map { it.pack to "${it.packTitle ?: it.pack} ▶" }
-    val packs = listOf("recent" to stringResource(R.string.stickers_recent), "neon" to "NEON BOTS >",
-        "noto" to "Noto >", "fluent" to "Fluent 3D") + dynamicPacks
+        .map { it.pack to (localizedPackLabels[it.pack] ?: it.packTitle ?: it.pack) }
+    val packs = listOf(
+        "recent" to stringResource(R.string.stickers_recent),
+        "neon" to localizedPackLabels.getValue("neon"),
+        "noto" to localizedPackLabels.getValue("noto"),
+        "fluent" to localizedPackLabels.getValue("fluent")
+    ) + dynamicPacks
     val categoryLabels = mapOf(
         "faces" to stringResource(R.string.stickers_faces),
         "reactions" to stringResource(R.string.stickers_faces),
@@ -68,11 +79,21 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
     Surface(color = colors.surface) {
         Column(Modifier.fillMaxWidth().height(height)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                LazyRow(Modifier.weight(1f)) {
+                LazyRow(
+                    Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     if (stickers) items(packs) { (key, label) ->
-                        TextButton(onClick = { pack = key; category = "all"; prefs.edit().putString("pack", key).apply() }) {
-                            Text(label, color = if (pack == key) colors.primary else colors.onSurfaceVariant)
-                        }
+                        FilterChip(
+                            selected = pack == key,
+                            onClick = {
+                                pack = key
+                                category = "all"
+                                prefs.edit().putString("pack", key).apply()
+                            },
+                            label = { Text(label, maxLines = 1) }
+                        )
                     } else items((listOf("🕘") + MeshExpressions.emojiCategoryIcons).withIndex().toList()) { (i, glyph) ->
                         TextButton(onClick = { emojiCategory = i }) { Text(glyph, fontSize = 22.sp) }
                     }
@@ -80,10 +101,15 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
                 IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, closeLabel) }
             }
             if (stickers && selectedCategories.isNotEmpty()) {
-                LazyRow { items(categories) { (key, label) ->
-                    TextButton(onClick = { category = key }) {
-                        Text(label, color = if (category == key) colors.primary else colors.onSurfaceVariant)
-                    }
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) { items(categories) { (key, label) ->
+                    FilterChip(
+                        selected = category == key,
+                        onClick = { category = key },
+                        label = { Text(label, maxLines = 1) }
+                    )
                 } }
             }
             if (stickers) {

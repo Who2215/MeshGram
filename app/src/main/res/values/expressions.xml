@@ -9,4 +9,9 @@
     <string name="stickers_empty">Your recently sent stickers will appear here</string>
     <string name="stickers_preview">Sticker preview</string>
     <string name="emoji_recent_empty">Recently used emoji will appear here</string>
+    <string name="sticker_pack_neon">Neon Bots</string>
+    <string name="sticker_pack_noto">Noto</string>
+    <string name="sticker_pack_fluent">Fluent 3D</string>
+    <string name="sticker_pack_noto_reactions">Reactions</string>
+    <string name="sticker_pack_noto_animals">Animals</string>
 </resources>

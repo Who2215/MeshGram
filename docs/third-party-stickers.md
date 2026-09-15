@@ -9,6 +9,16 @@ These are static illustrations, not frame-animated assets.
 Assets are bundled for offline use; no third-party network requests occur in chat.
 Both peers need an app version recognizing these new sticker IDs.
 
+## Signed Noto live packs
+
+MeshGram also publishes 36 unmodified Google Noto Animated Emoji assets in the
+signed `noto.reactions` and `noto.animals` packs. Animations are CC BY 4.0 and
+their transparent static previews are Apache 2.0. Exact source URLs, authorship,
+SHA-256 checksums, and license copies live beside each published manifest under
+`site/stickers/<pack-id>/<version>/`. The application downloads a pack only from
+the pinned HTTPS index and installs it only after signature, size, hash, PNG,
+and Lottie-complexity validation succeeds.
+
 ## Source URLs and SHA-256
 
 fluenteyes | https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/Eyes/3D/eyes_3d.png | B3049F399CB0947B423610F5876077EFA86BC640FBA5CB9D138B149773D4C793

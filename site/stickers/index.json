@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "manifests": [
-    "https://who2215.github.io/MeshGram/stickers/noto.reactions/1/manifest.json"
+    "https://who2215.github.io/MeshGram/stickers/noto.reactions/1/manifest.json",
+    "https://who2215.github.io/MeshGram/stickers/noto.animals/1/manifest.json"
   ]
 }
