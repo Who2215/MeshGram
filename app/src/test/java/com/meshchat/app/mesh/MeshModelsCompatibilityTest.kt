@@ -54,6 +54,23 @@ class MeshModelsCompatibilityTest {
         assertEquals(42_000L, resolveMessageTimelineForAppend(existing, update, nowMs = 100_000L))
     }
 
+    @Test fun latestMessageAndEveryTimelineViewIgnoreSenderClockSkew() {
+        val arrivedFirst = message(id = "first", createdAtMs = 99_000L, isLocal = false)
+            .copy(timelineAtMs = 10_000L)
+        val arrivedLast = message(id = "last", createdAtMs = 1_000L, isLocal = false)
+            .copy(timelineAtMs = 20_000L)
+
+        assertEquals(arrivedLast, latestMessageOnTimeline(arrivedFirst, arrivedLast))
+        assertEquals(
+            listOf("first", "last"),
+            listOf(arrivedLast, arrivedFirst).sortedWith(messageTimelineComparator).map { it.id }
+        )
+        assertEquals(
+            listOf("last", "first"),
+            listOf(arrivedFirst, arrivedLast).sortedWith(descendingMessageTimelineComparator).map { it.id }
+        )
+    }
+
     @Test fun voicePayloadRoundTripsExplicitKind() {
         val payload = MeshMessagePayload(
             chatId = "dm:a:b",

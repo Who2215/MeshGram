@@ -138,6 +138,19 @@ data class ChatMessage(
 
 fun ChatMessage.timelineOrderMs(): Long = timelineAtMs.takeIf { it > 0L } ?: createdAtMs
 
+internal val messageTimelineComparator: Comparator<ChatMessage> =
+    compareBy<ChatMessage> { it.timelineOrderMs() }.thenBy { it.id }
+internal val descendingMessageTimelineComparator = Comparator<ChatMessage> { left, right ->
+    messageTimelineComparator.compare(right, left)
+}
+
+internal fun latestMessageOnTimeline(
+    existing: ChatMessage?,
+    candidate: ChatMessage
+): ChatMessage = if (
+    existing == null || messageTimelineComparator.compare(candidate, existing) >= 0
+) candidate else existing
+
 internal fun normalizeLegacyMessageTimeline(
     messages: List<ChatMessage>,
     nowMs: Long = System.currentTimeMillis()

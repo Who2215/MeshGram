@@ -115,7 +115,7 @@ class MeshForegroundService : Service() {
                 val mutedConversations = SecureLocalStore(applicationContext).loadConversationStates()
                     .filter { it.isMuted }.mapTo(hashSetOf()) { it.conversationId }
                 val notificationsEnabled = MeshNotifications.canPost(this@MeshForegroundService)
-                messages.sortedBy { it.createdAtMs }.forEach { message ->
+                messages.sortedWith(messageTimelineComparator).forEach { message ->
                     if (notificationPolicy.shouldNotify(
                         key = message.notificationKey(),
                         isLocal = message.isLocal,

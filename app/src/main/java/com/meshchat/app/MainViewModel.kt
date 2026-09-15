@@ -31,6 +31,8 @@ import com.meshchat.app.mesh.TransferBuffers
 import com.meshchat.app.mesh.directConversationId
 import com.meshchat.app.mesh.isSavedMessagesConversation
 import com.meshchat.app.mesh.timelineOrderMs
+import com.meshchat.app.mesh.latestMessageOnTimeline
+import com.meshchat.app.mesh.messageTimelineComparator
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -254,7 +256,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // conversation id. Use the same resolver as the chat list so a
                 // restored preview and its open history always point to one chat.
                 .filter { resolveConversationId(it, meshManager.nodeId) == resolvedConversationId }
-                .sortedWith(compareBy<ChatMessage> { it.timelineOrderMs() }.thenBy { it.id })
+                .sortedWith(messageTimelineComparator)
         }
         val activeDraft = resolvedConversationId
             ?.let { conversationStates[it]?.draftText.orEmpty() }
@@ -1725,16 +1727,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
 
-            val existing = lastMessageByConversationId[conversationId]
-            if (existing == null || message.createdAtMs >= existing.createdAtMs) {
-                lastMessageByConversationId[conversationId] = message
-            }
+            lastMessageByConversationId[conversationId] = latestMessageOnTimeline(
+                lastMessageByConversationId[conversationId],
+                message
+            )
         }
 
         val enriched = conversationMap.mapValues { (conversationId, conversation) ->
             val lastMessage = lastMessageByConversationId[conversationId] ?: return@mapValues conversation
             conversation.copy(
-                lastMessageAtMs = lastMessage.createdAtMs,
+                lastMessageAtMs = lastMessage.timelineOrderMs(),
                 lastMessagePreview = buildMessagePreview(lastMessage)
             )
         }.values

@@ -190,6 +190,8 @@ import com.meshchat.app.mesh.OutgoingFileTransferProgress
 import com.meshchat.app.mesh.SecureLocalStore
 import com.meshchat.app.mesh.ScheduledMessageRecord
 import com.meshchat.app.mesh.isSavedMessagesConversation
+import com.meshchat.app.mesh.descendingMessageTimelineComparator
+import com.meshchat.app.mesh.messageTimelineComparator
 import com.meshchat.app.release.MeshUpdateInstaller
 import com.meshchat.app.release.MeshUpdateScheduler
 import com.meshchat.app.stickers.StickerPackSyncScheduler
@@ -2742,7 +2744,7 @@ private fun MeshTelegramScreen(
     val selectedMessages = remember(uiState.activeMessages, selectedMessageIds) {
         uiState.activeMessages
             .filter { selectedMessageIds.contains(it.id) }
-            .sortedBy { it.createdAtMs }
+            .sortedWith(messageTimelineComparator)
     }
     val isMessageSelectionMode = selectedMessageIds.isNotEmpty()
     val mediaMessages = remember(uiState.activeMessages) {
@@ -2752,7 +2754,7 @@ private fun MeshTelegramScreen(
                     message.contentType == ChatContentType.FILE &&
                     !message.attachment?.localUri.isNullOrBlank()
             }
-            .sortedByDescending { it.createdAtMs }
+            .sortedWith(descendingMessageTimelineComparator)
     }
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -3137,7 +3139,7 @@ private fun MeshTelegramScreen(
                         fileName.contains(query) ||
                         message.savedTags.any { tag -> tag.lowercase().contains(query) }
                 }
-                .sortedByDescending { it.createdAtMs }
+                .sortedWith(descendingMessageTimelineComparator)
                 .take(60)
                 .map { message ->
                     val title = conversationTitles[message.conversationId]
