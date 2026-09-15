@@ -27,8 +27,23 @@ class MeshExpressionsTest {
     }
     @Test fun onlyStandaloneEmojiBecomeLargeAnimatedArt() {
         assertEquals("❤️", MeshExpressions.animatedEmoji("❤️"))
+        assertEquals("🚀", MeshExpressions.animatedEmoji("🚀"))
         assertNull(MeshExpressions.animatedEmoji("hello ❤️"))
         assertNull(MeshExpressions.animatedEmoji(""))
+    }
+    @Test fun emojiCatalogIsLargeCategorizedAndDuplicateFree() {
+        val emoji = MeshExpressions.emojiGroups.flatten()
+        assertTrue(emoji.size >= 500)
+        assertEquals(emoji.size, emoji.toSet().size)
+        assertEquals(MeshExpressions.emojiGroups.size, MeshExpressions.emojiCategoryIcons.size)
+    }
+    @Test fun recentEmojiFiltersUnknownValuesDeduplicatesAndBounds() {
+        val all = MeshExpressions.emojiGroups.flatten()
+        val recent = MeshExpressions.recentEmoji(all.take(40) + listOf("unknown", all[0]), all[5])
+        assertEquals(all[5], recent.first())
+        assertEquals(32, recent.size)
+        assertEquals(recent.size, recent.toSet().size)
+        assertFalse(recent.contains("unknown"))
     }
     @Test fun stickerSendPreservesTypedDraftButTextSendConsumesIt() {
         assertFalse(MeshExpressions.shouldConsumeDraft(MeshExpressions.token("hello")))

@@ -29,11 +29,17 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
     onDismiss: () -> Unit, onSendSticker: (String) -> Boolean, onInsert: (String) -> Unit) {
     val prefs = LocalContext.current.getSharedPreferences("sticker_picker", 0)
     var stickers by rememberSaveable { mutableStateOf(true) }
-    var emojiCategory by rememberSaveable { mutableIntStateOf(0) }
+    var emojiCategory by rememberSaveable { mutableIntStateOf(1) }
     var pack by rememberSaveable { mutableStateOf(prefs.getString("pack", "noto") ?: "noto") }
     var category by rememberSaveable { mutableStateOf("all") }
     var preview by remember { mutableStateOf<String?>(null) }
     var recent by remember { mutableStateOf(prefs.getString("recent", "").orEmpty().split(',').filter { StickerCatalog.find(it) != null }) }
+    var recentEmoji by remember {
+        mutableStateOf(
+            prefs.getString("recent_emoji", "").orEmpty().split('|')
+                .filter { emoji -> MeshExpressions.animatedEmoji(emoji) != null }
+        )
+    }
     val height = (LocalConfiguration.current.screenHeightDp * .4f).coerceIn(180f, 340f).dp
     val colors = MaterialTheme.colorScheme
     val packs = listOf("recent" to stringResource(R.string.stickers_recent), "neon" to "NEON BOTS >",
@@ -54,7 +60,7 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
                         TextButton(onClick = { pack = key; category = "all"; prefs.edit().putString("pack", key).apply() }) {
                             Text(label, color = if (pack == key) colors.primary else colors.onSurfaceVariant)
                         }
-                    } else items(listOf("😀", "❤️", "👋", "🐱", "☕").withIndex().toList()) { (i, glyph) ->
+                    } else items((listOf("🕘") + MeshExpressions.emojiCategoryIcons).withIndex().toList()) { (i, glyph) ->
                         TextButton(onClick = { emojiCategory = i }) { Text(glyph, fontSize = 22.sp) }
                     }
                 }
@@ -73,7 +79,14 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
                 if (entries.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.stickers_empty), color = colors.onSurfaceVariant)
                 } else key(pack, category) {
-                    LazyVerticalGrid(GridCells.Adaptive(80.dp), Modifier.weight(1f), contentPadding = PaddingValues(8.dp)) {
+                    val gridState = rememberLazyGridState()
+                    val isScrolling by remember { derivedStateOf { gridState.isScrollInProgress } }
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(80.dp),
+                        modifier = Modifier.weight(1f),
+                        state = gridState,
+                        contentPadding = PaddingValues(8.dp)
+                    ) {
                         items(entries, key = { it.id }) { entry ->
                             val accessibleName = entry.id.substringAfterLast(':')
                                 .replace('_', ' ')
@@ -84,20 +97,44 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
                                     onClick = { send(entry.id) },
                                     onLongClick = { preview = entry.id }
                                 ),
-                                animated = preview == null, loop = true, replayOnTap = false)
+                                animated = preview == null && !isScrolling, loop = true, replayOnTap = false)
                         }
                     }
                 }
             } else {
-                LazyVerticalGrid(GridCells.Adaptive(44.dp), Modifier.weight(1f), contentPadding = PaddingValues(8.dp)) {
-                    items(MeshExpressions.emojiGroups[emojiCategory]) { emoji ->
-                        Box(
-                            Modifier.size(46.dp)
-                                .semantics { contentDescription = "$emojiLabel: $emoji" }
-                                .clickable { onInsert(emoji) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            MeshAnimatedEmoji(emoji, 38.dp)
+                val emojiEntries = if (emojiCategory == 0) {
+                    recentEmoji
+                } else {
+                    MeshExpressions.emojiGroups.getOrElse(emojiCategory - 1) {
+                        MeshExpressions.emojiGroups.first()
+                    }
+                }
+                if (emojiEntries.isEmpty()) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.emoji_recent_empty), color = colors.onSurfaceVariant)
+                    }
+                } else {
+                    val emojiGridState = rememberLazyGridState()
+                    val isScrolling by remember { derivedStateOf { emojiGridState.isScrollInProgress } }
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(44.dp),
+                        modifier = Modifier.weight(1f),
+                        state = emojiGridState,
+                        contentPadding = PaddingValues(8.dp)
+                    ) {
+                        items(emojiEntries, key = { it }) { emoji ->
+                            Box(
+                                Modifier.size(46.dp)
+                                    .semantics { contentDescription = "$emojiLabel: $emoji" }
+                                    .clickable {
+                                        recentEmoji = MeshExpressions.recentEmoji(recentEmoji, emoji)
+                                        prefs.edit().putString("recent_emoji", recentEmoji.joinToString("|")).apply()
+                                        onInsert(emoji)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                MeshAnimatedEmoji(emoji, 38.dp, animated = !isScrolling)
+                            }
                         }
                     }
                 }

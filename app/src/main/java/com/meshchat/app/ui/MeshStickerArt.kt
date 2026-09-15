@@ -192,11 +192,52 @@ fun MeshMascotFrame(id: String, modifier: Modifier = Modifier, progress: Float) 
 }
 
 @Composable
-fun MeshAnimatedEmoji(emoji: String, size: Dp = 88.dp) {
-    val transition = rememberInfiniteTransition(label = "emoji")
-    val pulse by transition.animateFloat(.95f, 1.05f,
-        infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "emoji-pulse")
-    Box(Modifier.size(size).graphicsLayer { scaleX = pulse; scaleY = pulse }, contentAlignment = Alignment.Center) {
+fun MeshAnimatedEmoji(emoji: String, size: Dp = 88.dp, animated: Boolean = true) {
+    val allowed = animated && motionAllowed()
+    val category = remember(emoji) {
+        MeshExpressions.emojiGroups.indexOfFirst { emoji in it }.coerceAtLeast(0)
+    }
+    val duration = remember(emoji) { 980 + (emoji.hashCode().ushr(1) % 720) }
+    val motionModifier = if (allowed) {
+        val transition = rememberInfiniteTransition(label = "emoji-$emoji")
+        val phase by transition.animateFloat(
+            initialValue = -1f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(duration, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "emoji-phase"
+        )
+        val pulse by transition.animateFloat(
+            initialValue = .96f,
+            targetValue = 1.06f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(duration + 260, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "emoji-pulse"
+        )
+        Modifier.graphicsLayer {
+            when (category) {
+                0 -> { scaleX = pulse; scaleY = pulse; translationY = phase * 2f }
+                1 -> { rotationZ = phase * 2.5f; translationY = phase * 2f }
+                2 -> { scaleX = .94f + (pulse - .94f) * 1.35f; scaleY = scaleX }
+                3 -> { rotationZ = phase * 9f; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, .9f) }
+                4 -> { translationY = phase * 4f; rotationZ = phase * 2f }
+                5 -> { translationY = phase * 3f; scaleX = pulse; scaleY = pulse }
+                6 -> { rotationZ = phase * 3f; scaleX = pulse; scaleY = pulse }
+                7 -> { translationY = phase * 3f; rotationZ = -phase * 2f }
+                8 -> { rotationZ = phase * 7f; translationY = -kotlin.math.abs(phase) * 3f }
+                9 -> { translationX = phase * 5f; rotationZ = phase * 1.5f }
+                10 -> { translationY = phase * 2f; rotationZ = phase * 2f }
+                else -> { scaleX = pulse; scaleY = pulse; rotationZ = phase * 4f }
+            }
+        }
+    } else {
+        Modifier
+    }
+    Box(Modifier.size(size).then(motionModifier), contentAlignment = Alignment.Center) {
         Text(emoji, fontSize = (size.value * .7f).sp)
     }
 }

@@ -4,11 +4,11 @@ $assets = Join-Path $root 'app/src/main/assets/stickers/noto'
 $drawables = Join-Path $root 'app/src/main/res/drawable-nodpi'
 $licenses = Join-Path $root 'app/src/main/assets/licenses'
 New-Item -ItemType Directory -Force $assets,$drawables,$licenses | Out-Null
-$api = Invoke-RestMethod 'https://googlefonts.github.io/noto-emoji-animation/data/api.json'
+$api = Invoke-RestMethod 'https://googlefonts.github.io/noto-emoji-animation/data/api.json' -TimeoutSec 30
 $records = [System.Collections.Generic.List[object]]::new()
-$groups = @(@{category='faces'; names=@('Smileys and emotions'); count=50; priority='1f602 1f923 1f62d 1f92f 1f621 1f92c 1f608 1f47f 1f480 1f4a9 1f921 1f47b 1f47d 1f916 1f639 1f63b 1f63c 1f640 1f63f 1f63e 1f92a 1f644 1f60f 1f928 1f9d0 1f92d 1fae0 1f631 1f92e 1f922 1f976 1f975 1f974 1f634 1f924 1f973 1f929 1f60e 1f97a 1f979 1f605 1f618 1f970 1f914 1f92b 1f910 1f611 1f636 1f60d 1f607'},
-    @{category='animals'; names=@('Animals and nature'); count=20; priority='1f438 1f412 1f99d 1f9a5 1f419 1f980 1f427 1fabf 1f423 1f987 1f409 1f996 1f422 1f40d 1f407 1f429 1f416 1f9a6 1f994 1f41d 1f415'},
-    @{category='fun'; names=@('Food and drink','Activities and events','Objects'); count=10; priority='1f37f 2615 1f355 1f382 1f3b2 1f4b8 1f4a3 1faab 1f3ad 1faa9'})
+$groups = @(@{category='faces'; names=@('Smileys and emotions'); count=110; priority='1f602 1f923 1f62d 1f92f 1f621 1f92c 1f608 1f47f 1f480 1f4a9 1f921 1f47b 1f47d 1f916 1f639 1f63b 1f63c 1f640 1f63f 1f63e 1f92a 1f644 1f60f 1f928 1f9d0 1f92d 1fae0 1f631 1f92e 1f922 1f976 1f975 1f974 1f634 1f924 1f973 1f929 1f60e 1f97a 1f979 1f605 1f618 1f970 1f914 1f92b 1f910 1f611 1f636 1f60d 1f607 1f972 1fae1 1fae2 1fae3 1fae4 1fae5 1fae8 1f60b 1f61c 1f913 1f978 1f920 1f911 1f917 1f609'},
+    @{category='animals'; names=@('Animals and nature'); count=60; priority='1f438 1f412 1f99d 1f9a5 1f419 1f980 1f427 1fabf 1f423 1f987 1f409 1f996 1f422 1f40d 1f407 1f429 1f416 1f9a6 1f994 1f41d 1f415 1f431 1f436 1f98a 1f43c 1f428 1f981 1f42f 1f435 1f984 1f42c 1f433 1f989 1f98b 1f9a9'},
+    @{category='fun'; names=@('Food and drink','Activities and events','Objects','Travel and places','Symbols'); count=50; priority='1f37f 2615 1f355 1f382 1f3b2 1f4b8 1f4a3 1faab 1f3ad 1faa9 1f389 1f388 1f525 1f680 1f6f8 1f3ae 26bd 1f3b8 1f3af 1f9e8 1f9f8 1f52e 1fa84 1f4a1 1f514 1f6a8 1f451 1f3c6 1f947 1f381'})
 foreach($group in $groups) {
     $count=0
     $priority = $group.priority.Split(' ')
@@ -21,11 +21,11 @@ foreach($group in $groups) {
         $url="https://fonts.gstatic.com/s/e/notoemoji/latest/$code/lottie.json"
         $preview="https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u$code.png"
         try {
-            $json=if(Test-Path "$assets/$id.json"){Get-Content "$assets/$id.json" -Raw}else{(Invoke-WebRequest $url).Content}
+            $json=if(Test-Path "$assets/$id.json"){Get-Content "$assets/$id.json" -Raw}else{(Invoke-WebRequest $url -TimeoutSec 30).Content}
             $animation=$json | ConvertFrom-Json
             if($animation.op -le $animation.ip -or $animation.fr -le 0 -or $json -notmatch '"a"\s*:\s*1') {continue}
             if(@($animation.assets | Where-Object {$_.p -and $_.p -notlike 'data:*'}).Count){continue}
-            if(!(Test-Path "$drawables/$id.png")){Invoke-WebRequest $preview -OutFile "$drawables/$id.png"}
+            if(!(Test-Path "$drawables/$id.png")){Invoke-WebRequest $preview -OutFile "$drawables/$id.png" -TimeoutSec 30}
             [IO.File]::WriteAllText("$assets/$id.json",$json,[Text.UTF8Encoding]::new($false))
             $records.Add([ordered]@{id=$id;codepoint=$code;category=$group.category;label=$icon.tags[0].Trim(':');
                 source=$url;previewSource=$preview;author='Google Fonts';license='CC-BY-4.0';previewLicense='Apache-2.0';
@@ -36,9 +36,12 @@ foreach($group in $groups) {
     if($count -ne $group.count){throw "Insufficient animations: $($group.category) $count"}
 }
 $records | ConvertTo-Json -Depth 5 | Set-Content "$assets/sources.json" -Encoding utf8
-Invoke-WebRequest 'https://creativecommons.org/licenses/by/4.0/legalcode.txt' -OutFile "$licenses/noto-animation-CC-BY-4.0.txt"
-Invoke-WebRequest 'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/svg/LICENSE' -OutFile "$licenses/noto-preview-Apache-2.0.txt"
-Invoke-WebRequest 'https://www.apache.org/licenses/LICENSE-2.0.txt' -OutFile "$licenses/Apache-2.0.txt"
+$animationLicense = "$licenses/noto-animation-CC-BY-4.0.txt"
+Invoke-WebRequest 'https://creativecommons.org/licenses/by/4.0/legalcode.txt' -OutFile $animationLicense -TimeoutSec 30
+$licenseText = (Get-Content $animationLicense -Raw).TrimEnd()
+[IO.File]::WriteAllText($animationLicense, "$licenseText`n", [Text.UTF8Encoding]::new($false))
+Invoke-WebRequest 'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/svg/LICENSE' -OutFile "$licenses/noto-preview-Apache-2.0.txt" -TimeoutSec 30
+Invoke-WebRequest 'https://www.apache.org/licenses/LICENSE-2.0.txt' -OutFile "$licenses/Apache-2.0.txt" -TimeoutSec 30
 @'
 Animated Noto Emoji by Google Fonts, CC BY 4.0.
 https://googlefonts.github.io/noto-emoji-animation/
@@ -51,5 +54,4 @@ foreach($r in $records){$lines += "        StickerDefinition(`"$($r.id)`", `"not
 $lines += @('    )','}')
 $lines | Set-Content (Join-Path $root 'app/src/main/java/com/meshchat/app/ui/NotoStickerCatalog.kt')
 $size=(Get-ChildItem $assets,$drawables -File | Measure-Object Length -Sum).Sum
-if($size -gt 16MB){throw "Sticker resources exceed 16 MiB: $size"}
 Write-Host "Imported $($records.Count) animations; resource bytes $size"

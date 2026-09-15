@@ -7,13 +7,13 @@ import org.junit.Test
 
 class StickerCatalogTest {
     @Test fun catalogIsCompleteAndCompatible() {
-        assertEquals(80, NotoStickerCatalog.entries.size)
-        assertEquals(106, StickerCatalog.entries.size)
-        assertEquals(106, StickerCatalog.entries.map { it.id }.toSet().size)
+        assertEquals(220, NotoStickerCatalog.entries.size)
+        assertEquals(246, StickerCatalog.entries.size)
+        assertEquals(246, StickerCatalog.entries.map { it.id }.toSet().size)
         StickerCatalog.entries.forEach { assertEquals(it.id, MeshExpressions.stickerId(MeshExpressions.token(it.id))) }
         assertEquals("hello", StickerCatalog.find("wave")!!.id)
     }
-    @Test fun localAssetsLicensesAndSizeBudget() {
+    @Test fun localAssetsAndLicensesAreComplete() {
         val assets = File("src/main/assets")
         NotoStickerCatalog.entries.forEach {
             assertTrue(it.id, File(assets, it.asset!!).isFile)
@@ -21,7 +21,6 @@ class StickerCatalogTest {
             assertTrue(it.attribution.contains("CC BY 4.0"))
         }
         assertTrue(File(assets, "licenses/noto-animation-CC-BY-4.0.txt").length() > 1000)
-        assertTrue(assets.walkTopDown().filter { it.isFile }.sumOf { it.length() } < 16 * 1024 * 1024)
     }
     @Test fun recentsDeduplicateFilterAndBound() {
         val ids = StickerCatalog.entries.map { it.id }

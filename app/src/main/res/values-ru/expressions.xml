@@ -8,4 +8,5 @@
     <string name="stickers_fun">Приколы</string>
     <string name="stickers_empty">Здесь появятся недавно отправленные стикеры</string>
     <string name="stickers_preview">Просмотр стикера</string>
+    <string name="emoji_recent_empty">Здесь появятся недавно использованные эмодзи</string>
 </resources>
