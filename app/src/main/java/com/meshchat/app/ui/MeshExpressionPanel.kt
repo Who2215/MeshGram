@@ -30,7 +30,10 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
     onDismiss: () -> Unit, onSendSticker: (String) -> Boolean, onInsert: (String) -> Unit) {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("sticker_picker", 0)
-    val catalogEntries = remember(context.applicationContext) { StickerCatalog.entries(context) }
+    val installedRevision by StickerCatalog.installedRevision.collectAsState()
+    val catalogEntries = remember(context.applicationContext, installedRevision) {
+        StickerCatalog.entries(context)
+    }
     var stickers by rememberSaveable { mutableStateOf(true) }
     var emojiCategory by rememberSaveable { mutableIntStateOf(1) }
     var pack by rememberSaveable { mutableStateOf(prefs.getString("pack", "noto") ?: "noto") }

@@ -77,7 +77,10 @@ fun MeshStickerArt(id: String, modifier: Modifier = Modifier, animated: Boolean 
     loop: Boolean = false, replayOnTap: Boolean = true) {
     val context = LocalContext.current
     val view = LocalView.current
-    val entry = remember(id, context.applicationContext) { StickerCatalog.find(context, id) }
+    val installedRevision by StickerCatalog.installedRevision.collectAsState()
+    val entry = remember(id, context.applicationContext, installedRevision) {
+        StickerCatalog.find(context, id)
+    }
     if (entry == null) {
         MissingStickerArt(id, modifier)
         return

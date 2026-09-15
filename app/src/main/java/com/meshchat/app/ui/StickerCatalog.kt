@@ -6,6 +6,8 @@ import com.meshchat.app.R
 import com.meshchat.app.stickers.StickerPackAssetKind
 import com.meshchat.app.stickers.StickerPackStore
 import java.io.File
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 enum class StickerKind { CANVAS, PNG, LOTTIE }
 data class StickerDefinition(
@@ -29,6 +31,8 @@ object StickerCatalog {
     @Volatile private var installedEntries: List<StickerDefinition> = emptyList()
     @Volatile private var installedById: Map<String, StickerDefinition> = emptyMap()
     @Volatile private var installedLoaded = false
+    private val _installedRevision = MutableStateFlow(0L)
+    val installedRevision = _installedRevision.asStateFlow()
 
     fun find(id: String): StickerDefinition? = byId[MeshExpressions.artworkId(id)]
     fun entries(context: Context): List<StickerDefinition> {
@@ -63,9 +67,11 @@ object StickerCatalog {
                 )
             }
         }
+        val changed = !installedLoaded || installedEntries != loaded
         installedEntries = loaded
         installedById = loaded.associateBy { it.id }
         installedLoaded = true
+        if (changed) _installedRevision.value += 1
     }
     private fun ensureInstalledLoaded(context: Context) {
         if (!installedLoaded) refreshInstalled(context)
