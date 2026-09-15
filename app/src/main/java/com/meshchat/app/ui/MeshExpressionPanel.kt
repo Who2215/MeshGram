@@ -100,7 +100,7 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
                 }
                 IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, closeLabel) }
             }
-            if (stickers && selectedCategories.isNotEmpty()) {
+            if (stickers && selectedCategories.size > 1) {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
