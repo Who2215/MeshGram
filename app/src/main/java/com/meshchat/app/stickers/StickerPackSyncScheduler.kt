@@ -9,6 +9,7 @@ import android.content.Context
 import android.os.Build
 import com.meshchat.app.BuildConfig
 import com.meshchat.app.ui.MeshExpressions
+import com.meshchat.app.ui.StickerCatalog
 import kotlin.concurrent.thread
 
 object StickerPackSyncScheduler {
@@ -56,8 +57,11 @@ object StickerPackSyncScheduler {
     }
 
     @Synchronized
-    internal fun sync(context: Context): StickerPackSyncResult =
-        StickerPackSyncManager(context).sync(reservedIds = MeshExpressions.stickers.toSet())
+    internal fun sync(context: Context): StickerPackSyncResult {
+        val result = StickerPackSyncManager(context).sync(reservedIds = MeshExpressions.stickers.toSet())
+        if (result.installed.isNotEmpty()) StickerCatalog.refreshInstalled(context)
+        return result
+    }
 
     private fun isConfigured(): Boolean =
         BuildConfig.MESHGRAM_STICKER_INDEX_URL.isNotBlank() &&

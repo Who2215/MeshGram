@@ -78,9 +78,11 @@ class StickerPackSecurityTest {
             assertTrue(installed!!.directory.resolve("laugh.json").isFile)
             assertTrue(installed.directory.resolve("laugh.preview.png").isFile)
             assertEquals("1", root.resolve("community.fun.current").readText())
+            assertEquals(1, StickerPackStore(root).load(publicKey).size)
 
             installed.directory.resolve("laugh.json").appendText("damaged")
             assertFalse(installer.verifyInstalled(installed.directory, signed))
+            assertTrue(StickerPackStore(root).load(publicKey).isEmpty())
             val repaired = installer.install(
                 signed,
                 mapOf(signed.stickers.single().id to StagedStickerFiles(asset, preview)),
@@ -88,6 +90,7 @@ class StickerPackSecurityTest {
             )
             assertNotNull(repaired)
             assertTrue(installer.verifyInstalled(repaired!!.directory, signed))
+            assertEquals(1, StickerPackStore(root).load(publicKey).size)
 
             val tamperedManifest = sign(manifest(version = 2), keys)
             asset.appendText("tampered")

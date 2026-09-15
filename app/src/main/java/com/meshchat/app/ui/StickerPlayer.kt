@@ -1,18 +1,26 @@
 package com.meshchat.app.ui
 
 import android.database.ContentObserver
+import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -20,6 +28,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.airbnb.lottie.compose.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.max
+import kotlin.math.min
 
 @Composable
 internal fun motionAllowed(): Boolean {
@@ -63,37 +75,84 @@ private fun stickerProgress(playing: Boolean, loop: Boolean, durationMs: Float):
 @Composable
 fun MeshStickerArt(id: String, modifier: Modifier = Modifier, animated: Boolean = true,
     loop: Boolean = false, replayOnTap: Boolean = true) {
-    val entry = StickerCatalog.find(id) ?: return
+    val context = LocalContext.current
+    val view = LocalView.current
+    val entry = remember(id, context.applicationContext) { StickerCatalog.find(context, id) }
+    if (entry == null) {
+        MissingStickerArt(id, modifier)
+        return
+    }
     var visible by remember { mutableStateOf(false) }
     var wasVisible by remember(id) { mutableStateOf(false) }
     var replay by remember(id) { mutableIntStateOf(0) }
     val allowed = motionAllowed()
     Box(modifier.onGloballyPositioned {
         val bounds = it.boundsInWindow()
-        visible = bounds.width * bounds.height >= it.size.width.toFloat() * it.size.height * .5f && bounds.width > 0
+        val visibleWidth = (min(bounds.right, view.width.toFloat()) - max(bounds.left, 0f)).coerceAtLeast(0f)
+        val visibleHeight = (min(bounds.bottom, view.height.toFloat()) - max(bounds.top, 0f)).coerceAtLeast(0f)
+        visible = visibleWidth * visibleHeight >= it.size.width.toFloat() * it.size.height * .5f
         if (visible) wasVisible = true
     }.then(if (replayOnTap && entry.kind != StickerKind.PNG) Modifier.clickable { replay++ } else Modifier)) {
         key(id, replay) {
             val play = animated && visible && allowed
             when (entry.kind) {
-                StickerKind.PNG -> Image(painterResource(entry.preview!!), "Fluent Emoji $id", Modifier.fillMaxSize())
+                StickerKind.PNG -> StickerPreview(entry, "Sticker $id")
                 StickerKind.CANVAS -> {
                     val progress = stickerProgress(play, loop, 5400f)
                     MeshMascotFrame(id, Modifier.fillMaxSize(), if (animated && allowed) progress else .45f)
                 }
                 StickerKind.LOTTIE -> {
-                    // Bundled assets only. The preview also covers parse failures and reduced motion.
                     if (wasVisible && animated && allowed) {
-                        val result = rememberLottieComposition(LottieCompositionSpec.Asset(entry.asset!!))
-                        val composition = result.value
-                        if (composition != null && !result.isFailure) {
-                            val progress = stickerProgress(play, loop, composition.duration.coerceAtLeast(1f))
-                            if (progress >= 1f) Image(painterResource(entry.preview!!), "Noto $id", Modifier.fillMaxSize())
-                            else LottieAnimation(composition, progress = { progress }, modifier = Modifier.fillMaxSize().semantics { contentDescription = "Noto $id" })
-                        } else Image(painterResource(entry.preview!!), "Noto $id", Modifier.fillMaxSize())
-                    } else Image(painterResource(entry.preview!!), "Noto $id", Modifier.fillMaxSize())
+                        val spec = remember(entry.asset, entry.localAsset) {
+                            entry.asset?.let(LottieCompositionSpec::Asset)
+                                ?: entry.localAsset?.absolutePath?.let(LottieCompositionSpec::File)
+                        }
+                        if (spec != null) {
+                            val result = rememberLottieComposition(spec)
+                            val composition = result.value
+                            if (composition != null && !result.isFailure) {
+                                val progress = stickerProgress(play, loop, composition.duration.coerceAtLeast(1f))
+                                if (progress >= 1f) StickerPreview(entry, "Sticker $id")
+                                else LottieAnimation(composition, progress = { progress }, modifier = Modifier.fillMaxSize().semantics { contentDescription = "Sticker $id" })
+                            } else StickerPreview(entry, "Sticker $id")
+                        } else StickerPreview(entry, "Sticker $id")
+                    } else StickerPreview(entry, "Sticker $id")
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StickerPreview(entry: StickerDefinition, description: String) {
+    val previewResource = entry.preview
+    if (previewResource != null) {
+        Image(painterResource(previewResource), description, Modifier.fillMaxSize())
+        return
+    }
+    val file = entry.localPreview
+    val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, file?.path, file?.lastModified()) {
+        value = if (file?.isFile == true) withContext(Dispatchers.IO) {
+            BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+        } else null
+    }
+    if (image != null) {
+        Image(image!!, description, Modifier.fillMaxSize())
+    } else {
+        MissingStickerArt(entry.id, Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+private fun MissingStickerArt(id: String, modifier: Modifier) {
+    Box(
+        modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "✦ ${id.substringAfterLast('/').take(16)}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium
+        )
     }
 }

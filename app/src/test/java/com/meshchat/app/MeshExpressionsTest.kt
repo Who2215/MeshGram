@@ -24,6 +24,13 @@ class MeshExpressionsTest {
         assertNull(MeshExpressions.stickerId("hello [[sticker:love]]"))
         assertNull(MeshExpressions.stickerId("[[sticker:unknown]]"))
         assertNull(MeshExpressions.stickerId("[[sticker:../love]]"))
+        assertNull(MeshExpressions.stickerId("[[sticker:community.fun/../love]]"))
+        assertNull(MeshExpressions.stickerId("[[sticker:community.fun/laugh/again]]"))
+        assertNull(MeshExpressions.stickerId("[[sticker:Community.fun/laugh]]"))
+    }
+    @Test fun signedPackIdsRoundTripWithoutChangingBuiltInIds() {
+        val id = "community.fun/laugh_hard"
+        assertEquals(id, MeshExpressions.stickerId(MeshExpressions.token(id)))
     }
     @Test fun onlyStandaloneEmojiBecomeLargeAnimatedArt() {
         assertEquals("❤️", MeshExpressions.animatedEmoji("❤️"))
