@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -60,6 +61,11 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
         "noto" to localizedPackLabels.getValue("noto"),
         "fluent" to localizedPackLabels.getValue("fluent")
     ) + dynamicPacks
+    val packListState = rememberLazyListState()
+    LaunchedEffect(pack, packs) {
+        val selectedIndex = packs.indexOfFirst { it.first == pack }
+        if (selectedIndex >= 0) packListState.scrollToItem(selectedIndex)
+    }
     val categoryLabels = mapOf(
         "faces" to stringResource(R.string.stickers_faces),
         "reactions" to stringResource(R.string.stickers_faces),
@@ -81,6 +87,7 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 LazyRow(
                     Modifier.weight(1f),
+                    state = packListState,
                     contentPadding = PaddingValues(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
