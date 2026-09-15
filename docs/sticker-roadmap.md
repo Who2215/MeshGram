@@ -8,14 +8,14 @@
 - 576 categorized Unicode emoji with recents and category-specific motion.
 - Every third-party bundled asset keeps its source URL, attribution, license, and SHA-256.
 
-## Next: unlimited signed packs
+## Signed-pack foundation
 
-1. Define a versioned pack manifest with permanent sticker IDs, content type, size, SHA-256, attribution, and license URL.
-2. Sign each manifest with the MeshGram release identity and verify it before extraction.
-3. Enforce per-file and expanded-size limits, safe filenames, animation complexity limits, and atomic installation.
-4. Cache packs locally and keep a static preview so a damaged animation never breaks a chat.
-5. Transfer the pack ID and version in messages; offer the matching signed pack when a peer does not have it.
-6. Keep bundled stickers working offline and never execute code from a downloaded pack.
+- Implemented: versioned manifests with permanent IDs, content type, byte size, SHA-256, attribution, and license URL.
+- Implemented: EC signatures verified against the release public key already pinned in the app.
+- Implemented: per-file and pack limits, safe derived filenames, Lottie complexity checks, and atomic internal installation.
+- Implemented: a publication tool that computes hashes from reviewed local files and signs the canonical manifest.
+- Next: HTTPS index/downloader, installed-pack registry, fallback previews, and pack UI.
+- Next: transfer pack ID/version in messages and offer only the matching signed pack when it is missing.
 
 ## Telegram-compatible import
 
