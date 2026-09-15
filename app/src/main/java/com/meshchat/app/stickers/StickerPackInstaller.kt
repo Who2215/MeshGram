@@ -136,7 +136,7 @@ class StickerPackInstaller(private val storageRoot: File) {
     private fun jsonComplexityWithin(root: JsonElement): Boolean {
         var nodes = 0
         fun visit(element: JsonElement, depth: Int): Boolean {
-            if (depth > 32 || ++nodes > 20_000) return false
+            if (depth > 32 || ++nodes > 50_000) return false
             return when (element) {
                 is JsonObject -> element.values.all { visit(it, depth + 1) }
                 is JsonArray -> element.all { visit(it, depth + 1) }

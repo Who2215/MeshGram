@@ -1,5 +1,8 @@
 package com.meshchat.app.stickers
 
+import com.meshchat.app.BuildConfig
+import com.meshchat.app.ui.MeshExpressions
+import java.io.File
 import java.nio.file.Files
 import java.security.KeyPair
 import java.security.KeyPairGenerator
@@ -103,6 +106,40 @@ class StickerPackSecurityTest {
         } finally {
             root.deleteRecursively()
             stage.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun publishedNotoReactionsPackIsSignedAndInstallable() {
+        val packRoot = File("../site/stickers/noto.reactions/1")
+        val manifest = StickerPackVerifier.parse(packRoot.resolve("manifest.json").readText())
+        assertNotNull(manifest)
+        val signed = manifest!!
+        val trustedKey = BuildConfig.MESHGRAM_RELEASE_PUBLIC_KEY_BASE64
+        assertTrue(StickerPackVerifier.validate(signed, MeshExpressions.stickers.toSet()))
+        assertTrue(StickerPackVerifier.verifySignature(signed, trustedKey))
+
+        val staged = signed.stickers.associate { sticker ->
+            val stem = sticker.id.substringAfterLast('/')
+            val assetName = if (sticker.kind == StickerPackAssetKind.LOTTIE) "$stem.json" else "$stem.png"
+            sticker.id to StagedStickerFiles(
+                packRoot.resolve(assetName),
+                packRoot.resolve("$stem.preview.png")
+            )
+        }
+        val installRoot = Files.createTempDirectory("meshgram-published-pack").toFile()
+        try {
+            val installed = StickerPackInstaller(installRoot).install(
+                signed,
+                staged,
+                trustedKey,
+                MeshExpressions.stickers.toSet()
+            )
+            assertNotNull(installed)
+            assertEquals(12, installed!!.manifest.stickers.size)
+            assertEquals(12, installed.manifest.stickers.map { it.id }.toSet().size)
+        } finally {
+            installRoot.deleteRecursively()
         }
     }
 

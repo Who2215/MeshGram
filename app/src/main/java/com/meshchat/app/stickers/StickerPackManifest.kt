@@ -129,8 +129,8 @@ object StickerPackVerifier {
                 !sticker.previewSha256.matches(sha256Pattern) ||
                 sticker.assetBytes !in 1..maxAssetBytes ||
                 sticker.previewBytes !in 1..MAX_PREVIEW_BYTES ||
-                sticker.width !in 1..512 ||
-                sticker.height !in 1..512
+                sticker.width !in 1..1024 ||
+                sticker.height !in 1..1024
             ) return false
 
             if (sticker.kind == StickerPackAssetKind.LOTTIE) {
