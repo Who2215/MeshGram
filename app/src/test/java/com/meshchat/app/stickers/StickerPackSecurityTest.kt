@@ -113,6 +113,7 @@ class StickerPackSecurityTest {
     fun publishedNotoPacksAreSignedAndInstallable() {
         assertPublishedPack("noto.reactions", 12)
         assertPublishedPack("noto.animals", 24)
+        assertPublishedPack("noto.food", 24)
     }
 
     private fun assertPublishedPack(packId: String, expectedStickers: Int) {

@@ -5,6 +5,7 @@
     <string name="stickers_all">Все</string>
     <string name="stickers_faces">Реакции</string>
     <string name="stickers_animals">Животные</string>
+    <string name="stickers_food">Еда</string>
     <string name="stickers_fun">Приколы</string>
     <string name="stickers_empty">Здесь появятся недавно отправленные стикеры</string>
     <string name="stickers_preview">Просмотр стикера</string>
@@ -14,4 +15,5 @@
     <string name="sticker_pack_fluent">Fluent 3D</string>
     <string name="sticker_pack_noto_reactions">Реакции</string>
     <string name="sticker_pack_noto_animals">Животные</string>
+    <string name="sticker_pack_noto_food">Еда</string>
 </resources>

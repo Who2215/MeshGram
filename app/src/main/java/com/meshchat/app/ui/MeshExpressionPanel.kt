@@ -50,7 +50,8 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
         "noto" to stringResource(R.string.sticker_pack_noto),
         "fluent" to stringResource(R.string.sticker_pack_fluent),
         "noto.reactions" to stringResource(R.string.sticker_pack_noto_reactions),
-        "noto.animals" to stringResource(R.string.sticker_pack_noto_animals)
+        "noto.animals" to stringResource(R.string.sticker_pack_noto_animals),
+        "noto.food" to stringResource(R.string.sticker_pack_noto_food)
     )
     val dynamicPacks = catalogEntries.filter { it.localAsset != null }
         .distinctBy { it.pack }
@@ -70,6 +71,7 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
         "faces" to stringResource(R.string.stickers_faces),
         "reactions" to stringResource(R.string.stickers_faces),
         "animals" to stringResource(R.string.stickers_animals),
+        "food" to stringResource(R.string.stickers_food),
         "fun" to stringResource(R.string.stickers_fun)
     )
     val selectedCategories = catalogEntries.asSequence().filter { it.pack == pack }

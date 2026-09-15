@@ -5,7 +5,7 @@
 - 14 original animated Neon Bots with permanent wire IDs.
 - 12 transparent Microsoft Fluent Emoji stickers under the MIT license.
 - 220 bundled Google Noto Emoji Lottie animations under CC BY 4.0.
-- 36 signed Google Noto animations in two live packs: Reactions and Animals.
+- 60 signed Google Noto animations in three live packs: Reactions, Animals, and Food.
 - 576 categorized Unicode emoji with recents and category-specific motion.
 - Every third-party bundled asset keeps its source URL, attribution, license, and SHA-256.
 

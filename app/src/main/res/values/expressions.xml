@@ -5,6 +5,7 @@
     <string name="stickers_all">All</string>
     <string name="stickers_faces">Reactions</string>
     <string name="stickers_animals">Animals</string>
+    <string name="stickers_food">Food</string>
     <string name="stickers_fun">Fun</string>
     <string name="stickers_empty">Your recently sent stickers will appear here</string>
     <string name="stickers_preview">Sticker preview</string>
@@ -14,4 +15,5 @@
     <string name="sticker_pack_fluent">Fluent 3D</string>
     <string name="sticker_pack_noto_reactions">Reactions</string>
     <string name="sticker_pack_noto_animals">Animals</string>
+    <string name="sticker_pack_noto_food">Food</string>
 </resources>
