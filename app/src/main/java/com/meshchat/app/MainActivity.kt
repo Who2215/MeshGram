@@ -191,6 +191,7 @@ import com.meshchat.app.mesh.ScheduledMessageRecord
 import com.meshchat.app.mesh.isSavedMessagesConversation
 import com.meshchat.app.release.MeshUpdateInstaller
 import com.meshchat.app.release.MeshUpdateScheduler
+import com.meshchat.app.stickers.StickerPackSyncScheduler
 import com.meshchat.app.ui.LiveMeshBackground
 import com.meshchat.app.ui.MeshAmbientPalette
 import com.meshchat.app.ui.MeshBackgroundStyle
@@ -230,6 +231,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MeshUpdateScheduler.schedule(applicationContext)
+        StickerPackSyncScheduler.schedule(applicationContext)
+        StickerPackSyncScheduler.checkNowIfStale(applicationContext)
         externalConversationId = extractConversationId(intent)
         externalSharePayload = extractSharePayload(intent)
         externalFriendInvite = extractFriendInvite(intent)

@@ -10,6 +10,7 @@ android {
 
     val donationUrl = providers.gradleProperty("MESHGRAM_DONATION_URL").orNull.orEmpty()
     val updateManifestUrl = providers.gradleProperty("MESHGRAM_UPDATE_MANIFEST_URL").orNull.orEmpty()
+    val stickerIndexUrl = providers.gradleProperty("MESHGRAM_STICKER_INDEX_URL").orNull.orEmpty()
     val releasePublicKey = providers.gradleProperty("MESHGRAM_RELEASE_PUBLIC_KEY_BASE64").orNull.orEmpty()
     fun buildConfigString(value: String): String {
         return "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
@@ -76,6 +77,7 @@ android {
     defaultConfig {
         buildConfigField("String", "MESHGRAM_DONATION_URL", buildConfigString(donationUrl))
         buildConfigField("String", "MESHGRAM_UPDATE_MANIFEST_URL", buildConfigString(updateManifestUrl))
+        buildConfigField("String", "MESHGRAM_STICKER_INDEX_URL", buildConfigString(stickerIndexUrl))
         buildConfigField("String", "MESHGRAM_RELEASE_PUBLIC_KEY_BASE64", buildConfigString(releasePublicKey))
     }
 

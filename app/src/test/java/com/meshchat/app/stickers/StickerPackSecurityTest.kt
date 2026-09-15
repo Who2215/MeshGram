@@ -67,7 +67,8 @@ class StickerPackSecurityTest {
             val keys = keyPair()
             val signed = sign(manifest(), keys)
             val publicKey = Base64.getEncoder().encodeToString(keys.public.encoded)
-            val installed = StickerPackInstaller(root).install(
+            val installer = StickerPackInstaller(root)
+            val installed = installer.install(
                 signed,
                 mapOf(signed.stickers.single().id to StagedStickerFiles(asset, preview)),
                 publicKey
@@ -77,6 +78,16 @@ class StickerPackSecurityTest {
             assertTrue(installed!!.directory.resolve("laugh.json").isFile)
             assertTrue(installed.directory.resolve("laugh.preview.png").isFile)
             assertEquals("1", root.resolve("community.fun.current").readText())
+
+            installed.directory.resolve("laugh.json").appendText("damaged")
+            assertFalse(installer.verifyInstalled(installed.directory, signed))
+            val repaired = installer.install(
+                signed,
+                mapOf(signed.stickers.single().id to StagedStickerFiles(asset, preview)),
+                publicKey
+            )
+            assertNotNull(repaired)
+            assertTrue(installer.verifyInstalled(repaired!!.directory, signed))
 
             val tamperedManifest = sign(manifest(version = 2), keys)
             asset.appendText("tampered")

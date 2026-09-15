@@ -55,12 +55,15 @@ class StickerPackInstaller(private val storageRoot: File) {
             destination.parentFile?.mkdirs()
             if (destination.exists()) {
                 val existing = readInstalledManifest(destination)
-                if (existing == manifest) {
+                if (existing == manifest && verifyInstalled(destination, manifest)) {
                     deleteInside(root, temporary)
                     if (!updateCurrent(root, manifest)) return null
                     return InstalledStickerPack(manifest, destination)
                 }
-                return null
+                // A signed version is immutable. Repair damaged files, but never replace
+                // a different manifest that reuses the same pack/version identity.
+                if (existing != manifest) return null
+                deleteInside(root, destination)
             }
             if (!temporary.renameTo(destination)) return null
             if (!updateCurrent(root, manifest)) {
@@ -94,6 +97,19 @@ class StickerPackInstaller(private val storageRoot: File) {
     private fun validAsset(sticker: StickerPackItem, file: File): Boolean = when (sticker.kind) {
         StickerPackAssetKind.PNG -> validPreview(file)
         StickerPackAssetKind.LOTTIE -> validLottie(sticker, file)
+    }
+
+    internal fun verifyInstalled(directory: File, manifest: StickerPackManifest): Boolean {
+        if (!directory.isDirectory || readInstalledManifest(directory) != manifest) return false
+        return manifest.stickers.all { sticker ->
+            val stem = sticker.id.substringAfterLast('/')
+            val assetName = if (sticker.kind == StickerPackAssetKind.LOTTIE) "$stem.json" else "$stem.png"
+            val asset = File(directory, assetName)
+            val preview = File(directory, "$stem.preview.png")
+            StickerPackVerifier.verifyFile(asset, sticker.assetBytes, sticker.assetSha256) &&
+                StickerPackVerifier.verifyFile(preview, sticker.previewBytes, sticker.previewSha256) &&
+                validPreview(preview) && validAsset(sticker, asset)
+        }
     }
 
     private fun validLottie(sticker: StickerPackItem, file: File): Boolean = runCatching {
@@ -130,8 +146,11 @@ class StickerPackInstaller(private val storageRoot: File) {
         return visit(root, 0)
     }
 
-    private fun readInstalledManifest(directory: File): StickerPackManifest? =
-        runCatching { StickerPackVerifier.parse(File(directory, "manifest.json").readText()) }.getOrNull()
+    private fun readInstalledManifest(directory: File): StickerPackManifest? = runCatching {
+        val file = File(directory, "manifest.json")
+        if (!file.isFile || file.length() !in 1..StickerPackVerifier.MAX_MANIFEST_BYTES.toLong()) return null
+        StickerPackVerifier.parse(file.readText(Charsets.UTF_8))
+    }.getOrNull()
 
     private fun updateCurrent(root: File, manifest: StickerPackManifest): Boolean {
         val pointer = File(root, "${manifest.packId}.current")

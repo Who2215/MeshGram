@@ -32,3 +32,9 @@ The signer computes byte sizes and SHA-256 values from the local files and strip
 - PNG artwork: up to 2 MiB; PNG preview: up to 256 KiB.
 - External Lottie images and URLs, unsafe paths, duplicate IDs, unknown fields, and unsigned manifests are rejected.
 - Installation uses derived local filenames and a same-volume staging directory, then commits the verified version atomically.
+
+## Published index and synchronization
+
+`site/stickers/index.json` is the small discovery document used by released apps. It contains only HTTPS manifest URLs, with at most 20 packs. Every referenced manifest must still pass the pinned EC signature check, so changing the index alone cannot authorize a pack.
+
+MeshGram checks the index at most once per six hours on app startup and also schedules a network-only, idle-device background job every 12 hours. Downloads are staged in the app cache and become current only after every declared file passes its exact size, SHA-256, PNG/Lottie structure, and complexity checks. Installed files are revalidated; a damaged version is repaired, while a different signed manifest reusing the same pack/version identity is rejected.
