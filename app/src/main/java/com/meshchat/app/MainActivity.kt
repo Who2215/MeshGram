@@ -51,6 +51,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -120,7 +121,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -139,6 +139,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import com.meshchat.app.ui.MeshBackNavigation
 import com.meshchat.app.ui.BackDestination
 import com.meshchat.app.ui.backDestination
@@ -204,6 +205,7 @@ import com.meshchat.app.ui.audio.SharedAudioController
 import com.meshchat.app.ui.audio.audioKey
 import com.meshchat.app.ui.audio.audioTime
 import com.meshchat.app.ui.audio.isInlineVoiceMessage
+import com.meshchat.app.ui.audio.nextAudioSpeed
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import java.text.SimpleDateFormat
@@ -916,7 +918,6 @@ private fun rememberMeshStrings(): MeshStrings {
 private data class AudioStrings(
     val playVoice: String,
     val pauseVoice: String,
-    val encryptedVoiceNote: String,
     val audioUnavailable: String,
     val preparingPreview: String,
     val waitingForFile: String,
@@ -953,7 +954,6 @@ private fun rememberAudioStrings(): AudioStrings {
             AudioStrings(
                 playVoice = "Воспроизвести голосовое",
                 pauseVoice = "Приостановить голосовое",
-                encryptedVoiceNote = "Зашифрованное голосовое",
                 audioUnavailable = "Аудио недоступно",
                 preparingPreview = "Подготовка воспроизведения...",
                 waitingForFile = "Ожидание файла",
@@ -979,7 +979,6 @@ private fun rememberAudioStrings(): AudioStrings {
             AudioStrings(
                 playVoice = "Play voice",
                 pauseVoice = "Pause voice",
-                encryptedVoiceNote = "Encrypted voice note",
                 audioUnavailable = "Audio unavailable",
                 preparingPreview = "Preparing preview...",
                 waitingForFile = "Waiting for file",
@@ -8706,11 +8705,12 @@ private fun VoiceWaveform(
     samples: List<Float>,
     progress: Float,
     activeColor: Color,
-    inactiveColor: Color
+    inactiveColor: Color,
+    modifier: Modifier = Modifier
 ) {
     val visibleSamples = if (samples.isEmpty()) listOf(0.08f) else samples.takeLast(36)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(30.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -8784,15 +8784,15 @@ private fun InlineAudioPlayer(message: ChatMessage) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         color = TgDayPalette.searchField
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(54.dp),
+                modifier = Modifier.size(46.dp),
                 shape = CircleShape,
                 color = TgDayPalette.rowBlue
             ) {
@@ -8807,27 +8807,34 @@ private fun InlineAudioPlayer(message: ChatMessage) {
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(9.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = strings.encryptedVoiceNote,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TgDayPalette.actionBarTitle
-                )
-                Spacer(modifier = Modifier.height(7.dp))
+                if (!isVoice) {
+                    Text(
+                        text = message.attachment?.fileName.orEmpty(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TgDayPalette.actionBarTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 VoiceWaveform(
                     samples = waveformSamples,
                     progress = progress,
                     activeColor = TgDayPalette.rowBlue,
-                    inactiveColor = TgDayPalette.rowMeta.copy(alpha = 0.24f)
+                    inactiveColor = TgDayPalette.rowMeta.copy(alpha = 0.24f),
+                    modifier = Modifier.pointerInput(durationMs, audioKey) {
+                        detectTapGestures { offset ->
+                            if (controller.enabled && durationMs > 0L && size.width > 0) {
+                                controller.seek(audioKey, offset.x / size.width.toFloat())
+                            }
+                        }
+                    }
                 )
-                Slider(
-                    value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
-                    onValueChange = { value -> controller.seek(audioKey, value / durationMs.coerceAtLeast(1L)) },
-                    enabled = controller.enabled && durationMs > 0L,
-                    valueRange = 0f..durationMs.coerceAtLeast(1L).toFloat()
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.heightIn(min = 28.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = when {
                             playbackState.error -> strings.audioUnavailable
@@ -8841,15 +8848,18 @@ private fun InlineAudioPlayer(message: ChatMessage) {
                         color = TgDayPalette.rowMeta,
                         modifier = Modifier.weight(1f)
                     )
-                    if (isVoice) listOf(1f, 1.5f, 2f).forEach { speed ->
+                    if (isVoice) {
+                        val speed = playbackState.speed
                         TextButton(
                             onClick = {
-                                controller.setSpeed(audioKey, speed)
-                            }
+                                controller.setSpeed(audioKey, nextAudioSpeed(speed))
+                            },
+                            modifier = Modifier.height(28.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
                             Text(
                                 text = if (speed == 1f) "1x" else "${speed}x",
-                                color = if (playbackState.speed == speed) TgDayPalette.rowBlue else TgDayPalette.rowMeta
+                                color = TgDayPalette.rowBlue
                             )
                         }
                     }
@@ -10080,16 +10090,25 @@ private fun MessageBubble(
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                 }
-                if (message.isDeleted || message.contentType == ChatContentType.FILE) {
+                val messageAttachmentKind = if (message.contentType == ChatContentType.FILE) {
+                    message.attachmentKind()
+                } else {
+                    null
+                }
+                if (message.isDeleted) {
                     Text(
-                        text = if (message.isDeleted) {
-                            "Message deleted"
-                        } else {
-                            message.attachment?.fileName ?: message.text
-                        },
+                        text = "Message deleted",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (message.isDeleted) metaColor else textColor
+                        color = metaColor
                     )
+                } else if (message.contentType == ChatContentType.FILE) {
+                    if (messageAttachmentKind != AttachmentKind.AUDIO) {
+                        Text(
+                            text = message.attachment?.fileName ?: message.text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = textColor
+                        )
+                    }
                 } else {
                     if (sticker != null) {
                         MeshStickerArt(sticker, Modifier.size(168.dp))
@@ -10119,7 +10138,7 @@ private fun MessageBubble(
                     )
                 }
                 if (!message.isDeleted && message.contentType == ChatContentType.FILE) {
-                    val attachmentKind = message.attachmentKind()
+                    val attachmentKind = messageAttachmentKind ?: message.attachmentKind()
                     val attachmentLabel = attachmentKind.localizedLabel()
                     if (attachmentKind == AttachmentKind.IMAGE) {
                         Spacer(modifier = Modifier.height(6.dp))
@@ -10165,7 +10184,7 @@ private fun MessageBubble(
                                 color = metaColor
                             )
                         }
-                        if (!message.attachment?.localUri.isNullOrBlank()) {
+                        if (!message.attachment?.localUri.isNullOrBlank() && attachmentKind != AttachmentKind.AUDIO) {
                             Text(
                                 text = if (attachmentKind == AttachmentKind.FILE) {
                                     message.attachment?.let { fileSizeShort(it.sizeBytes) } ?: localizedTapToOpen()

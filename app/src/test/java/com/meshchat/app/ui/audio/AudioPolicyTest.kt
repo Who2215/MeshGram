@@ -4,6 +4,7 @@ import com.meshchat.app.mesh.ChatContentType
 import com.meshchat.app.mesh.ChatMessage
 import com.meshchat.app.mesh.MessageAttachment
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -48,5 +49,11 @@ class AudioPolicyTest {
             sizeBytes = 12,
             sha256 = "hash"
         ))))
+    }
+
+    @Test fun playbackSpeedCyclesThroughCompactControls() {
+        assertEquals(1.5f, nextAudioSpeed(1f))
+        assertEquals(2f, nextAudioSpeed(1.5f))
+        assertEquals(1f, nextAudioSpeed(2f))
     }
 }
