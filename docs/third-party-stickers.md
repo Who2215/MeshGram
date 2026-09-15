@@ -11,8 +11,8 @@ Both peers need an app version recognizing these new sticker IDs.
 
 ## Signed Noto live packs
 
-MeshGram also publishes 60 unmodified Google Noto Animated Emoji assets in the
-signed `noto.reactions`, `noto.animals`, and `noto.food` packs. Animations are CC BY 4.0 and
+MeshGram also publishes 80 unmodified Google Noto Animated Emoji assets in the
+signed `noto.reactions`, `noto.animals`, `noto.food`, and `noto.fun` packs. Animations are CC BY 4.0 and
 their transparent static previews are Apache 2.0. Exact source URLs, authorship,
 SHA-256 checksums, and license copies live beside each published manifest under
 `site/stickers/<pack-id>/<version>/`. The application downloads a pack only from

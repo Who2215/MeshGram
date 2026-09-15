@@ -114,6 +114,7 @@ class StickerPackSecurityTest {
         assertPublishedPack("noto.reactions", 12)
         assertPublishedPack("noto.animals", 24)
         assertPublishedPack("noto.food", 24)
+        assertPublishedPack("noto.fun", 20)
     }
 
     private fun assertPublishedPack(packId: String, expectedStickers: Int) {

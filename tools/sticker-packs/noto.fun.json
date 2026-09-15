@@ -1,0 +1,31 @@
+{
+  "packId": "noto.fun",
+  "version": 1,
+  "title": "Noto Fun",
+  "attribution": "Google Fonts Noto Animated Emoji / CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "category": "fun",
+  "publicBaseUrl": "https://who2215.github.io/MeshGram/stickers/noto.fun/1",
+  "stickers": [
+    { "id": "ogre", "codepoint": "1f479", "label": "Ogre" },
+    { "id": "alien_monster", "codepoint": "1f47e", "label": "Alien monster" },
+    { "id": "moon_face", "codepoint": "1f31a", "label": "Moon face" },
+    { "id": "sun_face", "codepoint": "1f31e", "label": "Sun face" },
+    { "id": "sparkles", "codepoint": "2728", "label": "Sparkles" },
+    { "id": "lightning", "codepoint": "26a1", "label": "Lightning" },
+    { "id": "collision", "codepoint": "1f4a5", "label": "Collision" },
+    { "id": "confetti", "codepoint": "1f38a", "label": "Confetti" },
+    { "id": "fingerprint", "codepoint": "1fac6", "label": "Fingerprint" },
+    { "id": "brain", "codepoint": "1f9e0", "label": "Brain" },
+    { "id": "parachute", "codepoint": "1fa82", "label": "Parachute" },
+    { "id": "earth", "codepoint": "1f30e", "label": "Earth" },
+    { "id": "milky_way", "codepoint": "1f30c", "label": "Milky way" },
+    { "id": "fireworks", "codepoint": "1f386", "label": "Fireworks" },
+    { "id": "basketball", "codepoint": "1f3c0", "label": "Basketball" },
+    { "id": "bowling", "codepoint": "1f3b3", "label": "Bowling" },
+    { "id": "slot_machine", "codepoint": "1f3b0", "label": "Slot machine" },
+    { "id": "camera_flash", "codepoint": "1f4f8", "label": "Camera flash" },
+    { "id": "bubbles", "codepoint": "1fae7", "label": "Bubbles" },
+    { "id": "roller_coaster", "codepoint": "1f3a2", "label": "Roller coaster" }
+  ]
+}
