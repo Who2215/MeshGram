@@ -6,12 +6,22 @@ import base64
 import hashlib
 import json
 import os
+import re
+import struct
 from pathlib import Path
 from urllib.parse import urlparse
 
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 KINDS = {"LOTTIE", "PNG"}
+PACK_ID = re.compile(r"[a-z][a-z0-9._-]{2,47}\Z")
+ITEM_ID = re.compile(r"[a-z][a-z0-9._-]{2,47}/[a-z0-9][a-z0-9_-]{0,47}\Z")
+CATEGORY = re.compile(r"[a-z][a-z0-9_-]{0,31}\Z")
+MAX_STICKERS = 100
+MAX_PACK_BYTES = 24 * 1024 * 1024
+MAX_LOTTIE_BYTES = 512 * 1024
+MAX_IMAGE_BYTES = 2 * 1024 * 1024
+MAX_PREVIEW_BYTES = 256 * 1024
 
 
 def canonical_payload(manifest: dict) -> str:
@@ -69,28 +79,83 @@ def digest(path: Path) -> str:
     return hasher.hexdigest()
 
 
+def safe_text(value: object, maximum: int, field: str) -> str:
+    if not isinstance(value, str) or not value or len(value) > maximum or any(ord(char) < 32 for char in value):
+        raise ValueError(f"{field} is empty, too long, or contains control characters")
+    return value
+
+
+def png_header(path: Path, maximum_dimension: int) -> tuple[int, int]:
+    header = path.read_bytes()[:26]
+    if len(header) < 26 or header[:8] != PNG_SIGNATURE or header[12:16] != b"IHDR":
+        raise ValueError(f"invalid PNG header: {path.name}")
+    chunk_length, width, height = struct.unpack(">III", header[8:12] + header[16:24])
+    color_type = header[25]
+    if chunk_length != 13 or not (1 <= width <= maximum_dimension) or not (1 <= height <= maximum_dimension):
+        raise ValueError(f"unsafe PNG dimensions: {path.name}")
+    if color_type not in (4, 6):
+        raise ValueError(f"PNG must have an alpha channel: {path.name}")
+    return width, height
+
+
+def json_complexity(value: object, depth: int = 0, state: list[int] | None = None) -> tuple[int, int]:
+    if state is None:
+        state = [0, 0]
+    state[0] += 1
+    state[1] = max(state[1], depth)
+    if state[0] > 50_000 or depth > 32:
+        raise ValueError("Lottie JSON is too complex")
+    children = value.values() if isinstance(value, dict) else value if isinstance(value, list) else ()
+    for child in children:
+        json_complexity(child, depth + 1, state)
+    return state[0], state[1]
+
+
 def build_manifest(descriptor: dict, asset_root: Path) -> dict:
+    pack_id = safe_text(descriptor["packId"], 48, "packId")
+    if not PACK_ID.fullmatch(pack_id):
+        raise ValueError("invalid packId")
+    sources = descriptor.get("stickers")
+    if not isinstance(sources, list) or not (1 <= len(sources) <= MAX_STICKERS):
+        raise ValueError("sticker count is outside the supported range")
     manifest = {
         "schemaVersion": 1,
-        "packId": descriptor["packId"],
+        "packId": pack_id,
         "version": int(descriptor["version"]),
-        "title": descriptor["title"],
-        "attribution": descriptor["attribution"],
+        "title": safe_text(descriptor["title"], 64, "title"),
+        "attribution": safe_text(descriptor["attribution"], 160, "attribution"),
         "licenseUrl": descriptor["licenseUrl"],
         "stickers": [],
     }
+    if manifest["version"] <= 0:
+        raise ValueError("version must be positive")
     require_https(manifest["licenseUrl"], "licenseUrl")
-    for source in descriptor["stickers"]:
+    ids: set[str] = set()
+    total_bytes = 0
+    for source in sources:
         if source["kind"] not in KINDS:
             raise ValueError(f"unsupported kind: {source['kind']}")
+        item_id = safe_text(source["id"], 96, "id")
+        if not ITEM_ID.fullmatch(item_id) or not item_id.startswith(f"{pack_id}/") or item_id in ids:
+            raise ValueError(f"invalid or duplicate sticker id: {item_id}")
+        ids.add(item_id)
+        safe_text(source["label"], 64, "label")
+        if not CATEGORY.fullmatch(source["category"]):
+            raise ValueError(f"invalid category: {source['category']}")
         require_https(source["assetUrl"], "assetUrl")
         require_https(source["previewUrl"], "previewUrl")
         asset = safe_file(asset_root, source["assetFile"])
         preview = safe_file(asset_root, source["previewFile"])
-        if preview.read_bytes()[:8] != PNG_SIGNATURE:
-            raise ValueError(f"preview is not PNG: {source['previewFile']}")
-        if source["kind"] == "PNG" and asset.read_bytes()[:8] != PNG_SIGNATURE:
-            raise ValueError(f"sticker is not PNG: {source['assetFile']}")
+        if preview.stat().st_size > MAX_PREVIEW_BYTES:
+            raise ValueError(f"preview is too large: {source['previewFile']}")
+        png_header(preview, 512)
+        width, height = int(source["width"]), int(source["height"])
+        duration_ms, frame_rate = int(source.get("durationMs", 0)), int(source.get("frameRate", 0))
+        if not (1 <= width <= 1024 and 1 <= height <= 1024):
+            raise ValueError(f"unsafe sticker dimensions: {item_id}")
+        maximum_asset_bytes = MAX_LOTTIE_BYTES if source["kind"] == "LOTTIE" else MAX_IMAGE_BYTES
+        if not (1 <= asset.stat().st_size <= maximum_asset_bytes):
+            raise ValueError(f"asset is too large: {source['assetFile']}")
         if source["kind"] == "LOTTIE":
             animation = json.loads(asset.read_text(encoding="utf-8"))
             for field in ("w", "h", "fr", "ip", "op"):
@@ -98,6 +163,19 @@ def build_manifest(descriptor: dict, asset_root: Path) -> dict:
                     raise ValueError(f"Lottie file is missing {field}: {source['assetFile']}")
             if any(item.get("p") for item in animation.get("assets", []) if isinstance(item, dict)):
                 raise ValueError(f"external Lottie assets are forbidden: {source['assetFile']}")
+            json_complexity(animation)
+            actual_duration = round((animation["op"] - animation["ip"]) / animation["fr"] * 1000)
+            if (animation["w"] != width or animation["h"] != height or
+                    not (1 <= animation["fr"] <= 60) or animation["fr"] != frame_rate or
+                    not (100 <= actual_duration <= 5_000) or abs(actual_duration - duration_ms) > 50):
+                raise ValueError(f"Lottie metadata mismatch: {source['assetFile']}")
+        else:
+            actual_width, actual_height = png_header(asset, 1024)
+            if (actual_width, actual_height) != (width, height) or duration_ms != 0 or frame_rate != 0:
+                raise ValueError(f"PNG metadata mismatch: {source['assetFile']}")
+        total_bytes += asset.stat().st_size + preview.stat().st_size
+        if total_bytes > MAX_PACK_BYTES:
+            raise ValueError("pack exceeds the total byte limit")
         manifest["stickers"].append(
             {
                 key: source[key]
@@ -107,8 +185,8 @@ def build_manifest(descriptor: dict, asset_root: Path) -> dict:
                 )
             }
             | {
-                "durationMs": int(source.get("durationMs", 0)),
-                "frameRate": int(source.get("frameRate", 0)),
+                "durationMs": duration_ms,
+                "frameRate": frame_rate,
                 "assetSha256": digest(asset),
                 "previewSha256": digest(preview),
                 "assetBytes": asset.stat().st_size,

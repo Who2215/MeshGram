@@ -1,5 +1,7 @@
+import base64
 import hashlib
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -42,6 +44,23 @@ class StickerPackSignerTest(unittest.TestCase):
     def test_rejects_non_https_url(self):
         with self.assertRaises(ValueError):
             MODULE.require_https("http://example.test/file", "assetUrl")
+
+    def test_png_header_rejects_decompression_bomb_dimensions(self):
+        raw = bytearray(base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        ))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "preview.png"
+            path.write_bytes(raw)
+            self.assertEqual((1, 1), MODULE.png_header(path, 512))
+            raw[16:20] = (4096).to_bytes(4, "big")
+            path.write_bytes(raw)
+            with self.assertRaises(ValueError):
+                MODULE.png_header(path, 512)
+
+    def test_lottie_complexity_is_bounded(self):
+        with self.assertRaises(ValueError):
+            MODULE.json_complexity([0] * 50_001)
 
 
 if __name__ == "__main__":

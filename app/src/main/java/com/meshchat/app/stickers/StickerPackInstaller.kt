@@ -41,7 +41,7 @@ class StickerPackInstaller(private val storageRoot: File) {
                 val staged = stagedFiles[sticker.id] ?: return null
                 if (!StickerPackVerifier.verifyFile(staged.asset, sticker.assetBytes, sticker.assetSha256) ||
                     !StickerPackVerifier.verifyFile(staged.preview, sticker.previewBytes, sticker.previewSha256) ||
-                    !validPreview(staged.preview) ||
+                    !validPng(staged.preview, maxDimension = 512) ||
                     !validAsset(sticker, staged.asset)
                 ) return null
 
@@ -78,26 +78,53 @@ class StickerPackInstaller(private val storageRoot: File) {
         }
     }
 
-    private fun validPreview(file: File): Boolean {
+    private fun validPng(
+        file: File,
+        expectedWidth: Int? = null,
+        expectedHeight: Int? = null,
+        maxDimension: Int
+    ): Boolean {
         val signature = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
         return runCatching {
-            val actual = ByteArray(signature.size)
+            val header = ByteArray(26)
             file.inputStream().use { input ->
                 var offset = 0
-                while (offset < actual.size) {
-                    val count = input.read(actual, offset, actual.size - offset)
+                while (offset < header.size) {
+                    val count = input.read(header, offset, header.size - offset)
                     if (count < 0) return false
                     offset += count
                 }
             }
-            actual.contentEquals(signature)
+            if (!header.copyOfRange(0, 8).contentEquals(signature) ||
+                readUnsignedInt(header, 8) != 13L ||
+                !header.copyOfRange(12, 16).contentEquals("IHDR".toByteArray(Charsets.US_ASCII))
+            ) return false
+            val width = readUnsignedInt(header, 16)
+            val height = readUnsignedInt(header, 20)
+            val colorType = header[25].toInt() and 0xff
+            width in 1..maxDimension.toLong() &&
+                height in 1..maxDimension.toLong() &&
+                (expectedWidth == null || width == expectedWidth.toLong()) &&
+                (expectedHeight == null || height == expectedHeight.toLong()) &&
+                colorType in setOf(4, 6)
         }.getOrDefault(false)
     }
 
     private fun validAsset(sticker: StickerPackItem, file: File): Boolean = when (sticker.kind) {
-        StickerPackAssetKind.PNG -> validPreview(file)
+        StickerPackAssetKind.PNG -> validPng(
+            file,
+            expectedWidth = sticker.width,
+            expectedHeight = sticker.height,
+            maxDimension = 1024
+        )
         StickerPackAssetKind.LOTTIE -> validLottie(sticker, file)
     }
+
+    private fun readUnsignedInt(bytes: ByteArray, offset: Int): Long =
+        ((bytes[offset].toLong() and 0xff) shl 24) or
+            ((bytes[offset + 1].toLong() and 0xff) shl 16) or
+            ((bytes[offset + 2].toLong() and 0xff) shl 8) or
+            (bytes[offset + 3].toLong() and 0xff)
 
     internal fun verifyInstalled(directory: File, manifest: StickerPackManifest): Boolean {
         if (!directory.isDirectory || readInstalledManifest(directory) != manifest) return false
@@ -108,7 +135,7 @@ class StickerPackInstaller(private val storageRoot: File) {
             val preview = File(directory, "$stem.preview.png")
             StickerPackVerifier.verifyFile(asset, sticker.assetBytes, sticker.assetSha256) &&
                 StickerPackVerifier.verifyFile(preview, sticker.previewBytes, sticker.previewSha256) &&
-                validPreview(preview) && validAsset(sticker, asset)
+                validPng(preview, maxDimension = 512) && validAsset(sticker, asset)
         }
     }
 

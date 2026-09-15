@@ -143,6 +143,39 @@ class StickerPackSecurityTest {
         }
     }
 
+    @Test
+    fun installerRejectsOversizedPngCanvasEvenWhenHashAndSignatureMatch() {
+        val oversizedPreview = png.copyOf().apply {
+            this[16] = 0
+            this[17] = 0
+            this[18] = 0x10
+            this[19] = 0
+        }
+        val keys = keyPair()
+        val unsafe = manifest().let { source ->
+            val item = source.stickers.single().copy(
+                previewSha256 = sha256(oversizedPreview),
+                previewBytes = oversizedPreview.size.toLong()
+            )
+            sign(source.copy(stickers = listOf(item)), keys)
+        }
+        val stage = Files.createTempDirectory("meshgram-png-limit-stage").toFile()
+        val root = Files.createTempDirectory("meshgram-png-limit-root").toFile()
+        try {
+            val asset = stage.resolve("animation.json").apply { writeBytes(lottie) }
+            val preview = stage.resolve("preview.png").apply { writeBytes(oversizedPreview) }
+            val publicKey = Base64.getEncoder().encodeToString(keys.public.encoded)
+            assertNull(StickerPackInstaller(root).install(
+                unsafe,
+                mapOf(unsafe.stickers.single().id to StagedStickerFiles(asset, preview)),
+                publicKey
+            ))
+        } finally {
+            stage.deleteRecursively()
+            root.deleteRecursively()
+        }
+    }
+
     private fun manifest(version: Int = 1): StickerPackManifest {
         val item = StickerPackItem(
             id = "community.fun/laugh",

@@ -51,6 +51,7 @@ fun MeshExpressionPanel(stickerLabel: String, emojiLabel: String, closeLabel: St
         "noto" to "Noto >", "fluent" to "Fluent 3D") + dynamicPacks
     val categoryLabels = mapOf(
         "faces" to stringResource(R.string.stickers_faces),
+        "reactions" to stringResource(R.string.stickers_faces),
         "animals" to stringResource(R.string.stickers_animals),
         "fun" to stringResource(R.string.stickers_fun)
     )
