@@ -1,5 +1,7 @@
 package com.meshchat.app
 
+import com.meshchat.app.mesh.effectiveMimeType
+
 import android.app.Application
 import android.net.Uri
 import android.util.Base64
@@ -1918,7 +1920,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val fwdPrefix = message.forwardedFromAlias?.trim()?.ifBlank { null }?.let { "Fwd:$it " } ?: ""
         if (message.contentType == ChatContentType.FILE) {
             val fileName = message.attachment?.fileName ?: message.text.ifBlank { "File" }
-            val mimeType = message.attachment?.mimeType.orEmpty().lowercase()
+            val mimeType = message.attachment?.effectiveMimeType().orEmpty()
             val label = when {
                 mimeType.startsWith("image/") -> "photo"
                 mimeType.startsWith("video/") -> "video"

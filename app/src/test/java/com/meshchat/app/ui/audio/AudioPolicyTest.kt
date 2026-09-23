@@ -9,6 +9,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AudioPolicyTest {
+    @Test fun oldVoiceWithLostMimeTypeRemainsVoice() {
+        assertTrue(isInlineVoiceMessage(message(MessageAttachment(
+            transferId = "legacy-voice", fileName = "voice_123.m4a",
+            mimeType = "application/octet-stream", sizeBytes = 12, sha256 = "hash"
+        ))))
+        assertFalse(isInlineVoiceMessage(message(MessageAttachment(
+            transferId = "music", fileName = "song.m4a",
+            mimeType = "application/octet-stream", sizeBytes = 12, sha256 = "hash"
+        ))))
+    }
+
     private fun message(attachment: MessageAttachment) = ChatMessage(
         id = "message-1",
         text = "",

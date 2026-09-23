@@ -208,6 +208,7 @@ import com.meshchat.app.ui.audio.audioKey
 import com.meshchat.app.ui.audio.audioTime
 import com.meshchat.app.ui.audio.isInlineVoiceMessage
 import com.meshchat.app.ui.audio.nextAudioSpeed
+import com.meshchat.app.mesh.effectiveMimeType
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import java.text.SimpleDateFormat
@@ -4749,8 +4750,7 @@ private fun MessageActionsDialog(
                 if (canOpenAttachment) {
                     TextButton(onClick = onOpenAttachment) {
                         Text(
-                            if (message.attachment?.mimeType
-                                    ?.lowercase(Locale.ROOT)
+                            if (message.attachment?.effectiveMimeType()
                                     ?.startsWith("audio/") == true
                             ) {
                                 strings.playVoice
@@ -9024,11 +9024,12 @@ private fun VoiceWaveform(
 private fun InlineAudioPlayer(message: ChatMessage) {
     val localContext = LocalContext.current
     val strings = rememberAudioStrings()
-    val controller = remember(message.id, message.attachment?.transferId) {
-        SharedAudioController(localContext)
-    }
     val isVoice = isInlineVoiceMessage(message)
     val audioKey = message.audioKey(isVoice)
+    // A completed download changes localUri; never reuse its disposed waiting player.
+    val controller = remember(localContext, audioKey) {
+        SharedAudioController(localContext)
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     val playbackState = controller.state
     val isPlaying = playbackState.key == audioKey && playbackState.playing
@@ -10873,7 +10874,7 @@ private fun localizedDeliveryLabel(
 }
 
 private fun ChatMessage.attachmentKind(): AttachmentKind {
-    val mimeType = attachment?.mimeType.orEmpty().lowercase(Locale.ROOT)
+    val mimeType = attachment?.effectiveMimeType().orEmpty()
     return when {
         mimeType.startsWith("image/") -> AttachmentKind.IMAGE
         mimeType.startsWith("video/") -> AttachmentKind.VIDEO
@@ -11051,7 +11052,7 @@ private fun openAttachment(context: Context, message: ChatMessage) {
         FileProvider.getUriForFile(context, authority, file)
     }.getOrNull() ?: return
 
-    val mime = attachment.mimeType.ifBlank { "*/*" }
+    val mime = attachment.effectiveMimeType()
     val openIntent = Intent(Intent.ACTION_VIEW).apply {
         setDataAndType(contentUri, mime)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -11094,7 +11095,7 @@ private fun shareMessage(context: Context, message: ChatMessage) {
         val contentUri = runCatching {
             FileProvider.getUriForFile(context, authority, file)
         }.getOrNull() ?: return
-        val mime = attachment.mimeType.ifBlank { "*/*" }
+        val mime = attachment.effectiveMimeType()
         val sendIntent = Intent(Intent.ACTION_SEND).apply {
             type = mime
             putExtra(Intent.EXTRA_STREAM, contentUri)

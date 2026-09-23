@@ -1,13 +1,14 @@
 package com.meshchat.app.ui.audio
 
 import com.meshchat.app.mesh.ChatMessage
+import com.meshchat.app.mesh.effectiveMimeType
 import java.util.Locale
 
 /** Keep the filename fallback for messages created by older app versions. */
 fun isInlineVoiceMessage(message: ChatMessage): Boolean =
     message.attachment?.let {
         it.isVoiceMessage || (
-            it.mimeType.startsWith("audio/", ignoreCase = true) &&
+            it.effectiveMimeType().startsWith("audio/") &&
                 Regex("voice_[0-9]+\\.m4a", RegexOption.IGNORE_CASE).matches(it.fileName)
         )
     } == true

@@ -2281,10 +2281,12 @@ class BleMeshManager(
             ?: fileUriFile?.name?.trim()?.ifBlank { null }
             ?: "file_${System.currentTimeMillis()}"
         val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
-        val mimeType = resolver.getType(uri)?.trim()?.lowercase(Locale.ROOT)
-            ?.takeIf { it.isNotBlank() }
-            ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-            ?: if (extension == "m4a") "audio/mp4" else "application/octet-stream"
+        val mimeType = attachmentMimeType(
+            reportedType = resolver.getType(uri),
+            fileName = fileName,
+            voice = isVoiceMessage,
+            inferredType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+        )
 
         val bytes = runCatching {
             (fileUriFile?.inputStream() ?: resolver.openInputStream(uri))?.use { input ->
@@ -2328,7 +2330,8 @@ class BleMeshManager(
             return null
         }
 
-        val sizeBytes = reportedSize?.takeIf { it > 0 } ?: bytes.size.toLong()
+        // Providers may report a stale size; the receiver verifies the actual payload.
+        val sizeBytes = bytes.size.toLong()
         return OutgoingAttachment(
             transferId = UUID.randomUUID().toString(),
             fileName = fileName,
