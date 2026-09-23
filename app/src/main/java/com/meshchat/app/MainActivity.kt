@@ -902,7 +902,38 @@ private data class MeshStrings(
     val motionStill: String = "Still",
     val emojiPicker: String = "Emoji",
     val liveStickers: String = "Live stickers",
-    val animatedStickersHint: String = "Animated stickers are rendered locally and travel as encrypted text tokens."
+    val animatedStickersHint: String = "Animated stickers are rendered locally and travel as encrypted text tokens.",
+    val pasteInviteCode: String = "Paste invite code",
+    val inviteCodePrefixHint: String = "Use code with prefix MESHINV1:",
+    val joinInvite: String = "Join",
+    val inviteApplied: String = "Invite applied, community joined",
+    val inviteInvalid: String = "Invite is invalid or cannot be applied",
+    val inviteQrApplied: String = "Invite QR applied, community joined",
+    val inviteQrTitle: String = "Invite QR",
+    val inviteCodeCopied: String = "Invite code copied",
+    val inviteCodeUnavailable: String = "Cannot generate invite code for this chat",
+    val qrScanCanceled: String = "QR scan canceled",
+    val scannedQrInvalid: String = "Scanned QR is not a valid Mesh invite",
+    val cameraPermissionDenied: String = "Camera permission denied"
+)
+
+internal data class MeshInviteStrings(
+    val joinByCode: String,
+    val scanInviteQr: String,
+    val pasteInviteCode: String,
+    val inviteCodePrefixHint: String,
+    val joinInvite: String,
+    val inviteApplied: String,
+    val inviteInvalid: String,
+    val inviteQrApplied: String,
+    val inviteQrTitle: String,
+    val copyInviteCode: String,
+    val showInviteQr: String,
+    val inviteCodeCopied: String,
+    val inviteCodeUnavailable: String,
+    val qrScanCanceled: String,
+    val scannedQrInvalid: String,
+    val cameraPermissionDenied: String
 )
 
 @Composable
@@ -1009,7 +1040,7 @@ private fun rememberAudioStrings(): AudioStrings {
 private fun localizedMeshStrings(language: String): MeshStrings {
     val normalized = language.lowercase(Locale.ROOT)
     val base = if (normalized == "ru") ruMeshStrings() else enMeshStrings()
-    return when (normalized) {
+    val localized = when (normalized) {
         "es" -> base.copy(
             chats = "Chats",
             map = "Mapa",
@@ -1430,6 +1461,263 @@ private fun localizedMeshStrings(language: String): MeshStrings {
         )
         else -> base
     }
+    return localized.withInviteStrings(localizedInviteStrings(normalized))
+}
+
+private fun MeshStrings.withInviteStrings(invite: MeshInviteStrings): MeshStrings = copy(
+    joinByCode = invite.joinByCode,
+    scanInviteQr = invite.scanInviteQr,
+    pasteInviteCode = invite.pasteInviteCode,
+    inviteCodePrefixHint = invite.inviteCodePrefixHint,
+    joinInvite = invite.joinInvite,
+    inviteApplied = invite.inviteApplied,
+    inviteInvalid = invite.inviteInvalid,
+    inviteQrApplied = invite.inviteQrApplied,
+    inviteQrTitle = invite.inviteQrTitle,
+    copyInviteCode = invite.copyInviteCode,
+    showInviteQr = invite.showInviteQr,
+    inviteCodeCopied = invite.inviteCodeCopied,
+    inviteCodeUnavailable = invite.inviteCodeUnavailable,
+    qrScanCanceled = invite.qrScanCanceled,
+    scannedQrInvalid = invite.scannedQrInvalid,
+    cameraPermissionDenied = invite.cameraPermissionDenied
+)
+
+internal fun localizedInviteStrings(language: String): MeshInviteStrings = when (language) {
+    "ru" -> MeshInviteStrings(
+        joinByCode = "Войти по коду приглашения",
+        scanInviteQr = "Сканировать QR приглашения",
+        pasteInviteCode = "Вставьте код приглашения",
+        inviteCodePrefixHint = "Используйте код с префиксом MESHINV1:",
+        joinInvite = "Войти",
+        inviteApplied = "Приглашение принято, вы вошли в сообщество",
+        inviteInvalid = "Приглашение недействительно или не может быть применено",
+        inviteQrApplied = "QR-приглашение принято, вы вошли в сообщество",
+        inviteQrTitle = "QR приглашения",
+        copyInviteCode = "Копировать код приглашения",
+        showInviteQr = "Показать QR приглашения",
+        inviteCodeCopied = "Код приглашения скопирован",
+        inviteCodeUnavailable = "Не удалось создать приглашение для этого чата",
+        qrScanCanceled = "Сканирование QR отменено",
+        scannedQrInvalid = "QR-код не содержит действительного Mesh-приглашения",
+        cameraPermissionDenied = "Доступ к камере запрещён"
+    )
+    "es" -> MeshInviteStrings(
+        joinByCode = "Unirse con código de invitación",
+        scanInviteQr = "Escanear QR de invitación",
+        pasteInviteCode = "Pega el código de invitación",
+        inviteCodePrefixHint = "Usa un código con el prefijo MESHINV1:",
+        joinInvite = "Unirse",
+        inviteApplied = "Invitación aceptada; te uniste a la comunidad",
+        inviteInvalid = "La invitación no es válida o no se puede aplicar",
+        inviteQrApplied = "QR aceptado; te uniste a la comunidad",
+        inviteQrTitle = "QR de invitación",
+        copyInviteCode = "Copiar código de invitación",
+        showInviteQr = "Mostrar QR de invitación",
+        inviteCodeCopied = "Código de invitación copiado",
+        inviteCodeUnavailable = "No se puede crear una invitación para este chat",
+        qrScanCanceled = "Escaneo QR cancelado",
+        scannedQrInvalid = "El QR no contiene una invitación Mesh válida",
+        cameraPermissionDenied = "Permiso de cámara denegado"
+    )
+    "de" -> MeshInviteStrings(
+        joinByCode = "Mit Einladungscode beitreten",
+        scanInviteQr = "Einladungs-QR scannen",
+        pasteInviteCode = "Einladungscode einfügen",
+        inviteCodePrefixHint = "Verwende einen Code mit dem Präfix MESHINV1:",
+        joinInvite = "Beitreten",
+        inviteApplied = "Einladung angenommen, Community beigetreten",
+        inviteInvalid = "Einladung ist ungültig oder kann nicht angewendet werden",
+        inviteQrApplied = "QR-Einladung angenommen, Community beigetreten",
+        inviteQrTitle = "Einladungs-QR",
+        copyInviteCode = "Einladungscode kopieren",
+        showInviteQr = "Einladungs-QR anzeigen",
+        inviteCodeCopied = "Einladungscode kopiert",
+        inviteCodeUnavailable = "Für diesen Chat kann keine Einladung erstellt werden",
+        qrScanCanceled = "QR-Scan abgebrochen",
+        scannedQrInvalid = "Der QR-Code enthält keine gültige Mesh-Einladung",
+        cameraPermissionDenied = "Kamerazugriff verweigert"
+    )
+    "fr" -> MeshInviteStrings(
+        joinByCode = "Rejoindre avec un code d'invitation",
+        scanInviteQr = "Scanner le QR d'invitation",
+        pasteInviteCode = "Collez le code d'invitation",
+        inviteCodePrefixHint = "Utilisez un code avec le préfixe MESHINV1:",
+        joinInvite = "Rejoindre",
+        inviteApplied = "Invitation acceptée, communauté rejointe",
+        inviteInvalid = "L'invitation est invalide ou ne peut pas être appliquée",
+        inviteQrApplied = "Invitation QR acceptée, communauté rejointe",
+        inviteQrTitle = "QR d'invitation",
+        copyInviteCode = "Copier le code d'invitation",
+        showInviteQr = "Afficher le QR d'invitation",
+        inviteCodeCopied = "Code d'invitation copié",
+        inviteCodeUnavailable = "Impossible de créer une invitation pour ce chat",
+        qrScanCanceled = "Scan QR annulé",
+        scannedQrInvalid = "Le QR ne contient pas d'invitation Mesh valide",
+        cameraPermissionDenied = "Accès à la caméra refusé"
+    )
+    "pt" -> MeshInviteStrings(
+        joinByCode = "Entrar com código de convite",
+        scanInviteQr = "Ler QR do convite",
+        pasteInviteCode = "Cole o código de convite",
+        inviteCodePrefixHint = "Use um código com o prefixo MESHINV1:",
+        joinInvite = "Entrar",
+        inviteApplied = "Convite aceito; você entrou na comunidade",
+        inviteInvalid = "O convite é inválido ou não pode ser aplicado",
+        inviteQrApplied = "QR aceito; você entrou na comunidade",
+        inviteQrTitle = "QR do convite",
+        copyInviteCode = "Copiar código de convite",
+        showInviteQr = "Mostrar QR do convite",
+        inviteCodeCopied = "Código de convite copiado",
+        inviteCodeUnavailable = "Não foi possível criar um convite para este chat",
+        qrScanCanceled = "Leitura do QR cancelada",
+        scannedQrInvalid = "O QR não contém um convite Mesh válido",
+        cameraPermissionDenied = "Permissão da câmera negada"
+    )
+    "it" -> MeshInviteStrings(
+        joinByCode = "Entra con un codice invito",
+        scanInviteQr = "Scansiona il QR dell'invito",
+        pasteInviteCode = "Incolla il codice invito",
+        inviteCodePrefixHint = "Usa un codice con prefisso MESHINV1:",
+        joinInvite = "Entra",
+        inviteApplied = "Invito accettato, sei entrato nella community",
+        inviteInvalid = "L'invito non è valido o non può essere applicato",
+        inviteQrApplied = "Invito QR accettato, sei entrato nella community",
+        inviteQrTitle = "QR dell'invito",
+        copyInviteCode = "Copia codice invito",
+        showInviteQr = "Mostra QR dell'invito",
+        inviteCodeCopied = "Codice invito copiato",
+        inviteCodeUnavailable = "Impossibile creare un invito per questa chat",
+        qrScanCanceled = "Scansione QR annullata",
+        scannedQrInvalid = "Il QR non contiene un invito Mesh valido",
+        cameraPermissionDenied = "Accesso alla fotocamera negato"
+    )
+    "tr" -> MeshInviteStrings(
+        joinByCode = "Davet koduyla katıl",
+        scanInviteQr = "Davet QR kodunu tara",
+        pasteInviteCode = "Davet kodunu yapıştır",
+        inviteCodePrefixHint = "MESHINV1: önekli bir kod kullanın",
+        joinInvite = "Katıl",
+        inviteApplied = "Davet kabul edildi, topluluğa katıldınız",
+        inviteInvalid = "Davet geçersiz veya uygulanamıyor",
+        inviteQrApplied = "QR daveti kabul edildi, topluluğa katıldınız",
+        inviteQrTitle = "Davet QR kodu",
+        copyInviteCode = "Davet kodunu kopyala",
+        showInviteQr = "Davet QR kodunu göster",
+        inviteCodeCopied = "Davet kodu kopyalandı",
+        inviteCodeUnavailable = "Bu sohbet için davet oluşturulamıyor",
+        qrScanCanceled = "QR taraması iptal edildi",
+        scannedQrInvalid = "QR kodu geçerli bir Mesh daveti içermiyor",
+        cameraPermissionDenied = "Kamera izni reddedildi"
+    )
+    "zh" -> MeshInviteStrings(
+        joinByCode = "通过邀请码加入",
+        scanInviteQr = "扫描邀请二维码",
+        pasteInviteCode = "粘贴邀请码",
+        inviteCodePrefixHint = "请使用以 MESHINV1: 开头的代码",
+        joinInvite = "加入",
+        inviteApplied = "邀请已接受，已加入社区",
+        inviteInvalid = "邀请无效或无法使用",
+        inviteQrApplied = "二维码邀请已接受，已加入社区",
+        inviteQrTitle = "邀请二维码",
+        copyInviteCode = "复制邀请码",
+        showInviteQr = "显示邀请二维码",
+        inviteCodeCopied = "邀请码已复制",
+        inviteCodeUnavailable = "无法为此聊天创建邀请",
+        qrScanCanceled = "已取消二维码扫描",
+        scannedQrInvalid = "二维码中没有有效的 Mesh 邀请",
+        cameraPermissionDenied = "相机权限被拒绝"
+    )
+    "ja" -> MeshInviteStrings(
+        joinByCode = "招待コードで参加",
+        scanInviteQr = "招待QRをスキャン",
+        pasteInviteCode = "招待コードを貼り付け",
+        inviteCodePrefixHint = "MESHINV1: で始まるコードを使用してください",
+        joinInvite = "参加",
+        inviteApplied = "招待を承認し、コミュニティに参加しました",
+        inviteInvalid = "招待が無効か、適用できません",
+        inviteQrApplied = "QR招待を承認し、コミュニティに参加しました",
+        inviteQrTitle = "招待QR",
+        copyInviteCode = "招待コードをコピー",
+        showInviteQr = "招待QRを表示",
+        inviteCodeCopied = "招待コードをコピーしました",
+        inviteCodeUnavailable = "このチャットの招待を作成できません",
+        qrScanCanceled = "QRスキャンをキャンセルしました",
+        scannedQrInvalid = "QRに有効なMesh招待が含まれていません",
+        cameraPermissionDenied = "カメラの権限が拒否されました"
+    )
+    "ko" -> MeshInviteStrings(
+        joinByCode = "초대 코드로 참여",
+        scanInviteQr = "초대 QR 스캔",
+        pasteInviteCode = "초대 코드 붙여넣기",
+        inviteCodePrefixHint = "MESHINV1: 접두사가 있는 코드를 사용하세요",
+        joinInvite = "참여",
+        inviteApplied = "초대를 수락하고 커뮤니티에 참여했습니다",
+        inviteInvalid = "초대가 유효하지 않거나 적용할 수 없습니다",
+        inviteQrApplied = "QR 초대를 수락하고 커뮤니티에 참여했습니다",
+        inviteQrTitle = "초대 QR",
+        copyInviteCode = "초대 코드 복사",
+        showInviteQr = "초대 QR 표시",
+        inviteCodeCopied = "초대 코드를 복사했습니다",
+        inviteCodeUnavailable = "이 채팅의 초대를 만들 수 없습니다",
+        qrScanCanceled = "QR 스캔을 취소했습니다",
+        scannedQrInvalid = "QR에 유효한 Mesh 초대가 없습니다",
+        cameraPermissionDenied = "카메라 권한이 거부되었습니다"
+    )
+    "ar" -> MeshInviteStrings(
+        joinByCode = "الانضمام برمز دعوة",
+        scanInviteQr = "مسح رمز QR للدعوة",
+        pasteInviteCode = "ألصق رمز الدعوة",
+        inviteCodePrefixHint = "استخدم رمزًا يبدأ بـ MESHINV1:",
+        joinInvite = "انضمام",
+        inviteApplied = "تم قبول الدعوة والانضمام إلى المجتمع",
+        inviteInvalid = "الدعوة غير صالحة أو لا يمكن تطبيقها",
+        inviteQrApplied = "تم قبول دعوة QR والانضمام إلى المجتمع",
+        inviteQrTitle = "رمز QR للدعوة",
+        copyInviteCode = "نسخ رمز الدعوة",
+        showInviteQr = "عرض رمز QR للدعوة",
+        inviteCodeCopied = "تم نسخ رمز الدعوة",
+        inviteCodeUnavailable = "تعذر إنشاء دعوة لهذه المحادثة",
+        qrScanCanceled = "تم إلغاء مسح QR",
+        scannedQrInvalid = "لا يحتوي QR على دعوة Mesh صالحة",
+        cameraPermissionDenied = "تم رفض إذن الكاميرا"
+    )
+    "hi" -> MeshInviteStrings(
+        joinByCode = "आमंत्रण कोड से जुड़ें",
+        scanInviteQr = "आमंत्रण QR स्कैन करें",
+        pasteInviteCode = "आमंत्रण कोड चिपकाएँ",
+        inviteCodePrefixHint = "MESHINV1: उपसर्ग वाला कोड इस्तेमाल करें",
+        joinInvite = "जुड़ें",
+        inviteApplied = "आमंत्रण स्वीकार हुआ, आप समुदाय से जुड़ गए",
+        inviteInvalid = "आमंत्रण अमान्य है या लागू नहीं किया जा सकता",
+        inviteQrApplied = "QR आमंत्रण स्वीकार हुआ, आप समुदाय से जुड़ गए",
+        inviteQrTitle = "आमंत्रण QR",
+        copyInviteCode = "आमंत्रण कोड कॉपी करें",
+        showInviteQr = "आमंत्रण QR दिखाएँ",
+        inviteCodeCopied = "आमंत्रण कोड कॉपी हो गया",
+        inviteCodeUnavailable = "इस चैट के लिए आमंत्रण नहीं बनाया जा सकता",
+        qrScanCanceled = "QR स्कैन रद्द किया गया",
+        scannedQrInvalid = "QR में मान्य Mesh आमंत्रण नहीं है",
+        cameraPermissionDenied = "कैमरा अनुमति अस्वीकार की गई"
+    )
+    else -> MeshInviteStrings(
+        joinByCode = "Join by invite code",
+        scanInviteQr = "Scan invite QR",
+        pasteInviteCode = "Paste invite code",
+        inviteCodePrefixHint = "Use code with prefix MESHINV1:",
+        joinInvite = "Join",
+        inviteApplied = "Invite applied, community joined",
+        inviteInvalid = "Invite is invalid or cannot be applied",
+        inviteQrApplied = "Invite QR applied, community joined",
+        inviteQrTitle = "Invite QR",
+        copyInviteCode = "Copy invite code",
+        showInviteQr = "Show invite QR",
+        inviteCodeCopied = "Invite code copied",
+        inviteCodeUnavailable = "Cannot generate invite code for this chat",
+        qrScanCanceled = "QR scan canceled",
+        scannedQrInvalid = "Scanned QR is not a valid Mesh invite",
+        cameraPermissionDenied = "Camera permission denied"
+    )
 }
 
 private fun enMeshStrings() = MeshStrings(
@@ -2826,14 +3114,14 @@ private fun MeshTelegramScreen(
     ) { result ->
         val scanned = result.contents?.trim().orEmpty()
         if (scanned.isBlank()) {
-            inviteStatusMessage = "QR scan canceled"
+            inviteStatusMessage = strings.qrScanCanceled
         } else {
             inviteCodeDraft = scanned.take(600)
             val joined = onJoinByInviteCode(scanned)
             inviteStatusMessage = if (joined) {
-                "Invite QR applied, community joined"
+                strings.inviteQrApplied
             } else {
-                "Scanned QR is not a valid Mesh invite"
+                strings.scannedQrInvalid
             }
             if (joined) {
                 showJoinInviteDialog = false
@@ -2848,9 +3136,9 @@ private fun MeshTelegramScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            qrInviteScanLauncher.launch(inviteQrScanOptions())
+            qrInviteScanLauncher.launch(inviteQrScanOptions(strings.scanInviteQr))
         } else {
-            inviteStatusMessage = "Camera permission denied"
+            inviteStatusMessage = strings.cameraPermissionDenied
         }
     }
     val startInviteQrScan = {
@@ -2859,7 +3147,7 @@ private fun MeshTelegramScreen(
             Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
         if (hasCameraPermission) {
-            qrInviteScanLauncher.launch(inviteQrScanOptions())
+            qrInviteScanLauncher.launch(inviteQrScanOptions(strings.scanInviteQr))
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
@@ -2892,7 +3180,7 @@ private fun MeshTelegramScreen(
         if (granted) {
             startVideoNoteCaptureNow()
         } else {
-            inviteStatusMessage = "Camera permission denied"
+            inviteStatusMessage = strings.cameraPermissionDenied
         }
     }
     val startVideoNoteCapture: () -> Unit = {
@@ -3599,14 +3887,14 @@ private fun MeshTelegramScreen(
                 showJoinInviteDialog = false
                 inviteCodeDraft = ""
             },
-            title = { Text("Join by invite code") },
+            title = { Text(strings.joinByCode) },
             text = {
                 Column {
                     FilledTonalButton(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = startInviteQrScan
                     ) {
-                        Text("Scan invite QR")
+                        Text(strings.scanInviteQr)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
@@ -3615,11 +3903,11 @@ private fun MeshTelegramScreen(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 4,
-                        label = { Text("Paste invite code") }
+                        label = { Text(strings.pasteInviteCode) }
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Use code with prefix MESHINV1:",
+                        text = strings.inviteCodePrefixHint,
                         style = MaterialTheme.typography.labelMedium,
                         color = TgDayPalette.rowMeta
                     )
@@ -3631,9 +3919,9 @@ private fun MeshTelegramScreen(
                     onClick = {
                         val joined = onJoinByInviteCode(inviteCodeDraft)
                         inviteStatusMessage = if (joined) {
-                            "Invite applied, community joined"
+                            strings.inviteApplied
                         } else {
-                            "Invite is invalid or cannot be applied"
+                            strings.inviteInvalid
                         }
                         if (joined) {
                             showJoinInviteDialog = false
@@ -3642,7 +3930,7 @@ private fun MeshTelegramScreen(
                         }
                     }
                 ) {
-                    Text("Join")
+                    Text(strings.joinInvite)
                 }
             },
             dismissButton = {
@@ -3652,7 +3940,7 @@ private fun MeshTelegramScreen(
                         inviteCodeDraft = ""
                     }
                 ) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -4001,9 +4289,9 @@ private fun MeshTelegramScreen(
                     val clipboard =
                         localContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText("invite_code", code))
-                    inviteStatusMessage = "Invite code copied"
+                    inviteStatusMessage = strings.inviteCodeCopied
                 } else {
-                    inviteStatusMessage = "Cannot generate invite code for this chat"
+                    inviteStatusMessage = strings.inviteCodeUnavailable
                 }
                 conversationAction = null
             },
@@ -4012,7 +4300,7 @@ private fun MeshTelegramScreen(
                 if (!code.isNullOrBlank()) {
                     inviteQrCode = code
                 } else {
-                    inviteStatusMessage = "Cannot generate invite code for this chat"
+                    inviteStatusMessage = strings.inviteCodeUnavailable
                 }
                 conversationAction = null
             },
@@ -4222,13 +4510,13 @@ private fun MeshTelegramScreen(
         val qrBitmap = remember(activeInviteQrCode) { generateInviteQrBitmap(activeInviteQrCode) }
         AlertDialog(
             onDismissRequest = { inviteQrCode = null },
-            title = { Text("Invite QR") },
+            title = { Text(strings.inviteQrTitle) },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (qrBitmap != null) {
                         Image(
                             bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "Invite QR",
+                            contentDescription = strings.inviteQrTitle,
                             modifier = Modifier
                                 .size(240.dp)
                                 .clip(RoundedCornerShape(14.dp)),
@@ -4253,15 +4541,15 @@ private fun MeshTelegramScreen(
                         clipboard.setPrimaryClip(
                             ClipData.newPlainText("invite_code", activeInviteQrCode)
                         )
-                        inviteStatusMessage = "Invite code copied"
+                        inviteStatusMessage = strings.inviteCodeCopied
                     }
                 ) {
-                    Text("Copy code")
+                    Text(strings.copyInviteCode)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { inviteQrCode = null }) {
-                    Text("Close")
+                    Text(strings.close)
                 }
             }
         )
@@ -10992,10 +11280,10 @@ private fun generateInviteQrBitmap(inviteCode: String): Bitmap? {
     }.getOrNull()
 }
 
-private fun inviteQrScanOptions(): ScanOptions {
+private fun inviteQrScanOptions(prompt: String): ScanOptions {
     return ScanOptions().apply {
         setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-        setPrompt("Scan Mesh invite QR")
+        setPrompt(prompt)
         setBeepEnabled(false)
         setOrientationLocked(false)
     }
