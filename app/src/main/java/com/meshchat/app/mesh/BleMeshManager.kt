@@ -4591,7 +4591,6 @@ class BleMeshManager(
     ) {
         val transferId = payload.transferId?.trim().orEmpty()
         if (transferId.isBlank() || transferId.length > MAX_TRANSFER_ID_LENGTH) return
-        if (isTransferCompleted(transferId)) return
 
         val chunkB64 = payload.chunkBase64 ?: return
         val chunkBytes = runCatching { Base64.decode(chunkB64, Base64.NO_WRAP) }.getOrNull() ?: return
@@ -4616,6 +4615,27 @@ class BleMeshManager(
         if (!TransferBuffers.validHash(declaredHash)) return
 
         val conversationMeta = resolveConversationMeta(payload, senderIdentity)
+        val storedMessage = _messages.value.firstOrNull {
+            it.canAcknowledgeStoredTransfer(
+                sender = senderIdentity.nodeId,
+                conversation = conversationMeta.conversationId,
+                transfer = transferId,
+                size = payload.fileSizeBytes ?: 0L,
+                hash = declaredHash
+            )
+        }
+        if (storedMessage != null && (storedMessage.isDeleted ||
+                java.io.File(storedMessage.attachment!!.localUri!!).isFile)) {
+            // A retry may mean the final receipt was lost, including across a restart.
+            sendDeliveryAck(
+                senderIdentity, storedMessage.id, storedMessage.conversationId,
+                storedMessage.conversationType, storedMessage.conversationTitle,
+                storedMessage.memberNodeIds
+            )
+            sendFileAck(senderIdentity, transferId, chunkCount, emptyList(), true, conversationMeta)
+            return
+        }
+        if (isTransferCompleted(transferId)) return
         val assemblerKey = "${packet.originNodeId}:${conversationMeta.conversationId}:$transferId"
         val now = System.currentTimeMillis()
         cleanupFileTransferAssemblers(now)
@@ -4674,8 +4694,7 @@ class BleMeshManager(
                 return@synchronized IncomingFileChunkResult(
                     completedTransfer = null,
                     shouldAck = shouldAck,
-                    ackIndexes = ackIndexes,
-                    ackComplete = false
+                    ackIndexes = ackIndexes
                 )
             }
 
@@ -4689,9 +4708,8 @@ class BleMeshManager(
             fileTransferAssemblers.remove(assemblerKey)
             IncomingFileChunkResult(
                 completedTransfer = CompletedTransfer(assembler = assembler, transferBytes = assembledBytes),
-                shouldAck = true,
-                ackIndexes = emptyList(),
-                ackComplete = true
+                shouldAck = false,
+                ackIndexes = emptyList()
             )
         }
         val chunkResult = result ?: return
@@ -4703,109 +4721,102 @@ class BleMeshManager(
                 transferId = transferId,
                 chunkCount = chunkCount,
                 ackIndexes = chunkResult.ackIndexes,
-                ackComplete = chunkResult.ackComplete,
+                ackComplete = false,
                 conversationMeta = conversationMeta
             )
         }
         val completedTransfer = chunkResult.completedTransfer ?: return
 
-        val rawBytes = runCatching {
-            TransferBuffers.decodeVerified(
-                bytes = completedTransfer.transferBytes,
-                compressed = completedTransfer.assembler.compressed,
-                size = completedTransfer.assembler.sizeBytes,
-                hash = completedTransfer.assembler.sha256,
-                limit = MAX_FILE_BYTES
+        val completion = completeIncomingFile(
+            bytes = completedTransfer.transferBytes,
+            compressed = completedTransfer.assembler.compressed,
+            size = completedTransfer.assembler.sizeBytes,
+            hash = completedTransfer.assembler.sha256,
+            limit = MAX_FILE_BYTES,
+            store = { rawBytes ->
+                localStore.saveAttachment(
+                    transferId = completedTransfer.assembler.transferId,
+                    fileName = completedTransfer.assembler.fileName,
+                    bytes = rawBytes
+                )
+            }
+        ) { localPath ->
+            appendMessage(
+                ChatMessage(
+                    id = "file:${completedTransfer.assembler.transferId}",
+                    text = completedTransfer.assembler.caption.ifBlank {
+                        completedTransfer.assembler.fileName
+                    },
+                    originNodeId = completedTransfer.assembler.originNodeId,
+                    targetNodeId = nodeId,
+                    relayNodeId = packet.relayNodeId,
+                    createdAtMs = completedTransfer.assembler.sentAtMs,
+                    isLocal = false,
+                    isEncrypted = true,
+                    conversationId = completedTransfer.assembler.conversationId,
+                    conversationType = completedTransfer.assembler.conversationType,
+                    conversationTitle = completedTransfer.assembler.conversationTitle,
+                    senderAlias = completedTransfer.assembler.senderAlias,
+                    memberNodeIds = completedTransfer.assembler.memberNodeIds,
+                    collectiveOwnerNodeId = completedTransfer.assembler.collectiveOwnerNodeId,
+                    collectiveAdminNodeIds = completedTransfer.assembler.collectiveAdminNodeIds,
+                    collectiveModeratorNodeIds = completedTransfer.assembler.collectiveModeratorNodeIds,
+                    collectiveBroadcastOnly = completedTransfer.assembler.collectiveBroadcastOnly,
+                    collectiveAllowMemberReactions = completedTransfer.assembler.collectiveAllowMemberReactions,
+                    collectiveAllowMemberEditOwnMessages = completedTransfer.assembler.collectiveAllowMemberEditOwnMessages,
+                    collectiveAllowMemberDeleteOwnMessages = completedTransfer.assembler.collectiveAllowMemberDeleteOwnMessages,
+                    contentType = ChatContentType.FILE,
+                    deliveryState = MessageDeliveryState.DELIVERED,
+                    deliveredAtMs = System.currentTimeMillis(),
+                    deliveredToNodeIds = listOf(nodeId),
+                    attachment = MessageAttachment(
+                        transferId = completedTransfer.assembler.transferId,
+                        fileName = completedTransfer.assembler.fileName,
+                        mimeType = completedTransfer.assembler.mimeType,
+                        isVoiceMessage = completedTransfer.assembler.isVoiceMessage,
+                        sizeBytes = completedTransfer.assembler.sizeBytes,
+                        sha256 = completedTransfer.assembler.sha256,
+                        compressed = completedTransfer.assembler.compressed,
+                        localUri = localPath,
+                        mediaAlbumId = completedTransfer.assembler.mediaAlbumId,
+                        mediaAlbumIndex = completedTransfer.assembler.mediaAlbumIndex,
+                        mediaAlbumCount = completedTransfer.assembler.mediaAlbumCount
+                    )
+                ),
+                requirePersistence = true
             )
-        }.getOrNull() ?: run {
-            requestFullIncomingTransferRetry(
+            sendDeliveryAck(
                 senderIdentity = senderIdentity,
-                transferId = transferId,
-                chunkCount = chunkCount,
-                conversationMeta = conversationMeta
-            )
-            updateStatus("Failed to decode received file ${completedTransfer.assembler.fileName}")
-            return
-        }
-
-        val localPath = localStore.saveAttachment(
-            transferId = completedTransfer.assembler.transferId,
-            fileName = completedTransfer.assembler.fileName,
-            bytes = rawBytes
-        ) ?: run {
-            requestFullIncomingTransferRetry(
-                senderIdentity = senderIdentity,
-                transferId = transferId,
-                chunkCount = chunkCount,
-                conversationMeta = conversationMeta
-            )
-            updateStatus("Failed to store encrypted file ${completedTransfer.assembler.fileName}")
-            return
-        }
-        appendMessage(
-            ChatMessage(
-                id = "file:${completedTransfer.assembler.transferId}",
-                text = completedTransfer.assembler.caption.ifBlank {
-                    completedTransfer.assembler.fileName
-                },
-                originNodeId = completedTransfer.assembler.originNodeId,
-                targetNodeId = nodeId,
-                relayNodeId = packet.relayNodeId,
-                createdAtMs = completedTransfer.assembler.sentAtMs,
-                isLocal = false,
-                isEncrypted = true,
+                ackMessageId = "file:${completedTransfer.assembler.transferId}",
                 conversationId = completedTransfer.assembler.conversationId,
                 conversationType = completedTransfer.assembler.conversationType,
                 conversationTitle = completedTransfer.assembler.conversationTitle,
-                senderAlias = completedTransfer.assembler.senderAlias,
-                memberNodeIds = completedTransfer.assembler.memberNodeIds,
-                collectiveOwnerNodeId = completedTransfer.assembler.collectiveOwnerNodeId,
-                collectiveAdminNodeIds = completedTransfer.assembler.collectiveAdminNodeIds,
-                collectiveModeratorNodeIds = completedTransfer.assembler.collectiveModeratorNodeIds,
-                collectiveBroadcastOnly = completedTransfer.assembler.collectiveBroadcastOnly,
-                collectiveAllowMemberReactions = completedTransfer.assembler.collectiveAllowMemberReactions,
-                collectiveAllowMemberEditOwnMessages = completedTransfer.assembler.collectiveAllowMemberEditOwnMessages,
-                collectiveAllowMemberDeleteOwnMessages = completedTransfer.assembler.collectiveAllowMemberDeleteOwnMessages,
-                contentType = ChatContentType.FILE,
-                deliveryState = MessageDeliveryState.DELIVERED,
-                deliveredAtMs = System.currentTimeMillis(),
-                deliveredToNodeIds = listOf(nodeId),
-                attachment = MessageAttachment(
-                    transferId = completedTransfer.assembler.transferId,
-                    fileName = completedTransfer.assembler.fileName,
-                    mimeType = completedTransfer.assembler.mimeType,
-                    isVoiceMessage = completedTransfer.assembler.isVoiceMessage,
-                    sizeBytes = if (completedTransfer.assembler.sizeBytes > 0) {
-                        completedTransfer.assembler.sizeBytes
-                    } else {
-                        rawBytes.size.toLong()
-                    },
-                    sha256 = completedTransfer.assembler.sha256,
-                    compressed = completedTransfer.assembler.compressed,
-                    localUri = localPath,
-                    mediaAlbumId = completedTransfer.assembler.mediaAlbumId,
-                    mediaAlbumIndex = completedTransfer.assembler.mediaAlbumIndex,
-                    mediaAlbumCount = completedTransfer.assembler.mediaAlbumCount
-                )
+                memberNodeIds = completedTransfer.assembler.memberNodeIds
             )
-        )
-        sendDeliveryAck(
-            senderIdentity = senderIdentity,
-            ackMessageId = "file:${completedTransfer.assembler.transferId}",
-            conversationId = completedTransfer.assembler.conversationId,
-            conversationType = completedTransfer.assembler.conversationType,
-            conversationTitle = completedTransfer.assembler.conversationTitle,
-            memberNodeIds = completedTransfer.assembler.memberNodeIds
-        )
-        sendFileAck(
-            senderIdentity = senderIdentity,
-            transferId = transferId,
-            chunkCount = chunkCount,
-            ackIndexes = emptyList(),
-            ackComplete = true,
-            conversationMeta = conversationMeta
-        )
-        markTransferCompleted(completedTransfer.assembler.transferId)
+            sendFileAck(
+                senderIdentity = senderIdentity,
+                transferId = transferId,
+                chunkCount = chunkCount,
+                ackIndexes = emptyList(),
+                ackComplete = true,
+                conversationMeta = conversationMeta
+            )
+            markTransferCompleted(completedTransfer.assembler.transferId)
+        }
+        if (completion != IncomingFileCompletion.STORED) {
+            requestFullIncomingTransferRetry(
+                senderIdentity = senderIdentity,
+                transferId = transferId,
+                chunkCount = chunkCount,
+                conversationMeta = conversationMeta
+            )
+            updateStatus(if (completion == IncomingFileCompletion.INVALID_DATA) {
+                "Failed to decode received file ${completedTransfer.assembler.fileName}"
+            } else {
+                "Failed to store encrypted file ${completedTransfer.assembler.fileName}"
+            })
+            return
+        }
         updateStatus(
             "Encrypted file from ${completedTransfer.assembler.senderAlias}: ${completedTransfer.assembler.fileName}"
         )
@@ -5049,15 +5060,15 @@ class BleMeshManager(
             val now = System.currentTimeMillis()
             val beforeAcked = recipient.ackedChunks.toSet()
             recipient.lastAckAtMs = now
+            val merged = mergeFileAcknowledgements(
+                beforeAcked, ackIndexes, transfer.chunkCount,
+                payload.retryMissingChunks, payload.ackComplete
+            )
+            recipient.ackedChunks.clear()
+            recipient.ackedChunks.addAll(merged)
             if (payload.retryMissingChunks) {
-                recipient.ackedChunks.clear()
-                recipient.ackedChunks.addAll(ackIndexes)
                 recipient.nextChunkCursor = 0
-            } else {
-                ackIndexes.forEach { recipient.ackedChunks += it }
-            }
-            if (payload.ackComplete && !payload.retryMissingChunks) {
-                repeat(transfer.chunkCount) { recipient.ackedChunks += it }
+                recipient.lastSentAtMs = 0L
             }
             changed = changed || recipient.ackedChunks != beforeAcked
             transfer.updatedAtMs = if (payload.retryMissingChunks) {
@@ -5368,8 +5379,8 @@ class BleMeshManager(
         }
     }
 
-    private fun appendMessage(message: ChatMessage) {
-        mutateMessages { current ->
+    private fun appendMessage(message: ChatMessage, requirePersistence: Boolean = false) {
+        mutateMessages(requirePersistence = requirePersistence) { current ->
             val existing = current.firstOrNull { it.id == message.id }
             val withoutDuplicate = current.filterNot { it.id == message.id }
             val timelineOrder = resolveMessageTimelineForAppend(existing, message)
@@ -5806,12 +5817,16 @@ class BleMeshManager(
     }
 
     private fun mutateMessages(
+        requirePersistence: Boolean = false,
         transform: (List<ChatMessage>) -> List<ChatMessage>
     ) {
         _messages.update { current ->
             val next = transform(current)
             val trimmed = if (next.size <= MAX_MESSAGES) next else next.takeLast(MAX_MESSAGES)
-            localStore.persistMessages(trimmed)
+            val persisted = localStore.persistMessages(trimmed)
+            if (requirePersistence && !persisted) {
+                throw java.io.IOException("Received message could not be persisted")
+            }
             trimmed
         }
     }
@@ -7962,8 +7977,7 @@ class BleMeshManager(
     private data class IncomingFileChunkResult(
         val completedTransfer: CompletedTransfer?,
         val shouldAck: Boolean,
-        val ackIndexes: List<Int>,
-        val ackComplete: Boolean
+        val ackIndexes: List<Int>
     )
 
     private data class IncomingTransferRetryRequest(

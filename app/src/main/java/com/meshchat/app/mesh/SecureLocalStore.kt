@@ -52,10 +52,10 @@ class SecureLocalStore(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    fun persistMessages(messages: List<ChatMessage>) {
-        val payload = runCatching { json.encodeToString(messages) }.getOrNull() ?: return
-        val gz = gzip(payload.toByteArray(StandardCharsets.UTF_8)) ?: return
-        writeEncrypted(messagesFile, gz)
+    fun persistMessages(messages: List<ChatMessage>): Boolean {
+        val payload = runCatching { json.encodeToString(messages) }.getOrNull() ?: return false
+        val gz = gzip(payload.toByteArray(StandardCharsets.UTF_8)) ?: return false
+        return writeEncrypted(messagesFile, gz)
     }
 
     fun loadGroups(): List<MeshGroup> {
