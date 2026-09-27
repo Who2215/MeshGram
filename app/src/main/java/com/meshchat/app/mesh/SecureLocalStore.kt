@@ -73,25 +73,15 @@ class SecureLocalStore(private val context: Context) {
     }
 
     fun loadFriends(): FriendState {
-        runCatching { android.util.AtomicFile(friendsFile).openRead().close() }
         val bytes = readEncrypted(friendsFile) ?: return FriendState()
         return runCatching { json.decodeFromString<FriendState>(bytes.toString(StandardCharsets.UTF_8)) }
             .getOrDefault(FriendState())
     }
 
     fun persistFriends(state: FriendState): Boolean {
-        val blob = encryptAtRestFallback(json.encodeToString(state).toByteArray(StandardCharsets.UTF_8))
-            ?: return false
-        val file = android.util.AtomicFile(friendsFile)
-        val stream = runCatching { file.startWrite() }.getOrNull() ?: return false
-        return try {
-            stream.write(blob)
-            file.finishWrite(stream)
-            true
-        } catch (_: Exception) {
-            file.failWrite(stream)
-            false
-        }
+        val bytes = runCatching { json.encodeToString(state).toByteArray(StandardCharsets.UTF_8) }
+            .getOrNull() ?: return false
+        return writeEncrypted(friendsFile, bytes)
     }
 
     fun loadPeerIdentities(): List<PeerIdentity> {
@@ -316,8 +306,15 @@ class SecureLocalStore(private val context: Context) {
         }.getOrNull()
     }
 
-    private fun readEncrypted(file: File): ByteArray? {
-        if (!file.exists()) return null
+    private fun readEncrypted(file: File): ByteArray? = synchronized(STORE_IO_LOCK) {
+        readEncryptedLocked(file)
+    }
+
+    private fun readEncryptedLocked(file: File): ByteArray? {
+        // Recover a pre-commit backup before opening either supported encrypted format.
+        val recovered = runCatching { android.util.AtomicFile(file).openRead().use { true } }
+            .getOrDefault(false)
+        if (!recovered) return null
         val encryptedFile = encryptedFileFor(file)
         val primary = if (encryptedFile != null) {
             runCatching {
@@ -337,24 +334,22 @@ class SecureLocalStore(private val context: Context) {
         return decryptAtRestFallback(raw)
     }
 
-    private fun writeEncrypted(file: File, payload: ByteArray): Boolean {
-        file.parentFile?.mkdirs()
-        if (file.exists()) {
-            runCatching { file.delete() }
-        }
-        val encryptedFile = encryptedFileFor(file)
-        if (encryptedFile != null) {
-            val ok = runCatching {
-                encryptedFile.openFileOutput().use { it.write(payload) }
-                true
-            }.getOrDefault(false)
-            if (ok) return true
-        }
-        val fallbackBlob = encryptAtRestFallback(payload) ?: return false
-        return runCatching {
-            file.writeBytes(fallbackBlob)
-            true
-        }.getOrDefault(false)
+    private fun writeEncrypted(file: File, payload: ByteArray): Boolean = synchronized(STORE_IO_LOCK) {
+        writeEncryptedLocked(file, payload)
+    }
+
+    private fun writeEncryptedLocked(file: File, payload: ByteArray): Boolean {
+        val atomic = android.util.AtomicFile(file)
+        // Use the existing AES-GCM format also used for friends. Older versions can read it.
+        return writeEncryptedTransaction(
+            encrypt = { encryptAtRestFallback(payload) },
+            start = { atomic.startWrite() },
+            commit = { stream ->
+                stream.fd.sync()
+                atomic.finishWrite(stream)
+            },
+            rollback = { stream -> atomic.failWrite(stream) }
+        )
     }
 
     private fun encryptAtRestFallback(plain: ByteArray): ByteArray? {
@@ -506,6 +501,8 @@ class SecureLocalStore(private val context: Context) {
     )
 
     companion object {
+        // Store instances in the UI, mesh service and notifications share the same files.
+        private val STORE_IO_LOCK = Any()
         private const val PORTABLE_MAGIC = "MESH"
         private const val PORTABLE_VERSION = 1
         private const val PORTABLE_SALT_SIZE = 16
