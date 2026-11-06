@@ -1,0 +1,39 @@
+name: Проверка iOS без подписи
+
+on:
+  push:
+    branches: [ios/cloud-check-2026-11-06]
+    paths:
+      - ios/**
+      - .github/workflows/ios-cloud-check.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-cloud-check
+  cancel-in-progress: false
+
+jobs:
+  native-check:
+    if: github.repository == 'Who2215/MeshGram' && github.event.repository.private == false
+    runs-on: macos-15
+    timeout-minutes: 15
+    env:
+      GIT_TERMINAL_PROMPT: '0'
+    steps:
+      - name: Получить только исходники iOS по точному коммиту
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git init .
+          git remote add origin https://github.com/Who2215/MeshGram.git
+          git sparse-checkout init --cone
+          git sparse-checkout set ios
+          git -c credential.helper= fetch --filter=blob:none --depth=1 --no-tags origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Проверить Swift и собрать для симулятора без подписи
+        shell: bash
+        run: sh ios/Tools/check-macos.sh

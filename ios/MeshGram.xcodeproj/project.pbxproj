@@ -1,0 +1,27 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+BFB4A701BD61A66B9D8D7809 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MeshGramApp.swift"; sourceTree = "<group>"; };
+7A530C20C02FE6A432F9DDED = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NearbyScanner.swift"; sourceTree = "<group>"; };
+912F39216895F83DE876672C = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IdentityStore.swift"; sourceTree = "<group>"; };
+CC57488158ACC462FD561A74 = { isa = PBXBuildFile; fileRef = BFB4A701BD61A66B9D8D7809; };
+FD8480F71EF01DE116CB94C6 = { isa = PBXBuildFile; fileRef = 7A530C20C02FE6A432F9DDED; };
+8188CF4DCB25BD0A89C27A05 = { isa = PBXBuildFile; fileRef = 912F39216895F83DE876672C; };
+2A8CC61DC94FC632FC9D5AF7 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = MeshGram.app; sourceTree = BUILT_PRODUCTS_DIR; };
+E644B090D558E8694A8D50B9 = { isa = PBXGroup; children = (BFB4A701BD61A66B9D8D7809,7A530C20C02FE6A432F9DDED,912F39216895F83DE876672C,); path = App; sourceTree = "<group>"; };
+162914B57FCBF382AFBBBE9C = { isa = PBXGroup; children = (2A8CC61DC94FC632FC9D5AF7,); name = Products; sourceTree = "<group>"; };
+E0320DC03E532DECB0E02A27 = { isa = PBXGroup; children = (E644B090D558E8694A8D50B9,162914B57FCBF382AFBBBE9C,); sourceTree = "<group>"; };
+B2898513EDF64428A7668FAA = { isa = XCLocalSwiftPackageReference; relativePath = "."; };
+3A3DC196A0B9A9AF9879D37F = { isa = XCSwiftPackageProductDependency; package = B2898513EDF64428A7668FAA; productName = MeshGramCore; };
+11F5D4DF4FD981F2C33ABCE4 = { isa = PBXBuildFile; productRef = 3A3DC196A0B9A9AF9879D37F; };
+1C2353F2B76920BFC7EBD2C2 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (CC57488158ACC462FD561A74,FD8480F71EF01DE116CB94C6,8188CF4DCB25BD0A89C27A05,); runOnlyForDeploymentPostprocessing = 0; };
+53836E57A2060915BF52B35F = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (11F5D4DF4FD981F2C33ABCE4,); runOnlyForDeploymentPostprocessing = 0; };
+EBB5F27D60331FCF113BABDB = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+30C1DDB5C14108D459B71DC1 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { CLANG_ENABLE_MODULES = YES; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SWIFT_VERSION = 5.0; }; };
+5DA68D9C26B3A1B32F77DE25 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = App/Info.plist; PRODUCT_BUNDLE_IDENTIFIER = com.meshgram.ios; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; TARGETED_DEVICE_FAMILY = 1; SWIFT_VERSION = 5.0; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; };
+7E88AA1765E34855176CF6CD = { isa = XCBuildConfiguration; name = Release; buildSettings = { CLANG_ENABLE_MODULES = YES; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SWIFT_VERSION = 5.0; }; };
+1A7AAB813883E7455DF6640C = { isa = XCBuildConfiguration; name = Release; buildSettings = { CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = App/Info.plist; PRODUCT_BUNDLE_IDENTIFIER = com.meshgram.ios; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; TARGETED_DEVICE_FAMILY = 1; SWIFT_VERSION = 5.0; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; };
+0BB6EF4C20CFC09570820A7F = { isa = XCConfigurationList; buildConfigurations = (30C1DDB5C14108D459B71DC1,7E88AA1765E34855176CF6CD,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+2456A773AD4199678512A337 = { isa = XCConfigurationList; buildConfigurations = (5DA68D9C26B3A1B32F77DE25,1A7AAB813883E7455DF6640C,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+AD3BF8DDE1DB59824404F403 = { isa = PBXNativeTarget; buildConfigurationList = 2456A773AD4199678512A337; buildPhases = (1C2353F2B76920BFC7EBD2C2,53836E57A2060915BF52B35F,EBB5F27D60331FCF113BABDB,); buildRules = (); dependencies = (); name = MeshGram; packageProductDependencies = (3A3DC196A0B9A9AF9879D37F,); productName = MeshGram; productReference = 2A8CC61DC94FC632FC9D5AF7; productType = "com.apple.product-type.application"; };
+AF6066D748C7B609DF4F58E5 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 1500; TargetAttributes = { AD3BF8DDE1DB59824404F403 = { CreatedOnToolsVersion = 15.0; ProvisioningStyle = Automatic; }; }; }; buildConfigurationList = 0BB6EF4C20CFC09570820A7F; compatibilityVersion = "Xcode 14.0"; developmentRegion = ru; hasScannedForEncodings = 0; knownRegions = (ru,Base,); mainGroup = E0320DC03E532DECB0E02A27; packageReferences = (B2898513EDF64428A7668FAA,); productRefGroup = 162914B57FCBF382AFBBBE9C; projectDirPath = ""; projectRoot = ""; targets = (AD3BF8DDE1DB59824404F403,); };
+}; rootObject = AF6066D748C7B609DF4F58E5; }

@@ -1,0 +1,84 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { createPublicKey, verify, createHash } from 'node:crypto';
+
+const root = fileURLToPath(new URL('../', import.meta.url));
+const read = path => readFileSync(join(root, path), 'utf8');
+const fixture = JSON.parse(read('Tests/MeshGramCoreTests/Fixtures/android-v1.json'));
+const { hello: h, packet: p } = fixture;
+const from64 = value => Buffer.from(value, 'base64');
+const helloBytes = Buffer.from([h.frameId, h.originNodeId, h.alias, h.encryptionPublicKey, h.signingPublicKey,
+  h.fingerprint, h.createdAtMs, h.maxHops, h.avatarData, 'profile-v2', String(h.discoverable)].join('|'));
+const messageBytes = Buffer.from([p.id, p.originNodeId, p.senderAlias, p.senderEncryptionPublicKey,
+  p.senderSigningPublicKey, p.senderFingerprint, p.targetNodeId, p.createdAtMs, p.maxHops,
+  p.ephemeralPublicKey, p.nonce, p.ciphertext].join('|'));
+
+test('protocol fixture binds the canonical Android fields, DER signatures and profile consent', () => {
+  assert.deepEqual(helloBytes, from64(fixture.helloBytes));
+  assert.deepEqual(messageBytes, from64(fixture.messageBytes));
+  const key = createPublicKey({ key: from64(h.signingPublicKey), type: 'spki', format: 'der' });
+  assert.equal(verify('sha256', helloBytes, key, from64(h.signature)), true);
+  assert.equal(verify('sha256', messageBytes, key, from64(p.signature)), true);
+  assert.equal(verify('sha256', Buffer.from(helloBytes.toString().replace(/true$/, 'false')), key, from64(h.signature)), false);
+  assert.equal(createHash('sha256').update(`${h.encryptionPublicKey}|${h.signingPublicKey}`).digest('hex'), h.fingerprint);
+});
+
+test('independent Java JCE verifies signatures and decrypts the public fixture', () => {
+  const salt = Buffer.from(`salt|${p.id}|${p.createdAtMs}|${p.targetNodeId}`);
+  const aad = Buffer.from(`aad|${p.id}|${p.originNodeId}|${p.targetNodeId}|${p.createdAtMs}|${p.maxHops}`);
+  const properties = { signingPublicKey: h.signingPublicKey, encryptionPublicKey: h.encryptionPublicKey,
+    fingerprint: h.fingerprint, helloBytes: helloBytes.toString('base64'), helloSignature: h.signature,
+    messageBytes: messageBytes.toString('base64'), messageSignature: p.signature,
+    receiverPKCS8: fixture.receiverPKCS8, ephemeralPublicKey: p.ephemeralPublicKey,
+    nonce: p.nonce, ciphertext: p.ciphertext, plaintext: fixture.plaintext,
+    salt: salt.toString('base64'), aad: aad.toString('base64') };
+  const folder = mkdtempSync(join(tmpdir(), 'meshgram-ios-vector-'));
+  const path = join(folder, 'vector.properties');
+  writeFileSync(path, Object.entries(properties).map(([key, value]) => `${key}=${value}`).join('\n'));
+  const java = process.env.JAVA_HOME ? join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java';
+  const result = spawnSync(java, [join(root, 'Tools/AndroidVectorVerifier.java'), path], { encoding: 'utf8', timeout: 30_000 });
+  assert.equal(result.status, 0, (result.stderr ?? '') + (result.stdout ?? ''));
+  assert.match(result.stdout, /GCM passed/);
+});
+
+test('iOS constants match Android, not guessed BLE identifiers or hop ceilings', () => {
+  const android = readFileSync(resolve(root, '../app/src/main/java/com/meshchat/app/mesh/BleMeshManager.kt'), 'utf8');
+  const wire = read('Sources/MeshGramCore/WirePackets.swift');
+  for (const uuid of ['88a7588a-8869-4453-91f8-f53db3564f06', '4db27553-b5d3-4626-95f6-b2e67a4b3597', '0ecae0e1-53f6-4df0-b0e8-01e1478196ab']) {
+    assert.ok(wire.includes(uuid) && android.includes(uuid));
+  }
+  const helloMax = Number(android.match(/HELLO_MAX_HOPS = (\d+)/)[1]);
+  const messageMax = Number(android.match(/MESSAGE_MAX_HOPS = (\d+)/)[1]);
+  assert.ok(wire.includes(`helloMaxHops = ${helloMax}`));
+  assert.ok(wire.includes(`messageMaxHops = ${messageMax}`));
+  assert.match(read('Sources/MeshGramCore/PacketCrypto.swift'), /MeshWire\.messageMaxHops/);
+});
+
+test('Xcode project regeneration is deterministic and all object references resolve', () => {
+  const before = read('MeshGram.xcodeproj/project.pbxproj');
+  const result = spawnSync(process.execPath, [join(root, 'Tools/generate-project.mjs')], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(read('MeshGram.xcodeproj/project.pbxproj'), before);
+  const ids = [...before.matchAll(/^([A-F0-9]{24}) = \{/gm)].map(match => match[1]);
+  assert.equal(ids.length, new Set(ids).size);
+  for (const [reference] of before.matchAll(/\b[A-F0-9]{24}\b/g)) assert.ok(ids.includes(reference));
+  for (const file of ['MeshGramApp.swift', 'IdentityStore.swift', 'NearbyScanner.swift']) {
+    assert.ok(before.includes(file));
+    assert.ok(read(`App/${file}`).length > 50);
+  }
+  assert.match(read('MeshGram.xcodeproj/xcshareddata/xcschemes/MeshGram.xcscheme'), /BlueprintName="MeshGram"/);
+});
+
+test('prototype does not advertise implemented chat, background execution or plaintext key storage', () => {
+  assert.match(read('App/MeshGramApp.swift'), /пока не подключены/);
+  assert.doesNotMatch(read('App/Info.plist'), /UIBackgroundModes|NSAppTransportSecurity/);
+  const storage = read('App/IdentityStore.swift');
+  assert.match(storage, /kSecAttrAccessibleWhenUnlockedThisDeviceOnly/);
+  assert.match(storage, /guard status == errSecItemNotFound/);
+  assert.doesNotMatch(storage, /UserDefaults|write\(to:/);
+});

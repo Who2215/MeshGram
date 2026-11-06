@@ -1,0 +1,43 @@
+{
+  "note": "PUBLIC TEST FIXTURE: receiver key is intentionally public, never use for real messages.",
+  "hello": {
+    "type": "HELLO_V1",
+    "frameId": "11111111-1111-4111-8111-111111111111",
+    "originNodeId": "ios-test-sender",
+    "relayNodeId": "ios-test-sender",
+    "hops": 0,
+    "maxHops": 4,
+    "createdAtMs": 1793980800000,
+    "alias": "Тестовый узел",
+    "encryptionPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyFQLI+i6W2CC3YuTPTfM14NG7XwNkcFMQZl8YZAFyxKSFLXsdKej9K5Ys9acLF9nhjH5Tpadb+GUGmXmSsMnFA==",
+    "signingPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExNmJuaeugzupKg0C+iwgroT0Pf7S1J7I5osuqOhwPQXcOuGZ0oeukXO0GlLZ5sWRufjA8yVA6JKi4gd2TouQzA==",
+    "fingerprint": "1faecbc07f37f27700681ad2126fa652ab41c268f2595907524cfe37b7aa7e47",
+    "avatarData": "",
+    "profileVersion": 2,
+    "discoverable": true,
+    "signature": "MEQCIA48qLqPloNdJIAcuM5cD1GsUEBBfpoF9wT+zlYhZsLyAiBqeL3/tnfQFaOI+ECllWDyQWvCj3dWlG+RemRnfeRbpA=="
+  },
+  "packet": {
+    "type": "SECURE_MESSAGE_V1",
+    "id": "22222222-2222-4222-8222-222222222222",
+    "originNodeId": "ios-test-sender",
+    "senderAlias": "Node-ios-",
+    "senderEncryptionPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyFQLI+i6W2CC3YuTPTfM14NG7XwNkcFMQZl8YZAFyxKSFLXsdKej9K5Ys9acLF9nhjH5Tpadb+GUGmXmSsMnFA==",
+    "senderSigningPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExNmJuaeugzupKg0C+iwgroT0Pf7S1J7I5osuqOhwPQXcOuGZ0oeukXO0GlLZ5sWRufjA8yVA6JKi4gd2TouQzA==",
+    "senderFingerprint": "1faecbc07f37f27700681ad2126fa652ab41c268f2595907524cfe37b7aa7e47",
+    "targetNodeId": "ios-test-receiver",
+    "relayNodeId": "ios-test-sender",
+    "hops": 0,
+    "maxHops": 4,
+    "createdAtMs": 1793980800000,
+    "ephemeralPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERQ8+e5hu+3KCm3z3N6BDcpEhc5uE4kTgOg2AcfrSFC0rmDqGHfoQ8PeYDqrHaOGxG6ir7+t9LrdBOlEA262Eqw==",
+    "nonce": "RXD7r4ubIaae2/LP",
+    "ciphertext": "4TqIbOfq0BiT04+iy2gpo9Qhzfj9T3zBJyD6mqQfUpiUOYuLDE2C8MF0xrVXNqEu2F2MZaENZzRsXvleGgUCRPziifWdWm/gValAeN8TjeRNZV7QUaPCmTncxhdVmp/1KA6GiC3z9pqmdp4+iSASfMdesqHDvJU1gMYMxj07KHHxqhwD2fYJ86vfhFiL9EUrAoMhW9qTyhzwBiLk6Q==",
+    "signature": "MEUCIQDyFedgBJQLAn9j277kF3kfcogmV0jqdaf9c1gOnVirDwIgAuSd7sSAK7eppi1epjVDE0cUhjN94vBhL5PwOnuZI6g="
+  },
+  "privateScalar": "qtdz20ym6a9bay8qo+g+IKMY2g+3o4VbQSDZnb9L57E=",
+  "receiverPKCS8": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgqtdz20ym6a9bay8qo+g+IKMY2g+3o4VbQSDZnb9L57GhRANCAARt4coQFzia1J3UTSlMovg1T75oqXwRIBmTB2j6eyAl5XM9LIVLczWXh2ybD3hdfWOPyOf9U3AKHeuBuhnCMU1H",
+  "plaintext": "eyJ0eXBlIjoiQ0hBVF9QQVlMT0FEX1YxIiwiY2hhdElkIjoiZG06dGVzdCIsImNoYXRUeXBlIjoiZGlyZWN0IiwicGF5bG9hZEtpbmQiOiJ0ZXh0IiwidGV4dCI6ItCf0YDQuNCy0LXRgiDRgSDQtNGA0YPQs9C+0LPQviDQutC70LjQtdC90YLQsCJ9",
+  "helloBytes": "MTExMTExMTEtMTExMS00MTExLTgxMTEtMTExMTExMTExMTExfGlvcy10ZXN0LXNlbmRlcnzQotC10YHRgtC+0LLRi9C5INGD0LfQtdC7fE1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRXlGUUxJK2k2VzJDQzNZdVRQVGZNMTRORzdYd05rY0ZNUVpsOFlaQUZ5eEtTRkxYc2RLZWo5SzVZczlhY0xGOW5oakg1VHBhZGIrR1VHbVhtU3NNbkZBPT18TUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFeE5tSnVhZXVnenVwS2cwQytpd2dyb1QwUGY3UzFKN0k1b3N1cU9od1BRWGNPdUdaMG9ldWtYTzBHbExaNXNXUnVmakE4eVZBNkpLaTRnZDJUb3VRekE9PXwxZmFlY2JjMDdmMzdmMjc3MDA2ODFhZDIxMjZmYTY1MmFiNDFjMjY4ZjI1OTU5MDc1MjRjZmUzN2I3YWE3ZTQ3fDE3OTM5ODA4MDAwMDB8NHx8cHJvZmlsZS12Mnx0cnVl",
+  "messageBytes": "MjIyMjIyMjItMjIyMi00MjIyLTgyMjItMjIyMjIyMjIyMjIyfGlvcy10ZXN0LXNlbmRlcnxOb2RlLWlvcy18TUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFeUZRTEkraTZXMkNDM1l1VFBUZk0xNE5HN1h3TmtjRk1RWmw4WVpBRnl4S1NGTFhzZEtlajlLNVlzOWFjTEY5bmhqSDVUcGFkYitHVUdtWG1Tc01uRkE9PXxNRmt3RXdZSEtvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUV4Tm1KdWFldWd6dXBLZzBDK2l3Z3JvVDBQZjdTMUo3STVvc3VxT2h3UFFYY091R1owb2V1a1hPMEdsTFo1c1dSdWZqQTh5VkE2SktpNGdkMlRvdVF6QT09fDFmYWVjYmMwN2YzN2YyNzcwMDY4MWFkMjEyNmZhNjUyYWI0MWMyNjhmMjU5NTkwNzUyNGNmZTM3YjdhYTdlNDd8aW9zLXRlc3QtcmVjZWl2ZXJ8MTc5Mzk4MDgwMDAwMHw0fE1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRVJROCtlNWh1KzNLQ20zejNONkJEY3BFaGM1dUU0a1RnT2cyQWNmclNGQzBybURxR0hmb1E4UGVZRHFySGFPR3hHNmlyNyt0OUxyZEJPbEVBMjYyRXF3PT18UlhEN3I0dWJJYWFlMi9MUHw0VHFJYk9mcTBCaVQwNCtpeTJncG85UWh6Zmo5VDN6Qkp5RDZtcVFmVXBpVU9ZdUxERTJDOE1GMHhyVlhOcUV1MkYyTVphRU5aelJzWHZsZUdnVUNSUHppaWZXZFdtL2dWYWxBZU44VGplUk5aVjdRVWFQQ21UbmN4aGRWbXAvMUtBNkdpQzN6OXBxbWRwNCtpU0FTZk1kZXNxSER2SlUxZ01ZTXhqMDdLSEh4cWh3RDJmWUo4NnZmaEZpTDlFVXJBb01oVzlxVHloendCaUxrNlE9PQ=="
+}
