@@ -1,9 +1,13 @@
 # MeshGram для iPhone: первый этап
 
-Это отдельные исходники iOS-клиента, не APK и не готовый установочный файл.
-Статус: подготовленный прототип, НЕ СКОМПИЛИРОВАННЫЙ в Xcode и НЕ ЗАПУЩЕННЫЙ
-на iPhone. Полноценного чата в нём пока нет. Проверка на Windows не считается
-проверкой Swift, CoreBluetooth, CryptoKit, Keychain или фактической связи телефонов.
+Это отдельный прототип iOS-клиента, не APK и не готовый установочный файл.
+6 ноября 2026 года он прошёл пять нативных тестов Swift/XCTest в Xcode16.4
+и успешно собран для iOS Simulator18.5 (arm64 и x86_64), без подписи Apple.
+Проверенный коммит:828cc00685532f2bf6d8591e38c736a5765d736d.
+[Журнал облачной проверки](https://github.com/Who2215/MeshGram/actions/runs/42257525360).
+На симуляторе и физическом iPhone приложение НЕ ЗАПУСКАЛОСЬ. Полноценного чата
+в нём пока нет. Компиляция CoreBluetooth/Keychain не доказывает работу этих
+служб на телефоне или фактическую связь Samsung↔iPhone.
 
 ## Что добавлено
 
@@ -57,8 +61,11 @@ node --test ios/Tools/preflight.test.mjs
 sh ios/Tools/check-macos.sh
 ```
 
-Будут выполнены пять тестов Swift/XCTest и сборка для симулятора. Пока они не
-прошли, исходники нельзя считать проверенной iOS-сборкой. Далее открыть
+Будут выполнены пять тестов Swift/XCTest и сборка для симулятора. Команда уже
+успешно выполнена для указанного выше коммита в согласованной публичной ветке
+`ios/cloud-check-2026-11-06`, на стандартной macOS GitHub Actions. После изменения
+кода её нужно повторить. Артефакт приложения не выгружался; симуляторная сборка
+не является установочной сборкой для iPhone. Далее открыть
 `ios/MeshGram.xcodeproj`, выбрать свой аккаунт/команду подписи в Signing & Capabilities
 и подключённый iPhone. Идентификатор приложения сейчас `com.meshgram.ios`;
 при необходимости закрепить его за владельцем проекта. Apple ID, пароли,
@@ -82,3 +89,4 @@ sh ios/Tools/check-macos.sh
 Справка Apple: [требования Xcode](https://developer.apple.com/xcode/system-requirements/),
 [запуск на устройстве](https://developer.apple.com/documentation/Xcode/running-your-app-on-simulated-or-physical-devices),
 [ограничения блютуза в фоне](https://developer.apple.com/library/archive/documentation/NetworkingInternetWeb/Conceptual/CoreBluetooth_concepts/CoreBluetoothBackgroundProcessingForIOSApps/PerformingTasksWhileYourAppIsInTheBackground.html).
+
