@@ -37,3 +37,16 @@ jobs:
       - name: Проверить Swift и собрать для симулятора без подписи
         shell: bash
         run: sh ios/Tools/check-macos.sh
+      - name: Собрать файл для физического iPhone без подписи
+        shell: bash
+        run: sh ios/Tools/build-device.sh "$RUNNER_TEMP/meshgram-ios-device"
+      - name: Сохранить неподписанный файл для испытаний на один день
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: meshgram-ios-unsigned-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/meshgram-ios-device/MeshGram-unsigned.ipa
+            ${{ runner.temp }}/meshgram-ios-device/manifest.json
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

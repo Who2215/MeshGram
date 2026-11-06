@@ -80,6 +80,31 @@ sh ios/Tools/check-macos.sh
 
 ## Следующие этапы
 
+### Подготовка файла для физического iPhone
+
+После нативных тестов и сборки симулятора на Mac:
+
+```sh
+sh ios/Tools/build-device.sh /absolute/new/output-directory
+```
+
+Каталог должен быть новым: существующие файлы не перезаписываются. Сценарий
+собирает архив Release для iphoneos/arm64 без подписи, затем проверяет платформу
+в самом Mach-O (arm64 симулятора не принимается), метаданные приложения, версию
+iOS и отсутствие подписи/профилей/приватных ключей. Результат: неподписанный
+`MeshGram-unsigned.ipa` и `manifest.json` с SHA256. Архив НЕ устанавливается
+без подписи владельца и не подтверждает запуск на телефоне.
+
+Проверки упаковщика доступны и на Windows: `python ios/Tools/test_package_device.py`.
+Искусственный Mach-O в этих тестах проверяет только правила упаковки, а не работу
+настоящей программы. В согласованной тестовой ветке после обеих нативных сборок
+сохраняются только IPA и манифест на один день, не исходные архивы или ключи.
+Это тестовый артефакт, не публикация релиза. Для обычного Apple ID рассматривается
+локальная подпись Sideloadly с официального сайта; аккаунт и коды вводит владелец,
+пароли/сессии/сертификаты не передаются в чат, репозиторий или облачную сборку.
+
+### Функциональность клиента
+
 Нужны двусторонний обмен HELLO, явное согласие на дружбу и закрепление ключей,
 шифрованное локальное хранилище сообщений, надёжная очередь отправки, подтверждение
 доставки, чат, файлы, LAN/relay, отдельная проверка фоновых ограничений iOS.
@@ -89,4 +114,3 @@ sh ios/Tools/check-macos.sh
 Справка Apple: [требования Xcode](https://developer.apple.com/xcode/system-requirements/),
 [запуск на устройстве](https://developer.apple.com/documentation/Xcode/running-your-app-on-simulated-or-physical-devices),
 [ограничения блютуза в фоне](https://developer.apple.com/library/archive/documentation/NetworkingInternetWeb/Conceptual/CoreBluetooth_concepts/CoreBluetoothBackgroundProcessingForIOSApps/PerformingTasksWhileYourAppIsInTheBackground.html).
-
