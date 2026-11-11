@@ -4,6 +4,7 @@ import plistlib
 import struct
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 from package_device import package_app
@@ -96,6 +97,27 @@ class DevicePackageTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             package_app(self.archive, self.output)
         self.assertEqual(self.output.read_bytes(), b"owner-artifact")
+
+    def test_failed_write_leaves_no_ipa(self):
+        real_write = zipfile.ZipFile.write
+
+        def interrupted_write(bundle, *args, **kwargs):
+            real_write(bundle, *args, **kwargs)
+            raise OSError("simulated write failure")
+
+        for operation in ("write", "crc"):
+            with self.subTest(operation=operation):
+                output = self.root / f"failed-{operation}.ipa"
+                patcher = (mock.patch.object(zipfile.ZipFile, "write", new=interrupted_write)
+                           if operation == "write" else
+                           mock.patch.object(zipfile.ZipFile, "testzip", return_value="bad-member"))
+                with patcher:
+                    with self.assertRaises((OSError, ValueError)):
+                        package_app(self.archive, output)
+                self.assertFalse(output.exists())
+                self.assertEqual(list(self.root.glob(".meshgram-ipa-*")), [])
+                result = package_app(self.archive, output)
+                self.assertEqual(result["sha256"], hashlib.sha256(output.read_bytes()).hexdigest())
 
     def test_links_are_refused(self):
         target = self.root / "outside.txt"

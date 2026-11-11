@@ -3,9 +3,11 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import plistlib
 import struct
+import tempfile
 import zipfile
 
 
@@ -74,21 +76,25 @@ def package_app(archive, output):
     device_binary(app / "MeshGram", (major << 16) | (minor << 8) | patch)
     if output.suffix != ".ipa":
         raise ValueError("Output must be an .ipa file")
-    # Exclusive creation preserves any existing owner artifact.
-    with zipfile.ZipFile(output, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
-        for path in paths:
-            if path.is_file():
-                bundle.write(path, "Payload/MeshGram.app/" + path.relative_to(app).as_posix())
-    with zipfile.ZipFile(output) as bundle:
-        if bundle.testzip() is not None:
-            raise ValueError("Archive CRC validation failed")
-    return {
-        "schema_version": 1, "bundle_id": info["CFBundleIdentifier"],
-        "architecture": "arm64", "platform": "iPhoneOS", "minimum_ios": version,
-        "unsigned": True, "requires_owner_signing": True,
-        "device_execution_verified": False, "bytes": output.stat().st_size,
-        "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-    }
+    # Publish a validated file atomically without replacing an owner's artifact.
+    with tempfile.TemporaryDirectory(prefix=".meshgram-ipa-", dir=output.parent) as folder:
+        staged = Path(folder) / output.name
+        with zipfile.ZipFile(staged, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
+            for path in paths:
+                if path.is_file():
+                    bundle.write(path, "Payload/MeshGram.app/" + path.relative_to(app).as_posix())
+        with zipfile.ZipFile(staged) as bundle:
+            if bundle.testzip() is not None:
+                raise ValueError("Archive CRC validation failed")
+        result = {
+            "schema_version": 1, "bundle_id": info["CFBundleIdentifier"],
+            "architecture": "arm64", "platform": "iPhoneOS", "minimum_ios": version,
+            "unsigned": True, "requires_owner_signing": True,
+            "device_execution_verified": False, "bytes": staged.stat().st_size,
+            "sha256": hashlib.sha256(staged.read_bytes()).hexdigest(),
+        }
+        os.link(staged, output)
+    return result
 
 
 def main():
