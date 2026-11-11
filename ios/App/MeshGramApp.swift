@@ -22,6 +22,23 @@ private struct NearbyScreen: View {
                         .accessibilityIdentifier("nearby.start")
                     Button("Остановить поиск", role: .cancel) { scanner.stop() }
                 }
+                Section("Этот iPhone") {
+                    if let identity = scanner.publicIdentity {
+                        Text("Идентификатор узла").font(.caption).foregroundStyle(.secondary)
+                        Text(identity.nodeId)
+                            .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                            .accessibilityIdentifier("identity.nodeId")
+                        Text("Отпечаток публичных ключей").font(.caption).foregroundStyle(.secondary)
+                        Text(identity.fingerprint)
+                            .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                            .accessibilityIdentifier("identity.fingerprint")
+                        Text("Это публичные данные. Сравните оба значения после повторного запуска приложения.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    } else {
+                        Text("Идентичность недоступна. Проверьте защищённое хранилище; новые ключи вместо прежних не создаются.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
                 Section("Устройства рядом") {
                     if scanner.peers.isEmpty {
                         Text("Включите поиск MeshGram на Samsung и оставьте оба приложения открытыми.")

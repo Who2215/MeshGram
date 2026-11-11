@@ -6,6 +6,12 @@ public struct LocalIdentity {
     public let encryptionKey: P256.KeyAgreement.PrivateKey
     public let signingKey: P256.Signing.PrivateKey
 
+    public var publicFingerprint: String {
+        PacketCrypto.fingerprint(
+            encryptionKey: encryptionKey.publicKey.derRepresentation.base64EncodedString(),
+            signingKey: signingKey.publicKey.derRepresentation.base64EncodedString())
+    }
+
     public init(nodeId: String = UUID().uuidString.lowercased(), encryptionKey: P256.KeyAgreement.PrivateKey = .init(),
                 signingKey: P256.Signing.PrivateKey = .init()) {
         self.nodeId = nodeId

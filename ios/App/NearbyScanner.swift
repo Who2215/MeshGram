@@ -10,6 +10,11 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate,
         var fingerprint: String?
         var detail: String
     }
+    struct PublicIdentity {
+        let nodeId: String
+        let fingerprint: String
+    }
+    @Published private(set) var publicIdentity: PublicIdentity?
     @Published private(set) var peers: [Peer] = []
     @Published private(set) var status = "Поиск ещё не запущен"
     private var central: CBCentralManager?
@@ -18,9 +23,27 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate,
     private var nodeId: String?
     private var started = false
 
+    override init() {
+        super.init()
+        _ = loadIdentity()
+    }
+
+    private func loadIdentity() -> Bool {
+        do {
+            let identity = try IdentityStore.loadOrCreate()
+            nodeId = identity.nodeId
+            publicIdentity = PublicIdentity(nodeId: identity.nodeId, fingerprint: identity.publicFingerprint)
+            return true
+        } catch {
+            nodeId = nil
+            publicIdentity = nil
+            status = "Защищённое хранилище недоступно. Поиск не запущен."
+            return false
+        }
+    }
+
     func start() {
-        do { nodeId = try IdentityStore.loadOrCreate().nodeId }
-        catch { status = "Защищённое хранилище недоступно. Поиск не запущен."; return }
+        guard loadIdentity() else { return }
         started = true
         if central == nil { central = CBCentralManager(delegate: self, queue: .main) }
         else if central?.state == .poweredOn { beginScan() }

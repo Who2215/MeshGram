@@ -12,6 +12,31 @@ final class ProtocolTests: XCTestCase {
         let helloBytes: String
         let messageBytes: String
     }
+    private struct StoredTestIdentity: Codable {
+        let nodeId: String
+        let encryption: Data
+        let signing: Data
+    }
+    func testLocalIdentityPublicFingerprintRoundTrip() throws {
+        let original = LocalIdentity(nodeId: "round-trip-test-only")
+        let encoded = try JSONEncoder().encode(StoredTestIdentity(
+            nodeId: original.nodeId, encryption: original.encryptionKey.rawRepresentation,
+            signing: original.signingKey.rawRepresentation))
+        let stored = try JSONDecoder().decode(StoredTestIdentity.self, from: encoded)
+        let restored = try LocalIdentity(nodeId: stored.nodeId,
+            encryptionKey: P256.KeyAgreement.PrivateKey(rawRepresentation: stored.encryption),
+            signingKey: P256.Signing.PrivateKey(rawRepresentation: stored.signing))
+        XCTAssertEqual(restored.nodeId, original.nodeId)
+        XCTAssertEqual(restored.encryptionKey.publicKey.derRepresentation, original.encryptionKey.publicKey.derRepresentation)
+        XCTAssertEqual(restored.signingKey.publicKey.derRepresentation, original.signingKey.publicKey.derRepresentation)
+        XCTAssertEqual(restored.publicFingerprint, original.publicFingerprint)
+        XCTAssertEqual(restored.publicFingerprint, PacketCrypto.fingerprint(
+            encryptionKey: restored.encryptionKey.publicKey.derRepresentation.base64EncodedString(),
+            signingKey: restored.signingKey.publicKey.derRepresentation.base64EncodedString()))
+        XCTAssertNotNil(restored.publicFingerprint.range(of: "^[0-9a-f]{64}$", options: .regularExpression))
+        let replacedSigningKey = LocalIdentity(nodeId: original.nodeId, encryptionKey: original.encryptionKey)
+        XCTAssertNotEqual(replacedSigningKey.publicFingerprint, original.publicFingerprint)
+    }
     private func fixture() throws -> Vector {
         let url = try XCTUnwrap(Bundle.module.url(forResource: "android-v1", withExtension: "json", subdirectory: "Fixtures"))
         return try JSONDecoder().decode(Vector.self, from: Data(contentsOf: url))
