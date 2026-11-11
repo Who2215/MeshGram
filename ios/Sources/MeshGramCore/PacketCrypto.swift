@@ -30,6 +30,28 @@ public enum PacketCrypto {
         SHA256.hash(data: Data("\(encryptionKey)|\(signingKey)".utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
+    public static func makeHello(identity: LocalIdentity, createdAtMs: Int64,
+                                 maxHops: Int = 0) throws -> HelloPacket {
+        guard !identity.nodeId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              identity.nodeId.utf8.count <= 128, !identity.nodeId.contains("|"),
+              identity.nodeId.rangeOfCharacter(from: .controlCharacters) == nil,
+              createdAtMs > 0, (0...MeshWire.helloMaxHops).contains(maxHops) else {
+            throw MeshProtocolError.invalidIdentity
+        }
+        let frameId = UUID().uuidString.lowercased()
+        let encryption = identity.encryptionKey.publicKey.derRepresentation.base64EncodedString()
+        let signing = identity.signingKey.publicKey.derRepresentation.base64EncodedString()
+        func packet(signature: String) -> HelloPacket {
+            HelloPacket(type: "HELLO_V1", frameId: frameId, originNodeId: identity.nodeId,
+                        relayNodeId: identity.nodeId, hops: 0, maxHops: maxHops, createdAtMs: createdAtMs,
+                        alias: "Узел MeshGram", encryptionPublicKey: encryption, signingPublicKey: signing,
+                        fingerprint: identity.publicFingerprint, signature: signature,
+                        avatarData: nil, profileVersion: 2, discoverable: false)
+        }
+        let signature = try identity.signingKey.signature(for: packet(signature: "").signingBytes)
+        return packet(signature: signature.derRepresentation.base64EncodedString())
+    }
+
     public static func verifyHello(_ packet: HelloPacket) throws {
         guard packet.type == "HELLO_V1", !packet.originNodeId.isEmpty, packet.alias.utf8.count <= 256,
               (0...MeshWire.helloMaxHops).contains(packet.maxHops), (0...packet.maxHops).contains(packet.hops),
