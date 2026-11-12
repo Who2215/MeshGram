@@ -161,11 +161,26 @@ final class HelloWriteQueueTests: XCTestCase {
         XCTAssertThrowsError(try queue(bytes: 0))
         XCTAssertThrowsError(try queue(bytes: 3061))
         _ = try queue(bytes: 3060)
-        _ = try queue(bytes: MeshWire.maximumFrameBytes, maximum: 512)
+        XCTAssertThrowsError(try queue(bytes: MeshWire.maximumFrameBytes, maximum: 512))
         XCTAssertThrowsError(try queue(bytes: MeshWire.maximumFrameBytes + 1, maximum: 512))
         var q = try queue(bytes: 200, maximum: 512)
         try q.activate(now: 10)
-        XCTAssertEqual(try q.takeNext(now: 10)?.data.count, 188)
+        XCTAssertEqual(try q.takeNext(now: 10)?.data.count, 20)
+    }
+
+    func testReportedLongWriteLimitStillUsesShortFrames() throws {
+        for maximum in [20, 188, 512, Int.max] {
+            var q = try queue(bytes: 30, maximum: maximum)
+            try q.activate(now: 10)
+            var count = 0
+            while let write = try q.takeNext(now: 10) {
+                XCTAssertLessThanOrEqual(write.data.count, 20)
+                try q.acknowledge(sequence: write.sequence, succeeded: true, now: 10)
+                count += 1
+            }
+            XCTAssertEqual(count, 3)
+            XCTAssertEqual(q.state, .completed)
+        }
     }
 
     func testConnectionsHaveIndependentQueues() throws {

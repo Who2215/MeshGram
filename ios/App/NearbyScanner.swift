@@ -205,8 +205,9 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         link.helloStarted = true
         do {
             let packet = try PacketCrypto.makeHello(identity: identity, createdAtMs: Int64(Date().timeIntervalSince1970 * 1000))
+            // Keep each frame within the default ATT payload; Android does not assemble prepared long writes.
             var queue = try HelloWriteQueue(payload: JSONEncoder().encode(packet), frameKey: UInt32.random(in: .min ... .max),
-                maximumWriteLength: link.peripheral.maximumWriteValueLength(for: .withResponse))
+                maximumWriteLength: min(20, link.peripheral.maximumWriteValueLength(for: .withResponse)))
             try queue.activate(now: now)
             link.queue = queue
             if let index = peers.firstIndex(where: { $0.id == link.peripheral.identifier }) {

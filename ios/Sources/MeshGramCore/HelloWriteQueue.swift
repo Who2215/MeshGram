@@ -18,8 +18,8 @@ public struct HelloWriteQueue {
 
     public init(payload: Data, frameKey: UInt32, maximumWriteLength: Int) throws {
         guard maximumWriteLength >= 20 else { throw MeshProtocolError.invalidFrame }
-        frames = try FrameCodec.packetize(payload, frameKey: frameKey,
-                                          chunkSize: min(180, maximumWriteLength - 8))
+        // withResponse may allow long writes; Android's handler expects complete short frames.
+        frames = try FrameCodec.packetize(payload, frameKey: frameKey, chunkSize: 12)
     }
 
     public var deadline: TimeInterval? {
