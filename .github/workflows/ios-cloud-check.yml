@@ -70,7 +70,7 @@ jobs:
     needs: native-check
     if: github.repository == 'Who2215/MeshGram' && github.event.repository.private == false
     runs-on: macos-15-intel
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
       GIT_TERMINAL_PROMPT: '0'
     steps:

@@ -39,6 +39,12 @@ device_type = next(t['identifier'] for t in types if t['identifier'] == 'com.app
 (work/'type-id.txt').write_text(device_type)
 (work/'selection.json').write_text(json.dumps({'runtime':runtime['identifier'], 'version':runtime['version'], 'sdk':os.environ['MESHGRAM_UI_SDK'], 'deviceType':device_type, 'architecture':os.environ['MESHGRAM_UI_ARCH']}))
 PY
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# Compile before boot so a cold simulator does not compete with the compiler.
+xcodebuild -project "$root/MeshGram.xcodeproj" -scheme MeshGramUI \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath "$work/DerivedData" \
+  ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO \
+  build-for-testing 2>&1 | tee "$work/ui-build.log"
 device=$(xcrun simctl create "MeshGram-UI-${GITHUB_RUN_ID:?}" "$(cat "$work/type-id.txt")" "$(cat "$work/runtime-id.txt")")
 [[ "$device" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]
 cleanup() {
@@ -48,13 +54,14 @@ cleanup() {
 trap cleanup EXIT
 xcrun simctl boot "$device"
 xcrun simctl bootstatus "$device" -b
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_status=0
 if xcodebuild -project "$root/MeshGram.xcodeproj" -scheme MeshGramUI \
   -destination "platform=iOS Simulator,id=$device" -destination-timeout 60 \
   -derivedDataPath "$work/DerivedData" -resultBundlePath "$work/results.xcresult" \
   -parallel-testing-enabled NO ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES \
-  CODE_SIGNING_ALLOWED=NO test 2>&1 | tee "$work/ui-test.log"; then
+  -test-timeouts-enabled YES -maximum-test-execution-time-allowance 180 \
+  -default-test-execution-time-allowance 180 \
+  CODE_SIGNING_ALLOWED=NO test-without-building 2>&1 | tee "$work/ui-test.log"; then
   test_status=0
 else
   codes=("${PIPESTATUS[@]}")

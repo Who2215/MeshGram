@@ -121,6 +121,9 @@ test('UI smoke uses only a new CI simulator and exports bounded screenshots, nev
   for (const text of ['GITHUB_ACTIONS', 'simctl create', 'simctl delete "$device"', 'xcresulttool export attachments', 'uiTestCases']) assert.ok(script.includes(text));
   assert.doesNotMatch(script, /simctl (erase|delete) all|downloadRuntime|devicectl|idevice|\badb\b/);
   assert.ok(script.includes('ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES'));
+  assert.ok(script.indexOf('build-for-testing') < script.indexOf('simctl create'));
+  assert.ok(script.indexOf('test-without-building') > script.indexOf('simctl bootstatus'));
+  assert.match(script, /-test-timeouts-enabled YES -maximum-test-execution-time-allowance 180/);
   assert.match(ui, /alert\.buttons\["Отмена"\]\.tap\(\)/);
   assert.match(ui, /alert\.buttons\["Создать список"\]\.tap\(\)/);
   assert.match(ui, /app\.terminate\(\); app\.launch\(\)/);
@@ -129,6 +132,8 @@ test('UI smoke uses only a new CI simulator and exports bounded screenshots, nev
   const [native, isolated] = workflow.split('  simulator-ui:');
   assert.ok(native.includes('meshgram-ios-synthetic-vector-'));
   assert.match(isolated, /needs: native-check/);
+  assert.match(native, /timeout-minutes: 15/);
+  assert.match(isolated, /timeout-minutes: 35/);
   assert.ok(isolated.includes('git sparse-checkout set ios .github/workflows app/src/main/java/com/meshchat/app/mesh'));
   assert.doesNotMatch(isolated, /meshgram-ios-synthetic-vector|meshgram-ios-device/);
   assert.match(isolated, /meshgram-ios-ui\/artifacts\//);
