@@ -36,7 +36,16 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Проверить Swift и собрать для симулятора без подписи
         shell: bash
+        env:
+          MESHGRAM_INTEROP_OUTPUT: ${{ runner.temp }}/meshgram-ios-interop.json
         run: sh ios/Tools/check-macos.sh
+      - name: Расшифровать новый искусственный пакет iPhone независимым Java
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+          node --test ios/Tools/verify-ios-interop.test.mjs
+          node ios/Tools/verify-ios-interop.mjs "$RUNNER_TEMP/meshgram-ios-interop.json"
       - name: Собрать файл для физического iPhone без подписи
         shell: bash
         run: sh ios/Tools/build-device.sh "$RUNNER_TEMP/meshgram-ios-device"
@@ -50,3 +59,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
+      - name: Сохранить только искусственный публичный вектор проверки
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: meshgram-ios-synthetic-vector-${{ github.sha }}
+          path: ${{ runner.temp }}/meshgram-ios-interop.json
+          if-no-files-found: error
+          retention-days: 1

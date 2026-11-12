@@ -6,6 +6,43 @@ import XCTest
 final class OutgoingMessageTests: XCTestCase {
     private let timestamp: Int64 = 1_700_000_000_000
 
+    private struct PublicInteropVector: Codable {
+        let note: String
+        let hello: HelloPacket
+        let packet: SecureMessagePacket
+        let receiverPKCS8: String
+        let plaintext: String
+    }
+    private struct PublicReceiver: Decodable {
+        let note: String
+        let packet: SecureMessagePacket
+        let receiverPKCS8: String
+        let privateScalar: String
+        let plaintext: String
+    }
+
+    func testGeneratedPacketForIndependentJCEVerification() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "android-v1", withExtension: "json", subdirectory: "Fixtures"))
+        let fixture = try JSONDecoder().decode(PublicReceiver.self, from: Data(contentsOf: url))
+        XCTAssertEqual(fixture.note, "PUBLIC TEST FIXTURE: receiver key is intentionally public, never use for real messages.")
+        let scalar = try XCTUnwrap(Data(base64Encoded: fixture.privateScalar))
+        let receiver = try LocalIdentity(nodeId: fixture.packet.targetNodeId,
+                                        encryptionKey: P256.KeyAgreement.PrivateKey(rawRepresentation: scalar))
+        let sender = LocalIdentity()
+        let clear = try XCTUnwrap(Data(base64Encoded: fixture.plaintext))
+        let packet = try make(clear, sender: sender, receiver: receiver)
+        let vector = PublicInteropVector(note: fixture.note,
+            hello: try PacketCrypto.makeHello(identity: sender, createdAtMs: timestamp), packet: packet,
+            receiverPKCS8: fixture.receiverPKCS8, plaintext: fixture.plaintext)
+        XCTAssertEqual(try PacketCrypto.decrypt(packet, identity: receiver,
+            trustedNodeId: sender.nodeId, trustedFingerprint: sender.publicFingerprint), clear)
+        // Optional test-only export: the receiver key is the existing public fixture, never a device key.
+        if let path = ProcessInfo.processInfo.environment["MESHGRAM_INTEROP_OUTPUT"] {
+            XCTAssertTrue(path.hasPrefix("/"))
+            try JSONEncoder().encode(vector).write(to: URL(fileURLWithPath: path), options: .withoutOverwriting)
+        }
+    }
+
     private func make(_ clear: Data, sender: LocalIdentity, receiver: LocalIdentity,
                       node: String? = nil, fingerprint: String? = nil, time: Int64? = nil,
                       hops: Int = 8) throws -> SecureMessagePacket {
