@@ -31,11 +31,11 @@ public enum PacketCrypto {
     }
 
     public static func makeHello(identity: LocalIdentity, createdAtMs: Int64,
-                                 maxHops: Int = 0) throws -> HelloPacket {
+                                 maxHops: Int = 1) throws -> HelloPacket {
         guard !identity.nodeId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               identity.nodeId.utf8.count <= 128, !identity.nodeId.contains("|"),
               identity.nodeId.rangeOfCharacter(from: .controlCharacters) == nil,
-              createdAtMs > 0, (0...MeshWire.helloMaxHops).contains(maxHops) else {
+              createdAtMs > 0, (1...MeshWire.helloMaxHops).contains(maxHops) else {
             throw MeshProtocolError.invalidIdentity
         }
         let frameId = UUID().uuidString.lowercased()

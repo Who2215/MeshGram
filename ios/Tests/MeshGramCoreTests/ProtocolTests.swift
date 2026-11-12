@@ -46,7 +46,8 @@ final class ProtocolTests: XCTestCase {
         XCTAssertEqual(packet.relayNodeId, identity.nodeId)
         XCTAssertEqual(packet.createdAtMs, 1_700_000_000_000)
         XCTAssertEqual(packet.hops, 0)
-        XCTAssertEqual(packet.maxHops, 0)
+        // Android's anonymous HELLO admission requires a positive hop budget.
+        XCTAssertEqual(packet.maxHops, 1)
         XCTAssertNotNil(UUID(uuidString: packet.frameId))
         XCTAssertEqual(packet.frameId, packet.frameId.lowercased())
         let second = try PacketCrypto.makeHello(identity: identity, createdAtMs: packet.createdAtMs,
@@ -80,7 +81,7 @@ final class ProtocolTests: XCTestCase {
         let packet = try PacketCrypto.makeHello(identity: LocalIdentity(), createdAtMs: 1_700_000_000_000)
         let original = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(packet)) as? [String: Any])
         let mutations: [String: Any] = ["alias": "changed", "originNodeId": "another-node",
-            "frameId": UUID().uuidString, "createdAtMs": packet.createdAtMs + 1, "maxHops": 1,
+            "frameId": UUID().uuidString, "createdAtMs": packet.createdAtMs + 1, "maxHops": 2,
             "discoverable": true, "avatarData": "changed", "signature": "AA==",
             "fingerprint": String(repeating: "0", count: 64)]
         for (field, value) in mutations {
@@ -98,7 +99,7 @@ final class ProtocolTests: XCTestCase {
         for timestamp: Int64 in [0, -1] {
             XCTAssertThrowsError(try PacketCrypto.makeHello(identity: identity, createdAtMs: timestamp))
         }
-        for hops in [-1, MeshWire.helloMaxHops + 1] {
+        for hops in [-1, 0, MeshWire.helloMaxHops + 1] {
             XCTAssertThrowsError(try PacketCrypto.makeHello(identity: identity, createdAtMs: 1, maxHops: hops))
         }
     }
