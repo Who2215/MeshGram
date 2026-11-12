@@ -99,6 +99,8 @@ test('Russian friendship setup is identity-bound, explicit and never a reload fa
   assert.ok(source.indexOf('createDirectory') < source.indexOf('repository.initializeNew()'));
   assert.ok(source.indexOf('attributes[.type]') < source.indexOf('repository.initializeNew()'));
   assert.match(source, /resolvingSymlinksInPath/);
+  assert.match(source, /setAttributes\(\[\.posixPermissions: 0o700\], ofItemAtPath: parent\.path\)/);
+  assert.ok(source.indexOf('guard permissions?.intValue == 0o700') < source.indexOf('repository.initializeNew()'));
   for (const text of ['Дружба', 'Создать защищённый список друзей?', 'Создать список', 'Отмена', 'Повторить чтение списка']) assert.ok(source.includes(text));
   assert.match(source, /Button\("Создать список"\) \{ model\.initializeNew\(\) \}/);
   assert.match(read('App/MeshGramApp.swift'), /identityIsCurrent: \{ scanner\.publicIdentity == identity \}/);

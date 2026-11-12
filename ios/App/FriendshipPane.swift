@@ -61,6 +61,9 @@ final class FriendshipModel: ObservableObject {
             guard attributes[.type] as? FileAttributeType == .typeDirectory,
                   parent.resolvingSymlinksInPath().path.hasPrefix(home + "/"),
                   FileManager.default.isWritableFile(atPath: parent.path) else { throw FriendStoreError.invalidStorage }
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: parent.path)
+            let permissions = try FileManager.default.attributesOfItem(atPath: parent.path)[.posixPermissions] as? NSNumber
+            guard permissions?.intValue == 0o700 else { throw FriendStoreError.invalidStorage }
             guard identityIsCurrent() else { invalidate(); return }
             let created = try repository.initializeNew()
             state = created; phase = .ready
