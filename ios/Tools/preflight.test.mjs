@@ -61,9 +61,11 @@ test('iOS constants match Android, not guessed BLE identifiers or hop ceilings',
 
 test('Xcode project regeneration is deterministic and all object references resolve', () => {
   const before = read('MeshGram.xcodeproj/project.pbxproj');
+  const uiScheme = read('MeshGram.xcodeproj/xcshareddata/xcschemes/MeshGramUI.xcscheme');
   const result = spawnSync(process.execPath, [join(root, 'Tools/generate-project.mjs')], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(read('MeshGram.xcodeproj/project.pbxproj'), before);
+  assert.equal(read('MeshGram.xcodeproj/xcshareddata/xcschemes/MeshGramUI.xcscheme'), uiScheme);
   const ids = [...before.matchAll(/^([A-F0-9]{24}) = \{/gm)].map(match => match[1]);
   assert.equal(ids.length, new Set(ids).size);
   for (const [reference] of before.matchAll(/\b[A-F0-9]{24}\b/g)) assert.ok(ids.includes(reference));
@@ -105,4 +107,28 @@ test('Russian friendship setup is identity-bound, explicit and never a reload fa
   assert.match(source, /Button\("Создать список"\) \{ model\.initializeNew\(\) \}/);
   assert.match(read('App/MeshGramApp.swift'), /identityIsCurrent: \{ scanner\.publicIdentity == identity \}/);
   assert.doesNotMatch(source, /SecItemDelete|SecItemUpdate|loadOrCreate|removeItem|UserDefaults/);
+});
+
+test('UI smoke uses only a new CI simulator and exports bounded screenshots, never owner data', () => {
+  const project = read('MeshGram.xcodeproj/project.pbxproj');
+  const scheme = read('MeshGram.xcodeproj/xcshareddata/xcschemes/MeshGramUI.xcscheme');
+  const script = read('Tools/check-simulator-ui.sh');
+  const ui = read('UITests/FriendshipUITests.swift');
+  assert.match(project, /com\.apple\.product-type\.bundle\.ui-testing/);
+  assert.match(project, /TEST_TARGET_NAME = MeshGram/);
+  assert.match(scheme, /TestableReference skipped="NO"/);
+  assert.match(scheme, /MeshGramUITests\.xctest/);
+  for (const text of ['GITHUB_ACTIONS', 'simctl create', 'simctl delete "$device"', 'xcresulttool export attachments', 'uiTestCases']) assert.ok(script.includes(text));
+  assert.doesNotMatch(script, /simctl (erase|delete) all|downloadRuntime|devicectl|idevice|\badb\b/);
+  assert.match(ui, /alert\.buttons\["Отмена"\]\.tap\(\)/);
+  assert.match(ui, /alert\.buttons\["Создать список"\]\.tap\(\)/);
+  assert.match(ui, /app\.terminate\(\); app\.launch\(\)/);
+  assert.doesNotMatch(ui, /SecItem|privateKey|UserDefaults|removeItem/);
+  const workflow = readFileSync(resolve(root, '..', '.github/workflows/ios-cloud-check.yml'), 'utf8');
+  const [native, isolated] = workflow.split('  simulator-ui:');
+  assert.ok(native.includes('meshgram-ios-synthetic-vector-'));
+  assert.match(isolated, /needs: native-check/);
+  assert.ok(isolated.includes('git sparse-checkout set ios .github/workflows'));
+  assert.doesNotMatch(isolated, /meshgram-ios-synthetic-vector|meshgram-ios-device/);
+  assert.match(isolated, /meshgram-ios-ui\/artifacts\//);
 });

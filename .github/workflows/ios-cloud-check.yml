@@ -66,3 +66,39 @@ jobs:
           path: ${{ runner.temp }}/meshgram-ios-interop.json
           if-no-files-found: error
           retention-days: 1
+  simulator-ui:
+    needs: native-check
+    if: github.repository == 'Who2215/MeshGram' && github.event.repository.private == false
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    env:
+      GIT_TERMINAL_PROMPT: '0'
+    steps:
+      - name: Получить точный снимок только для изолированного симулятора
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git init .
+          git remote add origin https://github.com/Who2215/MeshGram.git
+          git sparse-checkout init --cone
+          git sparse-checkout set ios .github/workflows
+          git -c credential.helper= fetch --filter=blob:none --depth=1 --no-tags origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Проверить проект и интерфейс на новом симуляторе без данных владельца
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+          node --test ios/Tools/preflight.test.mjs ios/Tools/verify-ios-interop.test.mjs
+          bash ios/Tools/check-simulator-ui.sh "$RUNNER_TEMP/meshgram-ios-ui"
+      - name: Сохранить только снимки тестового экрана и краткий отчёт
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: meshgram-ios-ui-${{ github.sha }}
+          path: ${{ runner.temp }}/meshgram-ios-ui/artifacts/
+          if-no-files-found: warn
+          retention-days: 1
+          compression-level: 0

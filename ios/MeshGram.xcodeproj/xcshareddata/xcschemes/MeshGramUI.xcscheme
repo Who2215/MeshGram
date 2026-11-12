@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="1600" version="1.3">
+  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries>
+    <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AD3BF8DDE1DB59824404F403" BuildableName="MeshGram.app" BlueprintName="MeshGram" ReferencedContainer="container:MeshGram.xcodeproj"/></BuildActionEntry>
+    <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="F2D5C568A8F28F2AD82E5C92" BuildableName="MeshGramUITests.xctest" BlueprintName="MeshGramUITests" ReferencedContainer="container:MeshGram.xcodeproj"/></BuildActionEntry>
+  </BuildActionEntries></BuildAction>
+  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables><TestableReference skipped="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="F2D5C568A8F28F2AD82E5C92" BuildableName="MeshGramUITests.xctest" BlueprintName="MeshGramUITests" ReferencedContainer="container:MeshGram.xcodeproj"/></TestableReference></Testables><MacroExpansion><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AD3BF8DDE1DB59824404F403" BuildableName="MeshGram.app" BlueprintName="MeshGram" ReferencedContainer="container:MeshGram.xcodeproj"/></MacroExpansion></TestAction>
+</Scheme>
