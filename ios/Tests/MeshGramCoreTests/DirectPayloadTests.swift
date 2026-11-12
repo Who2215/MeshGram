@@ -13,7 +13,7 @@ final class DirectPayloadTests: XCTestCase {
     }
     func testCanonicalDmIsOrderIndependentAndUsesKotlinUtf16Order() throws {
         XCTAssertEqual(try DirectPayload.conversationId(" z ", "a"), "dm:a:z")
-        XCTAssertEqual(try DirectPayload.conversationId("a", "z"), DirectPayload.conversationId("z", "a"))
+        XCTAssertEqual(try DirectPayload.conversationId("a", "z"), try DirectPayload.conversationId("z", "a"))
         XCTAssertEqual(try DirectPayload.conversationId("😀", "\u{e000}"), "dm:😀:\u{e000}")
         for bad in ["", " ", "a:b", "a|b", "a\nb"] { XCTAssertThrowsError(try DirectPayload.conversationId(bad, "peer")) }
         XCTAssertThrowsError(try DirectPayload.conversationId("peer", "peer"))
