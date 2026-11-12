@@ -120,6 +120,7 @@ test('UI smoke uses only a new CI simulator and exports bounded screenshots, nev
   assert.match(scheme, /MeshGramUITests\.xctest/);
   for (const text of ['GITHUB_ACTIONS', 'simctl create', 'simctl delete "$device"', 'xcresulttool export attachments', 'uiTestCases']) assert.ok(script.includes(text));
   assert.doesNotMatch(script, /simctl (erase|delete) all|downloadRuntime|devicectl|idevice|\badb\b/);
+  assert.ok(script.includes('ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES'));
   assert.match(ui, /alert\.buttons\["Отмена"\]\.tap\(\)/);
   assert.match(ui, /alert\.buttons\["Создать список"\]\.tap\(\)/);
   assert.match(ui, /app\.terminate\(\); app\.launch\(\)/);

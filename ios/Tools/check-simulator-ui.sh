@@ -6,6 +6,8 @@ if [[ "$(uname -s)" != Darwin || "${GITHUB_ACTIONS:-}" != true ]]; then
 fi
 work=${1:?new output directory required}
 export MESHGRAM_UI_WORK="$work"
+export MESHGRAM_UI_ARCH="$(uname -m)"
+case "$MESHGRAM_UI_ARCH" in x86_64|arm64) ;; *) exit 3 ;; esac
 python3 - <<'PY'
 import os
 from pathlib import Path
@@ -35,7 +37,7 @@ types = json.loads((work/'types.json').read_text())['devicetypes']
 device_type = next(t['identifier'] for t in types if t['identifier'] == 'com.apple.CoreSimulator.SimDeviceType.iPhone-12')
 (work/'runtime-id.txt').write_text(runtime['identifier'])
 (work/'type-id.txt').write_text(device_type)
-(work/'selection.json').write_text(json.dumps({'runtime':runtime['identifier'], 'version':runtime['version'], 'sdk':os.environ['MESHGRAM_UI_SDK'], 'deviceType':device_type}))
+(work/'selection.json').write_text(json.dumps({'runtime':runtime['identifier'], 'version':runtime['version'], 'sdk':os.environ['MESHGRAM_UI_SDK'], 'deviceType':device_type, 'architecture':os.environ['MESHGRAM_UI_ARCH']}))
 PY
 device=$(xcrun simctl create "MeshGram-UI-${GITHUB_RUN_ID:?}" "$(cat "$work/type-id.txt")" "$(cat "$work/runtime-id.txt")")
 [[ "$device" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]
@@ -51,7 +53,8 @@ test_status=0
 if xcodebuild -project "$root/MeshGram.xcodeproj" -scheme MeshGramUI \
   -destination "platform=iOS Simulator,id=$device" -destination-timeout 60 \
   -derivedDataPath "$work/DerivedData" -resultBundlePath "$work/results.xcresult" \
-  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test 2>&1 | tee "$work/ui-test.log"; then
+  -parallel-testing-enabled NO ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES \
+  CODE_SIGNING_ALLOWED=NO test 2>&1 | tee "$work/ui-test.log"; then
   test_status=0
 else
   codes=("${PIPESTATUS[@]}")
