@@ -11,13 +11,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-cloud-check
+  group: ios-cloud-check-intel
   cancel-in-progress: false
 
 jobs:
   native-check:
     if: github.repository == 'Who2215/MeshGram' && github.event.repository.private == false
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 15
     env:
       GIT_TERMINAL_PROMPT: '0'
