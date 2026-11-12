@@ -8,7 +8,7 @@ const id = name => createHash('sha256').update(`meshgram-ios:${name}`).digest('h
 const objects = [];
 const add = (name, contents) => { objects.push(`${id(name)} = { ${contents} };`); return id(name); };
 const quote = JSON.stringify;
-const sources = ['MeshGramApp.swift', 'NearbyScanner.swift', 'IdentityStore.swift'];
+const sources = ['MeshGramApp.swift', 'NearbyScanner.swift', 'IdentityStore.swift', 'ContactKeychainStore.swift'];
 const files = sources.map(name => add(`file:${name}`, `isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ${quote(name)}; sourceTree = "<group>";`));
 const builds = sources.map(name => add(`build:${name}`, `isa = PBXBuildFile; fileRef = ${id(`file:${name}`)};`));
 const product = add('product', 'isa = PBXFileReference; explicitFileType = wrapper.application; path = MeshGram.app; sourceTree = BUILT_PRODUCTS_DIR;');

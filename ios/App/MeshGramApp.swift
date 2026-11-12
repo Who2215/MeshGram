@@ -1,4 +1,5 @@
 import SwiftUI
+import MeshGramCore
 
 @main
 struct MeshGramApp: App {
@@ -8,6 +9,7 @@ struct MeshGramApp: App {
 private struct NearbyScreen: View {
     @StateObject private var scanner = NearbyScanner()
     @Environment(\.scenePhase) private var scenePhase
+    @State private var pendingConfirmation: ContactConfirmationGate.Candidate?
     private let accent = Color(red: 34 / 255, green: 247 / 255, blue: 234 / 255)
     var body: some View {
         NavigationStack {
@@ -16,7 +18,7 @@ private struct NearbyScreen: View {
                     Label("Испытательная версия для iPhone", systemImage: "antenna.radiowaves.left.and.right")
                         .font(.headline).foregroundStyle(accent)
                     Text(scanner.status)
-                    Text("Сейчас доступны обнаружение и проверка подписи. Чат, отправка файлов и работа в фоне пока не подключены.")
+                    Text("Доступны поиск, проверка подписи и локальное подтверждение ключей. Чат, отправка файлов и работа в фоне пока не подключены.")
                         .font(.footnote).foregroundStyle(.secondary)
                     Button("Найти устройства рядом") { scanner.start() }
                         .accessibilityIdentifier("nearby.start")
@@ -39,6 +41,20 @@ private struct NearbyScreen: View {
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
+                Section("Подтверждённые ключи") {
+                    Text(scanner.contactStorageStatus).font(.footnote).foregroundStyle(.secondary)
+                    if scanner.contactsAvailable {
+                        if scanner.confirmedContacts.isEmpty { Text("Подтверждённых контактов пока нет") }
+                        ForEach(scanner.confirmedContacts) { contact in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(contact.nodeId).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                                Text(contact.fingerprint).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                            }.accessibilityIdentifier("contacts.saved")
+                        }
+                    } else {
+                        Button("Повторить чтение контактов") { scanner.reloadContacts() }
+                    }
+                }
                 Section("Устройства рядом") {
                     if scanner.peers.isEmpty {
                         Text("Включите поиск MeshGram на Samsung и оставьте оба приложения открытыми.")
@@ -50,9 +66,27 @@ private struct NearbyScreen: View {
                                 .font(.headline)
                             Text(peer.detail).font(.footnote).foregroundStyle(.secondary)
                             if let fingerprint = peer.fingerprint {
+                                if let nodeId = peer.nodeId {
+                                    Text("Идентификатор узла").font(.caption)
+                                    Text(nodeId).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                                }
                                 Text(fingerprint).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                                 Text("Сравните отпечаток на телефоне собеседника. Проверенная подпись не означает добавление в друзья.")
                                     .font(.caption).foregroundStyle(.secondary)
+                                if let match = scanner.contactMatch(for: peer.id) {
+                                    switch match {
+                                    case .confirmed:
+                                        Label("Ключи подтверждены на этом iPhone", systemImage: "checkmark.shield")
+                                            .font(.footnote)
+                                    case .changed:
+                                        Label("Ключи этого контакта изменились. Автоматическая замена запрещена.", systemImage: "exclamationmark.shield")
+                                            .font(.footnote).foregroundStyle(.orange)
+                                    case .unconfirmed:
+                                        Button("Сверить и подтвердить ключи") {
+                                            pendingConfirmation = scanner.confirmationCandidate(for: peer.id)
+                                        }.accessibilityIdentifier("contacts.confirm")
+                                    }
+                                }
                             }
                         }.padding(.vertical, 8)
                     }
@@ -64,6 +98,14 @@ private struct NearbyScreen: View {
             .tint(accent)
         }
         .preferredColorScheme(.dark)
-        .onChange(of: scenePhase) { phase in if phase != .active { scanner.stop() } }
+        .alert(item: $pendingConfirmation) { candidate in
+            Alert(title: Text("Сравните ключи на двух телефонах"),
+                message: Text("Идентификатор: \(candidate.nodeId)\n\nОтпечаток: \(candidate.fingerprint)\n\nПодтвердите только после полного совпадения на телефоне собеседника. Это сохранит ключи только на этом iPhone, без автоматической дружбы или отправки сообщения."),
+                primaryButton: .default(Text("Ключи совпадают")) { scanner.confirmContact(candidate) },
+                secondaryButton: .cancel(Text("Отмена")))
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase != .active { pendingConfirmation = nil; scanner.stop() }
+        }
     }
 }

@@ -67,7 +67,7 @@ test('Xcode project regeneration is deterministic and all object references reso
   const ids = [...before.matchAll(/^([A-F0-9]{24}) = \{/gm)].map(match => match[1]);
   assert.equal(ids.length, new Set(ids).size);
   for (const [reference] of before.matchAll(/\b[A-F0-9]{24}\b/g)) assert.ok(ids.includes(reference));
-  for (const file of ['MeshGramApp.swift', 'IdentityStore.swift', 'NearbyScanner.swift']) {
+  for (const file of ['MeshGramApp.swift', 'IdentityStore.swift', 'NearbyScanner.swift', 'ContactKeychainStore.swift']) {
     assert.ok(before.includes(file));
     assert.ok(read(`App/${file}`).length > 50);
   }
@@ -81,4 +81,9 @@ test('prototype does not advertise implemented chat, background execution or pla
   assert.match(storage, /kSecAttrAccessibleWhenUnlockedThisDeviceOnly/);
   assert.match(storage, /guard status == errSecItemNotFound/);
   assert.doesNotMatch(storage, /UserDefaults|write\(to:/);
+  const contacts = read('App/ContactKeychainStore.swift');
+  assert.match(contacts, /com\.meshgram\.ios\.contacts\.pins-v1/);
+  assert.match(contacts, /kSecAttrAccessibleWhenUnlockedThisDeviceOnly/);
+  assert.match(contacts, /errSecDuplicateItem/);
+  assert.doesNotMatch(contacts, /SecItemDelete|SecItemUpdate|UserDefaults|write\(to:/);
 });

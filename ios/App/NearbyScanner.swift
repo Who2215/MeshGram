@@ -8,6 +8,7 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         let id: UUID
         var name: String
         var fingerprint: String?
+        var nodeId: String?
         var verificationDetail: String
         var sendingDetail: String?
         var detail: String { [verificationDetail, sendingDetail].compactMap { $0 }.joined(separator: "\n") }
@@ -51,6 +52,11 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     @Published private(set) var publicIdentity: PublicIdentity?
     @Published private(set) var peers: [Peer] = []
     @Published private(set) var status = "Поиск ещё не запущен"
+    @Published private(set) var confirmedContacts: [ConfirmedContact] = []
+    @Published private(set) var contactsAvailable = false
+    @Published private(set) var contactStorageStatus = "Контакты ещё не прочитаны"
+    private var contactBook: ContactBook?
+    private var confirmationGate = ContactConfirmationGate()
     private var central: CBCentralManager?
     private var sessionGate = HelloSessionGate()
     private var connections: [UUID: Link] = [:]
@@ -63,6 +69,54 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     override init() {
         super.init()
         _ = loadIdentity()
+        reloadContacts()
+    }
+    func reloadContacts() {
+        do {
+            let book = try ContactPins.load(from: ContactKeychainStore())
+            contactBook = book
+            confirmedContacts = book.contacts
+            contactsAvailable = true
+            contactStorageStatus = "Подтверждение ключей хранится только на этом iPhone. Это ещё не дружба в сети."
+        } catch {
+            contactBook = nil
+            confirmedContacts = []
+            contactsAvailable = false
+            contactStorageStatus = "Защищённое хранилище контактов недоступно. Подтверждение выключено; прежние записи не заменяются."
+        }
+    }
+    func confirmationCandidate(for peerId: UUID) -> ContactConfirmationGate.Candidate? {
+        guard contactsAvailable, started, let link = connections[peerId], current(link) else { return nil }
+        return confirmationGate.candidate(for: peerId)
+    }
+    func contactMatch(for peerId: UUID) -> ContactBook.Match? {
+        guard let candidate = confirmationCandidate(for: peerId), let book = contactBook else { return nil }
+        return book.match(nodeId: candidate.nodeId, fingerprint: candidate.fingerprint)
+    }
+    func confirmContact(_ candidate: ContactConfirmationGate.Candidate) {
+        guard confirmationCandidate(for: candidate.peerId) == candidate else {
+            status = "Данные узла изменились или поиск остановлен. Сверьте ключи ещё раз."
+            return
+        }
+        do {
+            let book = try ContactPins.confirm(candidate, gate: confirmationGate, storage: ContactKeychainStore(),
+                confirmedAtMs: Int64(Date().timeIntervalSince1970 * 1000))
+            contactBook = book
+            confirmedContacts = book.contacts
+            contactsAvailable = true
+            status = "Ключи контакта сохранены на этом iPhone. Отправка сообщений ещё не подключена."
+        } catch ContactPinError.changedKey {
+            status = "Ключи контакта изменились. Прежние ключи сохранены, замена запрещена."
+        } catch ContactPinError.staleConfirmation {
+            status = "Подтверждение устарело. Сверьте ключи ещё раз."
+        } catch ContactPinError.capacity {
+            status = "Список подтверждённых контактов заполнен. Прежние записи сохранены."
+        } catch {
+            contactBook = nil
+            confirmedContacts = []
+            contactsAvailable = false
+            contactStorageStatus = "Не удалось проверить сохранение контакта. Подтверждение выключено; данные не очищаются."
+        }
     }
     private func loadIdentity() -> LocalIdentity? {
         do {
@@ -78,6 +132,9 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     func start() {
         guard !started, let identity = loadIdentity() else { return }
         searchIdentity = identity
+        reloadContacts()
+        confirmationGate.invalidateAll()
+        peers.removeAll()
         attempted.removeAll()
         started = true
         let manager = CBCentralManager(delegate: self, queue: .main)
@@ -87,6 +144,7 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     func stop() {
         started = false
         sessionGate.invalidate()
+        confirmationGate.invalidateAll()
         central?.stopScan()
         for link in Array(connections.values) { close(link, reason: "Передача остановлена") }
         central?.delegate = nil
@@ -150,6 +208,7 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     private func close(_ link: Link, reason: String, cancelConnection: Bool = true) {
         guard connections[link.peripheral.identifier] === link else { return }
         connections.removeValue(forKey: link.peripheral.identifier)
+        confirmationGate.invalidate(link.peripheral.identifier)
         assemblers.removeValue(forKey: link.peripheral.identifier)
         link.timeout?.cancel()
         link.timeout = nil
@@ -247,24 +306,43 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
             } else { sendNext(link) }
         } catch { link.queue = queue; close(link, reason: "Запись приветствия не подтверждена") }
     }
+    private func clearConfirmation(_ link: Link, detail: String) {
+        confirmationGate.invalidate(link.peripheral.identifier)
+        if let index = peers.firstIndex(where: { $0.id == link.peripheral.identifier }) {
+            peers[index].fingerprint = nil
+            peers[index].nodeId = nil
+            peers[index].verificationDetail = detail
+        }
+    }
     private func received(_ link: Link, characteristic: CBCharacteristic, error: Error?) {
-        guard current(link), error == nil, characteristic === link.notify, let data = characteristic.value else { return }
+        guard current(link), characteristic === link.notify else { return }
+        guard error == nil, let data = characteristic.value else {
+            clearConfirmation(link, detail: "Ошибка приёма. Подтверждение ключей недоступно.")
+            return
+        }
         do {
             var assembler = assemblers[link.peripheral.identifier] ?? FrameAssembler()
             let payload = try assembler.receive(data)
             assemblers[link.peripheral.identifier] = assembler
             guard let payload else { return }
+            clearConfirmation(link, detail: "Проверяем новый пакет…")
             let packet = try JSONDecoder().decode(HelloPacket.self, from: payload)
-            try PacketCrypto.verifyHello(packet)
             let now = Int64(Date().timeIntervalSince1970 * 1000)
             guard packet.originNodeId != searchIdentity?.nodeId, packet.hops == 0,
                   packet.createdAtMs >= now - 900_000, packet.createdAtMs <= now + 120_000,
-                  let index = peers.firstIndex(where: { $0.id == link.peripheral.identifier }) else { return }
+                    let index = peers.firstIndex(where: { $0.id == link.peripheral.identifier }) else {
+                clearConfirmation(link, detail: "Приветствие устарело или не подходит для прямой сверки.")
+                return
+            }
+            try confirmationGate.observe(packet, peerId: link.peripheral.identifier,
+                localNodeId: searchIdentity?.nodeId ?? "", nowMs: now)
             peers[index].name = packet.discoverable == true ? packet.alias : "Узел MeshGram"
             peers[index].fingerprint = packet.fingerprint
+            peers[index].nodeId = packet.originNodeId
             peers[index].verificationDetail = "Подпись проверена. Личность собеседника ещё не подтверждена."
         } catch {
             // Never log profile content or promote malformed packets to verified peers.
+            clearConfirmation(link, detail: "Пакет не проверен. Подтверждение ключей недоступно.")
             status = "Получен неподдерживаемый или непроверенный пакет"
         }
     }
