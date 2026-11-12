@@ -21,6 +21,7 @@ public struct LocalIdentity {
 }
 
 public enum PacketCrypto {
+    public static let maximumOutgoingPlaintextBytes = 16_384
     private static func base64(_ value: String) throws -> Data {
         guard let bytes = Data(base64Encoded: value), !bytes.isEmpty else { throw MeshProtocolError.invalidIdentity }
         return bytes
@@ -66,6 +67,55 @@ public enum PacketCrypto {
         let valid = key.isValidSignature(signature, for: packet.signingBytes)
         let legacyValid = version == 1 && key.isValidSignature(signature, for: packet.legacySigningBytes)
         guard valid || legacyValid else { throw MeshProtocolError.invalidSignature }
+    }
+
+    // Both trusted values must come from prior owner confirmation, not the received HELLO itself.
+    public static func encrypt(_ plaintext: Data, identity: LocalIdentity, recipient: HelloPacket,
+                               trustedNodeId: String, trustedFingerprint: String,
+                               createdAtMs: Int64, maxHops: Int = 8) throws -> SecureMessagePacket {
+        func validNodeId(_ value: String) -> Bool {
+            !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && value.utf8.count <= 128 &&
+                !value.contains("|") && value.rangeOfCharacter(from: .controlCharacters) == nil
+        }
+        guard validNodeId(identity.nodeId), validNodeId(trustedNodeId), createdAtMs > 0,
+              (1...MeshWire.messageMaxHops).contains(maxHops),
+              !plaintext.isEmpty, plaintext.count <= maximumOutgoingPlaintextBytes else {
+            throw MeshProtocolError.invalidFrame
+        }
+        guard trustedNodeId != identity.nodeId, recipient.originNodeId == trustedNodeId,
+              !trustedFingerprint.isEmpty, recipient.fingerprint == trustedFingerprint else {
+            throw MeshProtocolError.untrustedPeer
+        }
+        try verifyHello(recipient)
+        let recipientKey = try P256.KeyAgreement.PublicKey(derRepresentation: base64(recipient.encryptionPublicKey))
+        let ephemeral = P256.KeyAgreement.PrivateKey()
+        let nonce = AES.GCM.Nonce()
+        let id = UUID().uuidString.lowercased()
+        let encryption = identity.encryptionKey.publicKey.derRepresentation.base64EncodedString()
+        let signing = identity.signingKey.publicKey.derRepresentation.base64EncodedString()
+        let nonceBytes = nonce.withUnsafeBytes { Data($0).base64EncodedString() }
+        func packet(ciphertext: String, signature: String) -> SecureMessagePacket {
+            SecureMessagePacket(type: "SECURE_MESSAGE_V1", id: id, originNodeId: identity.nodeId,
+                senderAlias: "Узел MeshGram", senderEncryptionPublicKey: encryption,
+                senderSigningPublicKey: signing, senderFingerprint: identity.publicFingerprint,
+                targetNodeId: trustedNodeId, relayNodeId: identity.nodeId, hops: 0, maxHops: maxHops,
+                createdAtMs: createdAtMs, ephemeralPublicKey: ephemeral.publicKey.derRepresentation.base64EncodedString(),
+                nonce: nonceBytes, ciphertext: ciphertext, signature: signature)
+        }
+        let header = packet(ciphertext: "", signature: "")
+        let shared = try ephemeral.sharedSecretFromKeyAgreement(with: recipientKey)
+        let key = shared.hkdfDerivedSymmetricKey(using: SHA256.self, salt: header.salt,
+                                               sharedInfo: Data("mesh-e2e-v1".utf8), outputByteCount: 32)
+        let sealed = try AES.GCM.seal(plaintext, using: key, nonce: nonce, authenticating: header.authenticatedData)
+        // Android stores ciphertext + tag separately from the nonce, not CryptoKit's combined box.
+        let ciphertext = (sealed.ciphertext + sealed.tag).base64EncodedString()
+        let unsigned = packet(ciphertext: ciphertext, signature: "")
+        let signature = try identity.signingKey.signature(for: unsigned.signingBytes)
+        let result = packet(ciphertext: ciphertext, signature: signature.derRepresentation.base64EncodedString())
+        guard try JSONEncoder().encode(result).count <= MeshWire.maximumFrameBytes else {
+            throw MeshProtocolError.invalidFrame
+        }
+        return result
     }
 
     // Caller must supply a previously confirmed fingerprint, never trust packet keys by themselves.
