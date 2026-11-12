@@ -71,7 +71,8 @@ public struct FriendRecord: Codable, Equatable, Sendable {
     public init(nodeId: String, fingerprint: String, alias: String, avatarData: String = "",
                 outgoingId: String? = nil, outgoingInviteToken: String = "", incomingId: String? = nil,
                 accepted: Bool = false, blocked: Bool = false, updatedAtMs: Int64 = 0) throws {
-        guard !nodeId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, nodeId.utf8.count <= 128,
+        guard !nodeId.isEmpty, nodeId == nodeId.trimmingCharacters(in: .whitespacesAndNewlines),
+              nodeId.utf8.count <= 128, !nodeId.contains("|"), nodeId.rangeOfCharacter(from: .controlCharacters) == nil,
               fingerprint.utf8.count == 64, fingerprint.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil,
               !alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, alias.utf16.count <= 32,
               avatarData.utf16.count <= 24_000, outgoingInviteToken.utf16.count <= 64, updatedAtMs >= 0 else {

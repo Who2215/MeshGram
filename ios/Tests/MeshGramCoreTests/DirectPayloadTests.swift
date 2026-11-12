@@ -60,6 +60,7 @@ final class DirectPayloadTests: XCTestCase {
         XCTAssertThrowsError(try KnownPayload.authorizedDirect(verified(relay), localNodeId: "local", state: accepted()))
         XCTAssertThrowsError(try DirectPayload(chatId: "dm:local:peer", payloadKind: .relayAck, ackMessageId: "encrypted-frame"))
         XCTAssertThrowsError(try DirectPayload(chatId: "dm:local:peer", payloadKind: .deliveryAck))
+        XCTAssertThrowsError(try DirectPayload(chatId: "dm:local:peer", payloadKind: .deliveryAck, ackMessageId: "   "))
         XCTAssertThrowsError(try DirectPayload(chatId: "dm:local:peer", text: "fake receipt text", payloadKind: .deliveryAck, ackMessageId: "id"))
     }
     func testUnknownGroupFileOrInvalidKindsAreNotSilentlyText() throws {
@@ -70,6 +71,7 @@ final class DirectPayloadTests: XCTestCase {
             XCTAssertThrowsError(try KnownPayload.decode(JSONSerialization.data(withJSONObject: changed)))
         }
         XCTAssertThrowsError(try DirectPayload(chatId: "dm:local:peer", text: " \n"))
+        XCTAssertThrowsError(try DirectPayload(chatId: "   ", text: "x"))
         XCTAssertThrowsError(try KnownPayload.decode(Data(repeating: 0, count: MeshWire.maximumFrameBytes + 1)))
     }
     func testActualEncryptedJsonMustFitShortGattNotJustPlaintext() throws {

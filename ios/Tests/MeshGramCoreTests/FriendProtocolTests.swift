@@ -148,5 +148,8 @@ final class FriendProtocolTests: XCTestCase {
         let state = try FriendState(records: [record(outgoing: requestId, accepted: true)])
         XCTAssertEqual(try JSONDecoder().decode(FriendState.self, from: JSONEncoder().encode(state)), state)
         XCTAssertThrowsError(try FriendState(records: state.records + state.records))
+        for node in [" ", " peer", "peer ", "a|b", "a\nb"] {
+            XCTAssertThrowsError(try FriendRecord(nodeId: node, fingerprint: fp, alias: "Peer"))
+        }
     }
 }

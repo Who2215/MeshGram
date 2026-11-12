@@ -24,9 +24,11 @@ public struct DirectPayload: Codable, Equatable, Sendable {
                 payloadKind: Kind = .text, messageId: String? = nil, ackMessageId: String? = nil,
                 replyToMessageId: String? = nil, replyToPreview: String? = nil,
                 forwardedFromAlias: String? = nil, forwardedFromMessageId: String? = nil, sentAtMs: Int64 = 0) throws {
-        guard !chatId.isEmpty, chatId.utf8.count <= 300, memberNodeIds.count <= 2, sentAtMs >= 0 else { throw ConsentError.invalidPayload }
+        guard !chatId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              chatId.utf8.count <= 300, memberNodeIds.count <= 2, sentAtMs >= 0 else { throw ConsentError.invalidPayload }
         for id in [messageId, ackMessageId, replyToMessageId, forwardedFromMessageId].compactMap({ $0 }) {
-            guard !id.isEmpty, id.utf8.count <= 128, id.rangeOfCharacter(from: .controlCharacters) == nil else { throw ConsentError.invalidPayload }
+            guard !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, id.utf8.count <= 128,
+                  id.rangeOfCharacter(from: .controlCharacters) == nil else { throw ConsentError.invalidPayload }
         }
         switch payloadKind {
         case .text:
