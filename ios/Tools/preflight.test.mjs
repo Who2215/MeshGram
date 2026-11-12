@@ -128,7 +128,7 @@ test('UI smoke uses only a new CI simulator and exports bounded screenshots, nev
   const [native, isolated] = workflow.split('  simulator-ui:');
   assert.ok(native.includes('meshgram-ios-synthetic-vector-'));
   assert.match(isolated, /needs: native-check/);
-  assert.ok(isolated.includes('git sparse-checkout set ios .github/workflows'));
+  assert.ok(isolated.includes('git sparse-checkout set ios .github/workflows app/src/main/java/com/meshchat/app/mesh'));
   assert.doesNotMatch(isolated, /meshgram-ios-synthetic-vector|meshgram-ios-device/);
   assert.match(isolated, /meshgram-ios-ui\/artifacts\//);
 });

@@ -82,7 +82,7 @@ jobs:
           git init .
           git remote add origin https://github.com/Who2215/MeshGram.git
           git sparse-checkout init --cone
-          git sparse-checkout set ios .github/workflows
+          git sparse-checkout set ios .github/workflows app/src/main/java/com/meshchat/app/mesh
           git -c credential.helper= fetch --filter=blob:none --depth=1 --no-tags origin "$GITHUB_SHA"
           git checkout --detach FETCH_HEAD
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
