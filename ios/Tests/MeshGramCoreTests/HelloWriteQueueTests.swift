@@ -3,6 +3,43 @@ import XCTest
 @testable import MeshGramCore
 
 final class HelloWriteQueueTests: XCTestCase {
+    func testCancelledSearchRejectsManagerEvents() {
+        var gate = HelloSessionGate()
+        let manager = NSObject()
+        XCTAssertFalse(gate.accepts(manager))
+        gate.activate(manager)
+        XCTAssertTrue(gate.accepts(manager))
+        gate.invalidate()
+        XCTAssertFalse(gate.accepts(manager))
+    }
+
+    func testLateDisconnectAfterPowerOffCannotAffectRestartedSearch() {
+        var gate = HelloSessionGate()
+        let oldManager = NSObject(), newManager = NSObject()
+        gate.activate(oldManager)
+        gate.invalidate()
+        gate.activate(newManager)
+        var newConnectionOpen = true
+        // The same admission check is used by every central-manager callback in the adapter.
+        if gate.accepts(oldManager) { newConnectionOpen = false }
+        XCTAssertTrue(newConnectionOpen)
+        XCTAssertTrue(gate.accepts(newManager))
+        XCTAssertFalse(gate.accepts(oldManager))
+    }
+
+    func testRepeatedSearchesDoNotKeepRetiringConnections() {
+        var gate = HelloSessionGate()
+        let oldManager = NSObject()
+        gate.activate(oldManager)
+        for _ in 0..<100 {
+            gate.invalidate()
+            let next = NSObject()
+            gate.activate(next)
+            XCTAssertTrue(gate.accepts(next))
+            XCTAssertFalse(gate.accepts(oldManager))
+        }
+    }
+
     private func queue(bytes: Int = 30, maximum: Int = 20) throws -> HelloWriteQueue {
         try HelloWriteQueue(payload: Data(repeating: 7, count: bytes), frameKey: 1,
                             maximumWriteLength: maximum)

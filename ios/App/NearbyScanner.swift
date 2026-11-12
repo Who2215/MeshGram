@@ -52,8 +52,8 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     @Published private(set) var peers: [Peer] = []
     @Published private(set) var status = "Поиск ещё не запущен"
     private var central: CBCentralManager?
+    private var sessionGate = HelloSessionGate()
     private var connections: [UUID: Link] = [:]
-    private var retiring: [UUID: CBPeripheral] = [:]
     private var attempted: Set<UUID> = []
     private var assemblers: [UUID: FrameAssembler] = [:]
     private var searchIdentity: LocalIdentity?
@@ -80,13 +80,17 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         searchIdentity = identity
         attempted.removeAll()
         started = true
-        if central == nil { central = CBCentralManager(delegate: self, queue: .main) }
-        else if central?.state == .poweredOn { beginScan() }
+        let manager = CBCentralManager(delegate: self, queue: .main)
+        central = manager
+        sessionGate.activate(manager)
     }
     func stop() {
         started = false
+        sessionGate.invalidate()
         central?.stopScan()
         for link in Array(connections.values) { close(link, reason: "Передача остановлена") }
+        central?.delegate = nil
+        central = nil
         assemblers.removeAll()
         searchIdentity = nil
         status = "Поиск остановлен"
@@ -99,9 +103,9 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         status = "Ищем MeshGram рядом"
     }
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        guard sessionGate.accepts(central) else { return }
         if central.state == .poweredOn { if started { beginScan() }; return }
         stop()
-        retiring.removeAll()
         switch central.state {
         case .unauthorized: status = "Разрешите доступ к блютузу в настройках iPhone"
         case .poweredOff: status = "Блютуз выключен"
@@ -111,8 +115,8 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let id = peripheral.identifier
-        guard started, central.state == .poweredOn, connections[id] == nil, retiring[id] == nil,
-              !attempted.contains(id), attempted.count < 128, connections.count + retiring.count < 8 else { return }
+        guard sessionGate.accepts(central), started, central.state == .poweredOn, connections[id] == nil,
+              !attempted.contains(id), attempted.count < 128, connections.count < 8 else { return }
         attempted.insert(id)
         peers.removeAll { $0.id == id }
         if peers.count >= 128 { peers.removeFirst() }
@@ -124,6 +128,7 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         central.connect(peripheral)
     }
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        guard sessionGate.accepts(central) else { return }
         guard let link = connections[peripheral.identifier], link.peripheral === peripheral, current(link) else {
             central.cancelPeripheralConnection(peripheral)
             return
@@ -131,13 +136,14 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         peripheral.discoverServices([CBUUID(string: MeshWire.service)])
     }
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        guard sessionGate.accepts(central) else { return }
         disconnected(peripheral)
     }
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        guard sessionGate.accepts(central) else { return }
         disconnected(peripheral)
     }
     private func disconnected(_ peripheral: CBPeripheral) {
-        if retiring.removeValue(forKey: peripheral.identifier) != nil { return }
         guard let link = connections[peripheral.identifier], link.peripheral === peripheral else { return }
         close(link, reason: "Соединение закрыто", cancelConnection: false)
     }
@@ -156,7 +162,6 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
             if incomplete { peers[index].sendingDetail = reason }
         }
         if cancelConnection && link.peripheral.state != .disconnected {
-            retiring[link.peripheral.identifier] = link.peripheral
             central?.cancelPeripheralConnection(link.peripheral)
         }
     }

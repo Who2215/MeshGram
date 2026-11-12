@@ -1,5 +1,14 @@
 import Foundation
 
+// A restarted search owns a new manager; old manager events cannot affect it.
+public struct HelloSessionGate {
+    private var manager: ObjectIdentifier?
+    public init() {}
+    public mutating func activate(_ manager: AnyObject) { self.manager = ObjectIdentifier(manager) }
+    public mutating func invalidate() { manager = nil }
+    public func accepts(_ manager: AnyObject) -> Bool { self.manager == ObjectIdentifier(manager) }
+}
+
 // ATT responses confirm writes, not that the remote app accepted a HELLO.
 public struct HelloWriteQueue {
     public enum State: Equatable { case inactive, ready, waiting, completed, failed, cancelled }
