@@ -5,6 +5,7 @@ public enum MeshWire {
     public static let write = "4db27553-b5d3-4626-95f6-b2e67a4b3597"
     public static let notify = "0ecae0e1-53f6-4df0-b0e8-01e1478196ab"
     public static let maximumFrameBytes = 255 * 180
+    public static let shortGattMaximumPacketBytes = 255 * 12
     public static let helloMaxHops = 8
     public static let messageMaxHops = 24
 }
