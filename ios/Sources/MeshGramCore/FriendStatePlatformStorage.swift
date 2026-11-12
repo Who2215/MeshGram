@@ -1,6 +1,7 @@
 import CryptoKit
 import Darwin
 import Foundation
+import LocalAuthentication
 import Security
 
 public final class KeychainFriendStateKey: FriendStateKeyStorage {
@@ -21,7 +22,9 @@ public final class KeychainFriendStateKey: FriendStateKeyStorage {
         var request = query
         request[kSecReturnData as String] = true; request[kSecReturnAttributes as String] = true
         request[kSecMatchLimit as String] = kSecMatchLimitOne
-        request[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+        let authentication = LAContext()
+        authentication.interactionNotAllowed = true
+        request[kSecUseAuthenticationContext as String] = authentication
         var result: CFTypeRef?
         let status = SecItemCopyMatching(request as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
@@ -106,7 +109,7 @@ public final class FileFriendStateBlob: FriendStateBlobStorage {
         values.isExcludedFromBackup = true
         try url.setResourceValues(values)
         #if os(iOS)
-        try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], atPath: directory.path)
+        try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: directory.path)
         #endif
         let temporary = ".state-\(UUID().uuidString.lowercased()).tmp"
         let fd = openat(directoryFD, temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
@@ -114,7 +117,7 @@ public final class FileFriendStateBlob: FriendStateBlobStorage {
         defer { Darwin.close(fd); unlinkat(directoryFD, temporary, 0) }
         guard fchmod(fd, 0o600) == 0 else { throw posixError() }
         #if os(iOS)
-        try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], atPath: directory.appendingPathComponent(temporary).path)
+        try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: directory.appendingPathComponent(temporary).path)
         #endif
         try blob.withUnsafeBytes { bytes in
             var offset = 0

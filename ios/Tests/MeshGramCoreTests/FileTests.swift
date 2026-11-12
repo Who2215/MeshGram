@@ -105,7 +105,7 @@ final class FileTests: XCTestCase {
             try FileManager.default.removeItem(at: file)
             try FileManager.default.createDirectory(at: file, withIntermediateDirectories: false)
             XCTAssertThrowsError(try store.read())
-            try FileManager.default.setAttributes([.posixPermissions: 0o755], atPath: directory.path)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: directory.path)
             XCTAssertThrowsError(try store.read())
         }
     }
