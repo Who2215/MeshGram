@@ -55,6 +55,10 @@ private struct NearbyScreen: View {
                         Button("Повторить чтение контактов") { scanner.reloadContacts() }
                     }
                 }
+                if let identity = scanner.publicIdentity {
+                    FriendshipPane(identity: identity, identityIsCurrent: { scanner.publicIdentity == identity })
+                        .id(identity.nodeId + "|" + identity.fingerprint)
+                }
                 Section("Устройства рядом") {
                     if scanner.peers.isEmpty {
                         Text("Включите поиск MeshGram на Samsung и оставьте оба приложения открытыми.")

@@ -67,7 +67,7 @@ test('Xcode project regeneration is deterministic and all object references reso
   const ids = [...before.matchAll(/^([A-F0-9]{24}) = \{/gm)].map(match => match[1]);
   assert.equal(ids.length, new Set(ids).size);
   for (const [reference] of before.matchAll(/\b[A-F0-9]{24}\b/g)) assert.ok(ids.includes(reference));
-  for (const file of ['MeshGramApp.swift', 'IdentityStore.swift', 'NearbyScanner.swift', 'ContactKeychainStore.swift']) {
+  for (const file of ['MeshGramApp.swift', 'IdentityStore.swift', 'NearbyScanner.swift', 'ContactKeychainStore.swift', 'FriendshipPane.swift']) {
     assert.ok(before.includes(file));
     assert.ok(read(`App/${file}`).length > 50);
   }
@@ -86,4 +86,21 @@ test('prototype does not advertise implemented chat, background execution or pla
   assert.match(contacts, /kSecAttrAccessibleWhenUnlockedThisDeviceOnly/);
   assert.match(contacts, /errSecDuplicateItem/);
   assert.doesNotMatch(contacts, /SecItemDelete|SecItemUpdate|UserDefaults|write\(to:/);
+});
+
+test('Russian friendship setup is identity-bound, explicit and never a reload fallback', () => {
+  const source = read('App/FriendshipPane.swift');
+  assert.match(source, /@MainActor/);
+  assert.match(source, /catch FriendStoreError\.notInitialized/);
+  const reload = source.slice(source.indexOf('    func reload()'), source.indexOf('    func initializeNew()'));
+  assert.doesNotMatch(reload, /createDirectory|initializeNew\(/);
+  assert.match(source, /guard identityIsCurrent\(\) else/);
+  assert.match(source, /guard phase == \.needsInitialization/);
+  assert.ok(source.indexOf('createDirectory') < source.indexOf('repository.initializeNew()'));
+  assert.ok(source.indexOf('attributes[.type]') < source.indexOf('repository.initializeNew()'));
+  assert.match(source, /resolvingSymlinksInPath/);
+  for (const text of ['Дружба', 'Создать защищённый список друзей?', 'Создать список', 'Отмена', 'Повторить чтение списка']) assert.ok(source.includes(text));
+  assert.match(source, /Button\("Создать список"\) \{ model\.initializeNew\(\) \}/);
+  assert.match(read('App/MeshGramApp.swift'), /identityIsCurrent: \{ scanner\.publicIdentity == identity \}/);
+  assert.doesNotMatch(source, /SecItemDelete|SecItemUpdate|loadOrCreate|removeItem|UserDefaults/);
 });

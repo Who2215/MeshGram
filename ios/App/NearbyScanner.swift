@@ -13,7 +13,7 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         var sendingDetail: String?
         var detail: String { [verificationDetail, sendingDetail].compactMap { $0 }.joined(separator: "\n") }
     }
-    struct PublicIdentity {
+    struct PublicIdentity: Equatable {
         let nodeId: String
         let fingerprint: String
     }
