@@ -59,6 +59,10 @@ public final class FriendStateRepository {
     @discardableResult
     public func save(_ state: FriendState, basedOn expectedState: FriendState) throws -> FriendState {
         lock.lock(); defer { lock.unlock() }
+        return try saveLocked(state, basedOn: expectedState)
+    }
+
+    private func saveLocked(_ state: FriendState, basedOn expectedState: FriendState) throws -> FriendState {
         do {
             guard let key = loadedKey, let baseline, published != nil else { throw FriendStoreError.notLoaded }
             guard published == expectedState else { throw FriendStoreError.conflict }
@@ -68,6 +72,53 @@ public final class FriendStateRepository {
             try blobs.commit(new: blob, expected: baseline)
             return try publishReadback(state, key: key, blob: blob)
         } catch { invalidate(); throw error }
+    }
+
+    // Keep the pure transition, baseline check and verified publication under one lock.
+    private func mutate(_ transition: (FriendState) throws -> FriendState.Transition) throws -> FriendState.Transition {
+        lock.lock(); defer { lock.unlock() }
+        guard let current = published else { throw FriendStoreError.notLoaded }
+        let result = try transition(current)
+        guard result.outcome == .changed else { return result }
+        let saved = try saveLocked(result.state, basedOn: current)
+        return FriendState.Transition(state: saved, outcome: .changed)
+    }
+
+    private func updating(_ transform: (FriendState) throws -> FriendState) throws -> FriendState.Transition {
+        try mutate { current in
+            let next = try transform(current)
+            return FriendState.Transition(state: next, outcome: next == current ? .ignored : .changed)
+        }
+    }
+
+    public func setDiscoverable(_ value: Bool) throws -> FriendState.Transition {
+        try updating { $0.settingDiscoverable(value) }
+    }
+
+    public func issueInvite(token: String = UUID().uuidString.lowercased(), now: Int64) throws -> FriendState.Transition {
+        try updating { try $0.issuingInvite(token: token, now: now) }
+    }
+
+    public func revokeInvite() throws -> FriendState.Transition {
+        try updating { $0.revokingInvite() }
+    }
+
+    public func receive(_ verified: AuthenticatedPayload, nearby: Bool, now: Int64) throws -> FriendState.Transition {
+        try mutate { try $0.receive(verified, nearby: nearby, now: now) }
+    }
+
+    public func request(peer: ConfirmedContact, peerAlias: String, peerDiscoverable: Bool, nearby: Bool,
+                        inviteToken: String = "", requestId: String = UUID().uuidString.lowercased(), now: Int64) throws -> FriendState.Transition {
+        try mutate { try $0.ownerRequest(peer: peer, localNodeId: node, peerAlias: peerAlias,
+            peerDiscoverable: peerDiscoverable, nearby: nearby, inviteToken: inviteToken, requestId: requestId, now: now) }
+    }
+
+    public func accept(peer: ConfirmedContact, now: Int64) throws -> FriendState.Transition {
+        try mutate { try $0.ownerAccept(peer: peer, now: now) }
+    }
+
+    public func block(_ nodeId: String) throws -> FriendState.Transition {
+        try mutate { $0.ownerBlock(nodeId) }
     }
 
     private func publishReadback(_ expected: FriendState, key: SymmetricKey, blob: Data) throws -> FriendState {
