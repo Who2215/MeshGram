@@ -75,6 +75,52 @@ final class FriendshipModel: ObservableObject {
             }
         }
     }
+    func applyOwnerAction(to snapshot: FriendRecord, accepting: Bool) {
+        guard identityIsCurrent() else { invalidate(); return }
+        guard phase == .ready, let repository,
+              state?.records.first(where: { $0.nodeId == snapshot.nodeId }) == snapshot,
+              repository.state?.records.first(where: { $0.nodeId == snapshot.nodeId }) == snapshot,
+              !snapshot.blocked else {
+            status = "Запись изменилась или список недоступен. Откройте подтверждение ещё раз."
+            return
+        }
+        do {
+            let result: FriendState.Transition
+            if accepting {
+                guard snapshot.incomingId != nil, !snapshot.accepted else {
+                    status = "Входящая заявка уже недоступна. Список не изменён."; return
+                }
+                let pins = try ContactPins.load(from: ContactKeychainStore())
+                guard let peer = pins.contacts.first(where: {
+                    $0.nodeId == snapshot.nodeId && $0.fingerprint == snapshot.fingerprint
+                }) else {
+                    status = "Подтверждённые ключи не совпали. Согласие не сохранено."; return
+                }
+                guard identityIsCurrent() else { invalidate(); return }
+                result = try repository.accept(peer: peer, now: Int64(Date().timeIntervalSince1970 * 1000))
+            } else {
+                result = try repository.block(snapshot.nodeId)
+            }
+            guard identityIsCurrent() else { invalidate(); return }
+            switch result.outcome {
+            case .changed:
+                state = result.state
+                status = accepting ? "Согласие сохранено только на этом iPhone. Ответ собеседнику не отправлен."
+                    : "Блокировка сохранена на этом iPhone. Сообщение собеседнику не отправлялось."
+            case .ignored:
+                status = "Действие не изменило список. Ничего не отправлялось."
+            case .rejected:
+                status = "Действие отклонено: заявка изменилась или устарела. Ничего не отправлялось."
+            }
+        } catch {
+            if repository.state == nil {
+                state = nil; phase = .unavailable
+                status = "Защищённый список недоступен. Данные не сброшены; повторите чтение вручную."
+            } else {
+                status = "Действие не подтверждено. Прежние данные не сбрасываются."
+            }
+        }
+    }
     func initializeNew() {
         guard identityIsCurrent() else { invalidate(); return }
         guard phase == .needsInitialization, let repository, let parent else { return }
@@ -105,14 +151,24 @@ final class FriendshipModel: ObservableObject {
 @MainActor
 struct FriendshipPane: View {
     @ObservedObject private var model: FriendshipModel
-    @State private var confirmSetup = false
+    private enum Confirmation: Identifiable {
+        case setup, accept(FriendRecord), block(FriendRecord)
+        var id: String {
+            switch self {
+            case .setup: return "setup"
+            case .accept(let record): return "accept|" + record.nodeId + "|" + record.fingerprint
+            case .block(let record): return "block|" + record.nodeId + "|" + record.fingerprint
+            }
+        }
+    }
+    @State private var confirmation: Confirmation?
     init(model: FriendshipModel) { self.model = model }
     var body: some View {
         Section("Дружба") {
             Text(model.status).font(.footnote).foregroundStyle(.secondary)
                 .accessibilityIdentifier("friendship.status")
             if model.phase == .needsInitialization {
-                Button("Настроить хранение дружбы") { confirmSetup = true }
+                Button("Настроить хранение дружбы") { confirmation = .setup }
                     .accessibilityIdentifier("friendship.setup")
             }
             if let state = model.state {
@@ -123,19 +179,41 @@ struct FriendshipPane: View {
                         Text(record.blocked ? "Заблокирован" : record.accepted ? "Друг" : "Ожидает подтверждения")
                             .font(.caption).foregroundStyle(.secondary)
                         Text(record.nodeId).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        Text(record.fingerprint).font(.system(.caption2, design: .monospaced)).textSelection(.enabled)
+                        if model.phase == .ready && !record.blocked {
+                            if record.incomingId != nil && !record.accepted {
+                                Button("Принять заявку на этом iPhone") { confirmation = .accept(record) }
+                                    .accessibilityIdentifier("friendship.accept")
+                            }
+                            Button("Заблокировать на этом iPhone", role: .destructive) { confirmation = .block(record) }
+                                .accessibilityIdentifier("friendship.block")
+                        }
                     }.accessibilityIdentifier("friendship.record")
                 }
             }
             Button("Повторить чтение списка") { model.reload() }
                 .disabled(model.phase == .reading).accessibilityIdentifier("friendship.reload")
-            Text("Подтверждённый ключ сам по себе не означает дружбу. Входящие заявки не принимаются автоматически. Отправка заявок, согласие из интерфейса и чат ещё не подключены.")
+            Text("Подтверждённый ключ сам по себе не означает дружбу. Принятие и блокировка требуют вашего подтверждения и сохраняются только на этом iPhone. Ответы, отправка заявок и чат ещё не подключены.")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .alert("Создать защищённый список друзей?", isPresented: $confirmSetup) {
-            Button("Создать список") { model.initializeNew() }
-            Button("Отмена", role: .cancel) {}
-        } message: {
-            Text("Будут созданы отдельный ключ хранения и пустой закрытый список. Прежние ключи идентичности и контактов не заменяются. Существующий список не будет сброшен.")
+        .alert(item: $confirmation) { action in
+            switch action {
+            case .setup:
+                return Alert(title: Text("Создать защищённый список друзей?"),
+                    message: Text("Будут созданы отдельный ключ хранения и пустой закрытый список. Прежние ключи идентичности и контактов не заменяются. Существующий список не будет сброшен."),
+                    primaryButton: .default(Text("Создать список")) { model.initializeNew() },
+                    secondaryButton: .cancel(Text("Отмена")))
+            case .accept(let record):
+                return Alert(title: Text("Принять заявку на этом iPhone?"),
+                    message: Text("\(record.alias)\n\(record.nodeId)\n\nОтпечаток: \(record.fingerprint)\n\nСогласие сохранится только здесь. Ответ собеседнику ещё не отправляется."),
+                    primaryButton: .default(Text("Принять локально")) { model.applyOwnerAction(to: record, accepting: true) },
+                    secondaryButton: .cancel(Text("Отмена")))
+            case .block(let record):
+                return Alert(title: Text("Заблокировать на этом iPhone?"),
+                    message: Text("\(record.alias)\n\(record.nodeId)\n\nОтпечаток: \(record.fingerprint)\n\nЛокальные заявки будут отменены. Сообщение собеседнику не отправится. Разблокировка пока не подключена."),
+                    primaryButton: .destructive(Text("Заблокировать")) { model.applyOwnerAction(to: record, accepting: false) },
+                    secondaryButton: .cancel(Text("Отмена")))
+            }
         }
     }
 }

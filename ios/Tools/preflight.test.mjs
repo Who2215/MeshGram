@@ -104,7 +104,7 @@ test('Russian friendship setup is identity-bound, explicit and never a reload fa
   assert.match(source, /setAttributes\(\[\.posixPermissions: 0o700\], ofItemAtPath: parent\.path\)/);
   assert.ok(source.indexOf('guard permissions?.intValue == 0o700') < source.indexOf('repository.initializeNew()'));
   for (const text of ['Дружба', 'Создать защищённый список друзей?', 'Создать список', 'Отмена', 'Повторить чтение списка']) assert.ok(source.includes(text));
-  assert.match(source, /Button\("Создать список"\) \{ model\.initializeNew\(\) \}/);
+  assert.match(source, /\.default\(Text\("Создать список"\)\) \{ model\.initializeNew\(\) \}/);
   assert.match(read('App/NearbyScanner.swift'), /identityIsCurrent: \{ \[weak self\] in self\?\.publicIdentity == identity \}/);
   assert.doesNotMatch(source, /SecItemDelete|SecItemUpdate|loadOrCreate|removeItem|UserDefaults/);
 });
@@ -121,13 +121,23 @@ test('shared friendship model and secure callbacks remain identity/link bound wi
   const receive = scanner.slice(scanner.indexOf('    private func receiveFriendshipPayload'), scanner.indexOf('    private func received('));
   for (const text of ['current(link)', 'contactsAvailable', 'confirmationGate.candidate', 'book.match', 'model.phase == .ready', 'packet.originNodeId == candidate.nodeId', 'packet.senderFingerprint == candidate.fingerprint']) assert.ok(receive.includes(text));
   assert.doesNotMatch(receive, /FriendshipModel\(|friendship\(for:|writeValue|start\(\)|initializeNew/);
-  const delivery = model.slice(model.indexOf('    func receiveFriendship'), model.indexOf('    func initializeNew'));
+  const delivery = model.slice(model.indexOf('    func receiveFriendship'), model.indexOf('    func applyOwnerAction'));
   assert.match(delivery, /guard phase == \.ready/);
   assert.match(delivery, /nearby: false/);
   assert.doesNotMatch(delivery, /createDirectory|initializeNew\(|load\(|writeValue/);
   const dispatch = scanner.slice(scanner.indexOf('    private func received('));
   assert.ok(dispatch.indexOf('enqueueFriendship') < dispatch.indexOf('clearConfirmation(link, detail: "Проверяем новый пакет'));
   assert.match(read('UITests/FriendshipUITests.swift'), /stop\.tap\(\)/);
+});
+
+test('local owner consent uses a confirmed snapshot, fresh pins and durable commands without sending', () => {
+  const source = read('App/FriendshipPane.swift');
+  const action = source.slice(source.indexOf('    func applyOwnerAction'), source.indexOf('    func initializeNew'));
+  for (const text of ['guard identityIsCurrent()', 'phase == .ready', 'state?.records.first', 'repository.state?.records.first', '== snapshot', '!snapshot.blocked', 'snapshot.incomingId != nil, !snapshot.accepted', 'ContactPins.load(from: ContactKeychainStore())', '$0.nodeId == snapshot.nodeId && $0.fingerprint == snapshot.fingerprint', 'repository.accept(peer:', 'repository.block(snapshot.nodeId)', 'case .changed:', 'repository.state == nil']) assert.ok(action.includes(text));
+  assert.doesNotMatch(action, /initializeNew\(|createDirectory|writeValue|\.start\(|prepareFriendship|SecItemDelete|SecItemUpdate|removeItem/);
+  assert.match(source, /case setup, accept\(FriendRecord\), block\(FriendRecord\)/);
+  assert.match(source, /\.alert\(item: \$confirmation\)/);
+  for (const text of ['Принять локально', 'Заблокировать', 'Отмена', 'friendship.accept', 'friendship.block']) assert.ok(source.includes(text));
 });
 
 test('UI smoke uses only a new CI simulator and exports bounded screenshots, never owner data', () => {
