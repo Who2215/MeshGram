@@ -4,10 +4,10 @@ final class FriendshipUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor
-    private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication, towardTop: Bool = false) {
         for _ in 0..<8 {
             if element.exists && element.isHittable { return }
-            app.swipeUp()
+            if towardTop { app.swipeDown() } else { app.swipeUp() }
         }
         XCTAssertTrue(element.exists && element.isHittable)
     }
@@ -50,6 +50,11 @@ final class FriendshipUITests: XCTestCase {
         requireStatus("создан и проверен", in: app)
         XCTAssertFalse(setup.exists)
         XCTAssertTrue(app.staticTexts["Список друзей пока пуст"].exists)
+        let stop = app.buttons["Остановить поиск"]
+        reveal(stop, in: app, towardTop: true)
+        stop.tap()
+        requireStatus("создан и проверен", in: app)
+        XCTAssertFalse(setup.exists)
         app.terminate(); app.launch()
         reveal(node, in: app)
         XCTAssertTrue(node.waitForExistence(timeout: 10))

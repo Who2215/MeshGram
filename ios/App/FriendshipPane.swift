@@ -18,6 +18,8 @@ final class FriendshipModel: ObservableObject {
         self.identity = identity; self.identityIsCurrent = identityIsCurrent
         reload()
     }
+    func isBound(to identity: NearbyScanner.PublicIdentity) -> Bool { self.identity == identity }
+    func invalidateIfStale() { if !identityIsCurrent() { invalidate() } }
     private func invalidate() {
         repository = nil; parent = nil; state = nil; phase = .unavailable
         status = "Идентичность недоступна или изменилась. Прежние данные не изменяются."
@@ -39,13 +41,38 @@ final class FriendshipModel: ObservableObject {
             let restored = try repository.load()
             guard identityIsCurrent() else { invalidate(); return }
             state = restored; phase = .ready
-            status = "Защищённый список прочитан. Обмен заявками ещё не подключён."
+            status = "Защищённый список прочитан. Отправка заявок ещё не подключена."
         } catch FriendStoreError.notInitialized {
             phase = .needsInitialization
             status = "Защищённый список ещё не создан. Начальная настройка выполняется только с вашего согласия."
         } catch {
             phase = .unavailable
             status = "Защищённый список недоступен или не прошёл проверку. Данные не очищены; создание нового списка запрещено."
+        }
+    }
+    func receiveFriendship(_ packet: SecureMessagePacket, ownIdentity: LocalIdentity, pins: ContactBook) {
+        guard identityIsCurrent() else { invalidate(); return }
+        guard phase == .ready, let repository else { return }
+        do {
+            let result = try repository.receiveFriendship(packet, identity: ownIdentity, pins: pins, nearby: false,
+                                                         now: Int64(Date().timeIntervalSince1970 * 1000))
+            guard identityIsCurrent() else { invalidate(); return }
+            switch result.outcome {
+            case .changed:
+                state = result.state
+                status = "Входящие данные дружбы проверены и сохранены. Ответ не отправлялся."
+            case .ignored:
+                status = "Повторный пакет не изменил список. Ответ не отправлялся."
+            case .rejected:
+                status = "Входящий пакет не соответствует правилам дружбы. Список не изменён."
+            }
+        } catch {
+            if repository.state == nil {
+                state = nil; phase = .unavailable
+                status = "Защищённый список недоступен. Данные не сброшены; повторите чтение вручную."
+            } else {
+                status = "Входящий пакет не применён. Прежний список сохранён."
+            }
         }
     }
     func initializeNew() {
@@ -77,11 +104,9 @@ final class FriendshipModel: ObservableObject {
 
 @MainActor
 struct FriendshipPane: View {
-    @StateObject private var model: FriendshipModel
+    @ObservedObject private var model: FriendshipModel
     @State private var confirmSetup = false
-    init(identity: NearbyScanner.PublicIdentity, identityIsCurrent: @escaping @MainActor () -> Bool) {
-        _model = StateObject(wrappedValue: FriendshipModel(identity: identity, identityIsCurrent: identityIsCurrent))
-    }
+    init(model: FriendshipModel) { self.model = model }
     var body: some View {
         Section("Дружба") {
             Text(model.status).font(.footnote).foregroundStyle(.secondary)
@@ -103,7 +128,7 @@ struct FriendshipPane: View {
             }
             Button("Повторить чтение списка") { model.reload() }
                 .disabled(model.phase == .reading).accessibilityIdentifier("friendship.reload")
-            Text("Подтверждённый ключ сам по себе не означает дружбу. Приём заявок, чат и отправка сообщений ещё не подключены.")
+            Text("Подтверждённый ключ сам по себе не означает дружбу. Входящие заявки не принимаются автоматически. Отправка заявок, согласие из интерфейса и чат ещё не подключены.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .alert("Создать защищённый список друзей?", isPresented: $confirmSetup) {

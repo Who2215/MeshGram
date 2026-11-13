@@ -105,8 +105,29 @@ test('Russian friendship setup is identity-bound, explicit and never a reload fa
   assert.ok(source.indexOf('guard permissions?.intValue == 0o700') < source.indexOf('repository.initializeNew()'));
   for (const text of ['Дружба', 'Создать защищённый список друзей?', 'Создать список', 'Отмена', 'Повторить чтение списка']) assert.ok(source.includes(text));
   assert.match(source, /Button\("Создать список"\) \{ model\.initializeNew\(\) \}/);
-  assert.match(read('App/MeshGramApp.swift'), /identityIsCurrent: \{ scanner\.publicIdentity == identity \}/);
+  assert.match(read('App/NearbyScanner.swift'), /identityIsCurrent: \{ \[weak self\] in self\?\.publicIdentity == identity \}/);
   assert.doesNotMatch(source, /SecItemDelete|SecItemUpdate|loadOrCreate|removeItem|UserDefaults/);
+});
+
+test('shared friendship model and secure callbacks remain identity/link bound without auto-init or send', () => {
+  const scanner = read('App/NearbyScanner.swift'), model = read('App/FriendshipPane.swift');
+  assert.match(model, /@ObservedObject private var model: FriendshipModel/);
+  assert.doesNotMatch(model, /@StateObject/);
+  assert.match(scanner, /@MainActor private var cachedFriendship/);
+  assert.match(scanner, /if let cachedFriendship, cachedFriendship\.isBound\(to: identity\) \{ return cachedFriendship \}/);
+  assert.match(scanner, /defer \{ Task \{ @MainActor \[weak self\] in self\?\.discardStaleFriendship\(\)/);
+  assert.match(scanner, /pendingSecureReceives\.count < 8/);
+  assert.match(scanner, /Task \{ @MainActor \[weak self, weak link\]/);
+  const receive = scanner.slice(scanner.indexOf('    private func receiveFriendshipPayload'), scanner.indexOf('    private func received('));
+  for (const text of ['current(link)', 'contactsAvailable', 'confirmationGate.candidate', 'book.match', 'model.phase == .ready', 'packet.originNodeId == candidate.nodeId', 'packet.senderFingerprint == candidate.fingerprint']) assert.ok(receive.includes(text));
+  assert.doesNotMatch(receive, /FriendshipModel\(|friendship\(for:|writeValue|start\(\)|initializeNew/);
+  const delivery = model.slice(model.indexOf('    func receiveFriendship'), model.indexOf('    func initializeNew'));
+  assert.match(delivery, /guard phase == \.ready/);
+  assert.match(delivery, /nearby: false/);
+  assert.doesNotMatch(delivery, /createDirectory|initializeNew\(|load\(|writeValue/);
+  const dispatch = scanner.slice(scanner.indexOf('    private func received('));
+  assert.ok(dispatch.indexOf('enqueueFriendship') < dispatch.indexOf('clearConfirmation(link, detail: "Проверяем новый пакет'));
+  assert.match(read('UITests/FriendshipUITests.swift'), /stop\.tap\(\)/);
 });
 
 test('UI smoke uses only a new CI simulator and exports bounded screenshots, never owner data', () => {

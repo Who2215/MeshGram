@@ -19,6 +19,7 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     }
     // A separate delegate binds peripheral callbacks to a connection, not just its UUID.
     private final class Link: NSObject, CBPeripheralDelegate {
+        let receiveToken = UUID()
         let peripheral: CBPeripheral
         weak var owner: NearbyScanner?
         var notify: CBCharacteristic?
@@ -64,12 +65,29 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
     private var assemblers: [UUID: FrameAssembler] = [:]
     private var searchIdentity: LocalIdentity?
     private var started = false
+    private var pendingSecureReceives: Set<UUID> = []
+    @MainActor private var cachedFriendship: FriendshipModel?
     private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
     override init() {
         super.init()
         _ = loadIdentity()
         reloadContacts()
+    }
+    @MainActor
+    func friendship(for identity: PublicIdentity) -> FriendshipModel? {
+        guard publicIdentity == identity else { return nil }
+        if let cachedFriendship, cachedFriendship.isBound(to: identity) { return cachedFriendship }
+        let model = FriendshipModel(identity: identity, identityIsCurrent: { [weak self] in self?.publicIdentity == identity })
+        cachedFriendship = model
+        return model
+    }
+    @MainActor
+    private func discardStaleFriendship() {
+        guard let model = cachedFriendship else { return }
+        if let identity = publicIdentity, model.isBound(to: identity) { return }
+        model.invalidateIfStale()
+        cachedFriendship = nil
     }
     func reloadContacts() {
         do {
@@ -119,6 +137,7 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
         }
     }
     private func loadIdentity() -> LocalIdentity? {
+        defer { Task { @MainActor [weak self] in self?.discardStaleFriendship() } }
         do {
             let identity = try IdentityStore.loadOrCreate()
             publicIdentity = PublicIdentity(nodeId: identity.nodeId, fingerprint: identity.publicFingerprint)
@@ -314,6 +333,44 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
             peers[index].verificationDetail = detail
         }
     }
+    private func enqueueFriendship(_ payload: Data, from link: Link) {
+        guard current(link), contactsAvailable, let book = contactBook,
+              let candidate = confirmationGate.candidate(for: link.peripheral.identifier),
+              book.match(nodeId: candidate.nodeId, fingerprint: candidate.fingerprint) == .confirmed else {
+            status = "Пакет дружбы не относится к подтверждённому контакту."; return
+        }
+        let token = link.receiveToken
+        guard pendingSecureReceives.count < 8, !pendingSecureReceives.contains(token) else {
+            status = "Приём дружбы занят. Дополнительный пакет не поставлен в очередь."; return
+        }
+        pendingSecureReceives.insert(token)
+        Task { @MainActor [weak self, weak link] in
+            guard let self else { return }
+            defer { self.pendingSecureReceives.remove(token) }
+            guard let link else { return }
+            self.receiveFriendshipPayload(payload, from: link)
+        }
+    }
+    @MainActor
+    private func receiveFriendshipPayload(_ payload: Data, from link: Link) {
+        guard current(link), payload.count <= MeshWire.maximumFrameBytes,
+              contactsAvailable, let book = contactBook, let identity = searchIdentity,
+              publicIdentity == PublicIdentity(nodeId: identity.nodeId, fingerprint: identity.publicFingerprint),
+              let candidate = confirmationGate.candidate(for: link.peripheral.identifier),
+              book.match(nodeId: candidate.nodeId, fingerprint: candidate.fingerprint) == .confirmed,
+              let model = cachedFriendship,
+              model.isBound(to: PublicIdentity(nodeId: identity.nodeId, fingerprint: identity.publicFingerprint)),
+              model.phase == .ready else { return }
+        do {
+            let packet = try JSONDecoder().decode(SecureMessagePacket.self, from: payload)
+            guard packet.originNodeId == candidate.nodeId, packet.senderFingerprint == candidate.fingerprint else {
+                status = "Пакет не относится к текущему подтверждённому соединению."; return
+            }
+            model.receiveFriendship(packet, ownIdentity: identity, pins: book)
+        } catch {
+            status = "Шифрованный пакет не распознан. Данные не изменены."
+        }
+    }
     private func received(_ link: Link, characteristic: CBCharacteristic, error: Error?) {
         guard current(link), characteristic === link.notify else { return }
         guard error == nil, let data = characteristic.value else {
@@ -325,6 +382,11 @@ final class NearbyScanner: NSObject, ObservableObject, CBCentralManagerDelegate 
             let payload = try assembler.receive(data)
             assemblers[link.peripheral.identifier] = assembler
             guard let payload else { return }
+            struct Header: Decodable { let type: String }
+            if try JSONDecoder().decode(Header.self, from: payload).type == "SECURE_MESSAGE_V1" {
+                enqueueFriendship(payload, from: link)
+                return
+            }
             clearConfirmation(link, detail: "Проверяем новый пакет…")
             let packet = try JSONDecoder().decode(HelloPacket.self, from: payload)
             let now = Int64(Date().timeIntervalSince1970 * 1000)

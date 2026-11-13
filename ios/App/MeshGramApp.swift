@@ -18,7 +18,7 @@ private struct NearbyScreen: View {
                     Label("Испытательная версия для iPhone", systemImage: "antenna.radiowaves.left.and.right")
                         .font(.headline).foregroundStyle(accent)
                     Text(scanner.status)
-                    Text("Доступны поиск, проверка подписи и локальное подтверждение ключей. Чат, отправка файлов и работа в фоне пока не подключены.")
+                    Text("Доступны поиск, проверка подписи и локальное подтверждение ключей. Входящие пакеты дружбы проходят отдельную проверку. Отправка заявок, чат, файлы и работа в фоне пока не подключены.")
                         .font(.footnote).foregroundStyle(.secondary)
                     Button("Найти устройства рядом") { scanner.start() }
                         .accessibilityIdentifier("nearby.start")
@@ -55,8 +55,8 @@ private struct NearbyScreen: View {
                         Button("Повторить чтение контактов") { scanner.reloadContacts() }
                     }
                 }
-                if let identity = scanner.publicIdentity {
-                    FriendshipPane(identity: identity, identityIsCurrent: { scanner.publicIdentity == identity })
+                if let identity = scanner.publicIdentity, let model = scanner.friendship(for: identity) {
+                    FriendshipPane(model: model)
                         .id(identity.nodeId + "|" + identity.fingerprint)
                 }
                 Section("Устройства рядом") {
