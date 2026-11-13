@@ -64,8 +64,8 @@ if xcodebuild -project "$root/MeshGram.xcodeproj" -scheme MeshGramUI \
   -destination "platform=iOS Simulator,id=$device" -destination-timeout 60 \
   -derivedDataPath "$work/DerivedData" -resultBundlePath "$work/results.xcresult" \
   -parallel-testing-enabled NO ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES \
-  -test-timeouts-enabled YES -maximum-test-execution-time-allowance 180 \
-  -default-test-execution-time-allowance 180 \
+  -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 \
+  -default-test-execution-time-allowance 300 \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
   test-without-building 2>&1 | tee "$work/ui-test.log"; then

@@ -123,7 +123,8 @@ test('UI smoke uses only a new CI simulator and exports bounded screenshots, nev
   assert.ok(script.includes('ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES'));
   assert.ok(script.indexOf('build-for-testing') < script.indexOf('simctl create'));
   assert.ok(script.indexOf('test-without-building') > script.indexOf('simctl bootstatus'));
-  assert.match(script, /-test-timeouts-enabled YES -maximum-test-execution-time-allowance 180/);
+  assert.match(script, /-test-timeouts-enabled YES -maximum-test-execution-time-allowance 300/);
+  assert.match(script, /-default-test-execution-time-allowance 300/);
   assert.equal((script.match(/CODE_SIGNING_ALLOWED=YES/g) ?? []).length, 2);
   assert.equal((script.match(/CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual/g) ?? []).length, 2);
   assert.match(script, /codesign --verify --strict/);
