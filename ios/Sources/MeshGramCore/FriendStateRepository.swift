@@ -78,7 +78,10 @@ public final class FriendStateRepository {
     private func mutate(_ transition: (FriendState) throws -> FriendState.Transition) throws -> FriendState.Transition {
         lock.lock(); defer { lock.unlock() }
         guard let current = published else { throw FriendStoreError.notLoaded }
-        let result = try transition(current)
+        return try commitTransition(transition(current), basedOn: current)
+    }
+
+    private func commitTransition(_ result: FriendState.Transition, basedOn current: FriendState) throws -> FriendState.Transition {
         guard result.outcome == .changed else { return result }
         let saved = try saveLocked(result.state, basedOn: current)
         return FriendState.Transition(state: saved, outcome: .changed)
@@ -125,15 +128,37 @@ public final class FriendStateRepository {
                                   pins: ContactBook, ownAlias: String, ownAvatarData: String = "",
                                   now: Int64) throws -> PreparedFriendshipPacket {
         lock.lock(); defer { lock.unlock() }
+        let current = try checkedCurrent(identity: identity)
+        return try PreparedFriendshipPacket.make(action, state: current, identity: identity, recipient: recipient,
+            pins: pins, ownAlias: ownAlias, ownAvatarData: ownAvatarData, now: now)
+    }
+
+    private func checkedCurrent(identity: LocalIdentity) throws -> FriendState {
         guard let current = published, let key = loadedKey, let baseline else { throw FriendStoreError.notLoaded }
         guard identity.nodeId == node, identity.publicFingerprint == fingerprint else { throw ConsentError.unauthorized }
-        // Preparation reads storage again but never creates or rewrites it.
+        // Caller holds lock; revalidation never creates or rewrites storage.
         do {
             guard try keys.read() == key else { throw FriendStoreError.invalidKey }
             guard try blobs.read() == baseline else { throw FriendStoreError.conflict }
         } catch { invalidate(); throw error }
-        return try PreparedFriendshipPacket.make(action, state: current, identity: identity, recipient: recipient,
-            pins: pins, ownAlias: ownAlias, ownAvatarData: ownAvatarData, now: now)
+        return current
+    }
+
+    // nearby is a trusted link observation, never a field decoded from the packet.
+    public func receiveFriendship(_ packet: SecureMessagePacket, identity: LocalIdentity, pins: ContactBook,
+                                  nearby: Bool, now: Int64) throws -> FriendState.Transition {
+        lock.lock(); defer { lock.unlock() }
+        let current = try checkedCurrent(identity: identity)
+        var stringBytes = 0
+        for value in [packet.type, packet.id, packet.originNodeId, packet.senderAlias, packet.senderEncryptionPublicKey,
+                      packet.senderSigningPublicKey, packet.senderFingerprint, packet.targetNodeId, packet.relayNodeId,
+                      packet.ephemeralPublicKey, packet.nonce, packet.ciphertext, packet.signature] {
+            guard value.utf8.count <= MeshWire.maximumFrameBytes - stringBytes else { throw MeshProtocolError.invalidFrame }
+            stringBytes += value.utf8.count
+        }
+        guard try JSONEncoder().encode(packet).count <= MeshWire.maximumFrameBytes else { throw MeshProtocolError.invalidFrame }
+        let verified = try AuthenticatedPayload.open(packet, identity: identity, pins: pins)
+        return try commitTransition(current.receive(verified, nearby: nearby, now: now), basedOn: current)
     }
 
     private func publishReadback(_ expected: FriendState, key: SymmetricKey, blob: Data) throws -> FriendState {
