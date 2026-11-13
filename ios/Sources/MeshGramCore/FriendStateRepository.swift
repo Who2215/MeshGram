@@ -121,6 +121,21 @@ public final class FriendStateRepository {
         try mutate { $0.ownerBlock(nodeId) }
     }
 
+    public func prepareFriendship(_ action: FriendPacket.Action, identity: LocalIdentity, recipient: HelloPacket,
+                                  pins: ContactBook, ownAlias: String, ownAvatarData: String = "",
+                                  now: Int64) throws -> PreparedFriendshipPacket {
+        lock.lock(); defer { lock.unlock() }
+        guard let current = published, let key = loadedKey, let baseline else { throw FriendStoreError.notLoaded }
+        guard identity.nodeId == node, identity.publicFingerprint == fingerprint else { throw ConsentError.unauthorized }
+        // Preparation reads storage again but never creates or rewrites it.
+        do {
+            guard try keys.read() == key else { throw FriendStoreError.invalidKey }
+            guard try blobs.read() == baseline else { throw FriendStoreError.conflict }
+        } catch { invalidate(); throw error }
+        return try PreparedFriendshipPacket.make(action, state: current, identity: identity, recipient: recipient,
+            pins: pins, ownAlias: ownAlias, ownAvatarData: ownAvatarData, now: now)
+    }
+
     private func publishReadback(_ expected: FriendState, key: SymmetricKey, blob: Data) throws -> FriendState {
         guard try keys.read() == key, let saved = try blobs.read(), saved == blob else { throw FriendStoreError.readback }
         let state = try EncryptedFriendState.open(saved, key: key, localNodeId: node, ownFingerprint: fingerprint)
