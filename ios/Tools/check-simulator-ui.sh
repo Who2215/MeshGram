@@ -43,8 +43,13 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 # Compile before boot so a cold simulator does not compete with the compiler.
 xcodebuild -project "$root/MeshGram.xcodeproj" -scheme MeshGramUI \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath "$work/DerivedData" \
-  ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO \
+  ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=YES \
+  CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
   build-for-testing 2>&1 | tee "$work/ui-build.log"
+app="$work/DerivedData/Build/Products/Debug-iphonesimulator/MeshGram.app"
+codesign --verify --strict "$app"
+codesign -dv --verbose=2 "$app" 2> "$work/simulator-signature.log"
+grep -qx 'Signature=adhoc' "$work/simulator-signature.log"
 device=$(xcrun simctl create "MeshGram-UI-${GITHUB_RUN_ID:?}" "$(cat "$work/type-id.txt")" "$(cat "$work/runtime-id.txt")")
 [[ "$device" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]
 cleanup() {
@@ -61,7 +66,9 @@ if xcodebuild -project "$root/MeshGram.xcodeproj" -scheme MeshGramUI \
   -parallel-testing-enabled NO ARCHS="$MESHGRAM_UI_ARCH" ONLY_ACTIVE_ARCH=YES \
   -test-timeouts-enabled YES -maximum-test-execution-time-allowance 180 \
   -default-test-execution-time-allowance 180 \
-  CODE_SIGNING_ALLOWED=NO test-without-building 2>&1 | tee "$work/ui-test.log"; then
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
+  DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+  test-without-building 2>&1 | tee "$work/ui-test.log"; then
   test_status=0
 else
   codes=("${PIPESTATUS[@]}")
@@ -92,11 +99,13 @@ for source in sorted(raw.rglob('*.png')) if raw.exists() else []:
 code = int(os.environ['MESHGRAM_UI_TEST_STATUS'])
 export_code = int(os.environ['MESHGRAM_UI_EXPORT_STATUS'])
 log = (work/'ui-test.log').read_text(errors='replace')
-executed = bool(re.search(r'Executed 1 tests?, with 0 failures', log))
+totals = [(int(count), int(failures)) for count, failures in re.findall(r'Executed (\d+) tests?, with (\d+) failures?', log)]
+executed = max((count for count, _ in totals), default=0)
+failures = max((failures for _, failures in totals), default=None)
 case_passed = bool(re.search(r'testRussianSetupCancelAndPersistenceOnFreshSimulator[^\n]*passed', log))
 summary = dict(json.loads((work/'selection.json').read_text()), commit=os.environ['GITHUB_SHA'],
-               exitCode=code, exportExitCode=export_code, uiTestCases=1 if executed and case_passed else 0,
-               passed=code == 0 and export_code == 0 and bool(images) and executed and case_passed,
+               exitCode=code, exportExitCode=export_code, uiTestCases=executed, uiFailures=failures, casePassed=case_passed,
+               passed=code == 0 and export_code == 0 and bool(images) and executed == 1 and failures == 0 and case_passed,
                screenshots=images, ownerDevicesUsed=False, ownerCredentialsUsed=False, fullResultUploaded=False)
 (work/'artifacts'/'ui-summary.json').write_text(json.dumps(summary, indent=2))
 assert summary['passed'], 'UI run or screenshot export failed; not accepted'

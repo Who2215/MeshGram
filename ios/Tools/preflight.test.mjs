@@ -124,6 +124,12 @@ test('UI smoke uses only a new CI simulator and exports bounded screenshots, nev
   assert.ok(script.indexOf('build-for-testing') < script.indexOf('simctl create'));
   assert.ok(script.indexOf('test-without-building') > script.indexOf('simctl bootstatus'));
   assert.match(script, /-test-timeouts-enabled YES -maximum-test-execution-time-allowance 180/);
+  assert.equal((script.match(/CODE_SIGNING_ALLOWED=YES/g) ?? []).length, 2);
+  assert.equal((script.match(/CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual/g) ?? []).length, 2);
+  assert.match(script, /codesign --verify --strict/);
+  assert.match(script, /Signature=adhoc/);
+  assert.doesNotMatch(script, /CODE_SIGNING_ALLOWED=NO|-allowProvisioningUpdates/);
+  assert.ok(script.includes('executed == 1 and failures == 0 and case_passed'));
   assert.match(ui, /alert\.buttons\["Отмена"\]\.tap\(\)/);
   assert.match(ui, /alert\.buttons\["Создать список"\]\.tap\(\)/);
   assert.match(ui, /app\.terminate\(\); app\.launch\(\)/);
