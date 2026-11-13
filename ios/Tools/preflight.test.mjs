@@ -104,7 +104,7 @@ test('Russian friendship setup is identity-bound, explicit and never a reload fa
   assert.match(source, /setAttributes\(\[\.posixPermissions: 0o700\], ofItemAtPath: parent\.path\)/);
   assert.ok(source.indexOf('guard permissions?.intValue == 0o700') < source.indexOf('repository.initializeNew()'));
   for (const text of ['Дружба', 'Создать защищённый список друзей?', 'Создать список', 'Отмена', 'Повторить чтение списка']) assert.ok(source.includes(text));
-  assert.match(source, /\.default\(Text\("Создать список"\)\) \{ model\.initializeNew\(\) \}/);
+  assert.match(source, /Button\("Создать список"\) \{ model\.initializeNew\(\) \}/);
   assert.match(read('App/NearbyScanner.swift'), /identityIsCurrent: \{ \[weak self\] in self\?\.publicIdentity == identity \}/);
   assert.doesNotMatch(source, /SecItemDelete|SecItemUpdate|loadOrCreate|removeItem|UserDefaults/);
 });
@@ -136,7 +136,9 @@ test('local owner consent uses a confirmed snapshot, fresh pins and durable comm
   for (const text of ['guard identityIsCurrent()', 'phase == .ready', 'state?.records.first', 'repository.state?.records.first', '== snapshot', '!snapshot.blocked', 'snapshot.incomingId != nil, !snapshot.accepted', 'ContactPins.load(from: ContactKeychainStore())', '$0.nodeId == snapshot.nodeId && $0.fingerprint == snapshot.fingerprint', 'repository.accept(peer:', 'repository.block(snapshot.nodeId)', 'case .changed:', 'repository.state == nil']) assert.ok(action.includes(text));
   assert.doesNotMatch(action, /initializeNew\(|createDirectory|writeValue|\.start\(|prepareFriendship|SecItemDelete|SecItemUpdate|removeItem/);
   assert.match(source, /case setup, accept\(FriendRecord\), block\(FriendRecord\)/);
-  assert.match(source, /\.alert\(item: \$confirmation\)/);
+  assert.match(source, /\.alert\(confirmation\?\.title \?\? "", isPresented: Binding\(/);
+  assert.match(source, /presenting: confirmation\)/);
+  assert.doesNotMatch(source, /\.alert\(item:|return Alert\(/);
   for (const text of ['Принять локально', 'Заблокировать', 'Отмена', 'friendship.accept', 'friendship.block']) assert.ok(source.includes(text));
 });
 

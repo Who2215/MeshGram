@@ -160,6 +160,23 @@ struct FriendshipPane: View {
             case .block(let record): return "block|" + record.nodeId + "|" + record.fingerprint
             }
         }
+        var title: String {
+            switch self {
+            case .setup: return "Создать защищённый список друзей?"
+            case .accept: return "Принять заявку на этом iPhone?"
+            case .block: return "Заблокировать на этом iPhone?"
+            }
+        }
+        var message: String {
+            switch self {
+            case .setup:
+                return "Будут созданы отдельный ключ хранения и пустой закрытый список. Прежние ключи идентичности и контактов не заменяются. Существующий список не будет сброшен."
+            case .accept(let record):
+                return "\(record.alias)\n\(record.nodeId)\n\nОтпечаток: \(record.fingerprint)\n\nСогласие сохранится только здесь. Ответ собеседнику ещё не отправляется."
+            case .block(let record):
+                return "\(record.alias)\n\(record.nodeId)\n\nОтпечаток: \(record.fingerprint)\n\nЛокальные заявки будут отменены. Сообщение собеседнику не отправится. Разблокировка пока не подключена."
+            }
+        }
     }
     @State private var confirmation: Confirmation?
     init(model: FriendshipModel) { self.model = model }
@@ -196,24 +213,19 @@ struct FriendshipPane: View {
             Text("Подтверждённый ключ сам по себе не означает дружбу. Принятие и блокировка требуют вашего подтверждения и сохраняются только на этом iPhone. Ответы, отправка заявок и чат ещё не подключены.")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .alert(item: $confirmation) { action in
+        .alert(confirmation?.title ?? "", isPresented: Binding(
+            get: { confirmation != nil }, set: { if !$0 { confirmation = nil } }), presenting: confirmation) { action in
             switch action {
             case .setup:
-                return Alert(title: Text("Создать защищённый список друзей?"),
-                    message: Text("Будут созданы отдельный ключ хранения и пустой закрытый список. Прежние ключи идентичности и контактов не заменяются. Существующий список не будет сброшен."),
-                    primaryButton: .default(Text("Создать список")) { model.initializeNew() },
-                    secondaryButton: .cancel(Text("Отмена")))
+                Button("Создать список") { model.initializeNew() }
             case .accept(let record):
-                return Alert(title: Text("Принять заявку на этом iPhone?"),
-                    message: Text("\(record.alias)\n\(record.nodeId)\n\nОтпечаток: \(record.fingerprint)\n\nСогласие сохранится только здесь. Ответ собеседнику ещё не отправляется."),
-                    primaryButton: .default(Text("Принять локально")) { model.applyOwnerAction(to: record, accepting: true) },
-                    secondaryButton: .cancel(Text("Отмена")))
+                Button("Принять локально") { model.applyOwnerAction(to: record, accepting: true) }
             case .block(let record):
-                return Alert(title: Text("Заблокировать на этом iPhone?"),
-                    message: Text("\(record.alias)\n\(record.nodeId)\n\nОтпечаток: \(record.fingerprint)\n\nЛокальные заявки будут отменены. Сообщение собеседнику не отправится. Разблокировка пока не подключена."),
-                    primaryButton: .destructive(Text("Заблокировать")) { model.applyOwnerAction(to: record, accepting: false) },
-                    secondaryButton: .cancel(Text("Отмена")))
+                Button("Заблокировать", role: .destructive) { model.applyOwnerAction(to: record, accepting: false) }
             }
+            Button("Отмена", role: .cancel) {}
+        } message: { action in
+            Text(action.message)
         }
     }
 }
